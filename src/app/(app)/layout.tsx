@@ -24,6 +24,12 @@ export default async function AppLayout({ children }: LayoutProps<'/'>) {
             <Link href="/" className="text-ink-300 transition-colors hover:text-white">
               Partidas
             </Link>
+            <Link href="/teams" className="text-ink-300 transition-colors hover:text-white">
+              Equipos
+            </Link>
+            <Link href="/players" className="text-ink-300 transition-colors hover:text-white">
+              Jugadores
+            </Link>
             <Link href="/admin/upload" className="text-ink-300 transition-colors hover:text-white">
               Subir replays
             </Link>
