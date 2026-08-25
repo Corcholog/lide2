@@ -1,26 +1,66 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Paleta del proyecto de esports: blanco, negro, grises.
+ * Acentos: rojo y verde agua.
+ *
+ * En el scoreboard el lado azul (100) usa el verde agua y el lado rojo (200) el
+ * rojo, para no meter un color extra fuera de la marca.
+ */
+@theme {
+  --color-ink-950: #0a0a0b;
+  --color-ink-900: #121215;
+  --color-ink-850: #17171b;
+  --color-ink-800: #1e1e23;
+  --color-ink-700: #2b2b32;
+  --color-ink-600: #3d3d46;
+  --color-ink-500: #6c6c78;
+  --color-ink-400: #8f8f9c;
+  --color-ink-300: #b4b4bf;
+  --color-ink-100: #e9e9ee;
+  --color-ink-50: #f7f7f9;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-brand-red: #e11d2f;
+  --color-brand-red-soft: #ff4353;
+  --color-brand-red-dim: #4a1119;
+
+  /*
+   * Dos tonos por acento a propósito:
+   *   -aqua / -red         texto, bordes e íconos (contraste sobre fondo oscuro)
+   *   -aqua-fill / -red-fill  rellenos de barras y marcas
+   * Los -fill están dentro de la banda de luminosidad L 0.48-0.67 que pide el
+   * validador de paletas para superficies oscuras; el brillante glasea como
+   * relleno. Separación para daltonismo entre rojo y agua: ΔE 11.1 (deuteranopía),
+   * muy por encima del piso de 8.
+   */
+  --color-brand-aqua: #2fdcae;
+  --color-brand-aqua-fill: #19ad84;
+  --color-brand-red-fill: #e11d2f;
+  --color-brand-aqua-soft: #6df0ca;
+  --color-brand-aqua-dim: #0e3d33;
+
+  --color-bg: var(--color-ink-950);
+  --color-surface: var(--color-ink-900);
+  --color-surface-raised: var(--color-ink-850);
+  --color-line: var(--color-ink-800);
+  --color-muted: var(--color-ink-400);
+  --color-fg: var(--color-ink-100);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Números de estadísticas: tabular para que las columnas no bailen. */
+.tabular {
+  font-variant-numeric: tabular-nums;
 }

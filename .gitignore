@@ -39,3 +39,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# replays reales: pesados (12-17 MB c/u) y con PUUIDs y Riot IDs de gente real.
+# Solo se commitean los fixtures anonimizados que genera scripts/make-fixture.ts
+*.rofl
+!fixtures/*.fixture.rofl
+
+# artefactos de la CLI de supabase
+supabase/.temp
+
+# generado por npm run db:sql
+supabase/all-migrations.sql
+!.env.example

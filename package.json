@@ -6,14 +6,25 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "parse:rofl": "tsx scripts/parse-rofl.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "fixture": "tsx scripts/make-fixture.ts",
+    "db:sql": "tsx scripts/print-migrations.ts",
+    "ingest": "tsx --env-file=.env.local scripts/ingest-local.ts",
+    "storage:audit": "tsx --env-file=.env.local scripts/storage-audit.ts"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.5",
+    "@supabase/supabase-js": "^2.112.4",
+    "html-to-image": "^1.11.13",
     "next": "16.3.3",
     "react": "19.2.8",
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.7",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -21,6 +32,8 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "tsx": "^4.23.12",
+    "typescript": "^5",
+    "vitest": "^4.1.11"
   }
 }
