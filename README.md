@@ -63,6 +63,13 @@ Corre dos suites, ninguna necesita Docker ni un proyecto de Supabase:
 - **El payload de ingesta usa los nombres de columna como contrato.** `ingest_match()` arma las filas
   con `jsonb_populate_record`, así que una clave mal escrita se convierte en NULL silencioso. Hay un
   test que compara el payload contra `information_schema`.
+- **La tabla de posiciones se arma con etiquetas, no con `stages`/`series`.** La etapa
+  («Bloque B») y la fecha («Fecha 3») se derivan del nombre del archivo al subirlo
+  ([`src/lib/ingest/labels.ts`](src/lib/ingest/labels.ts)) y la vista `team_standings` agrupa por
+  ese texto, así que sirve igual si el formato es por bloques, suizo o una sola fase. Sólo cuentan
+  las partidas con los dos equipos vinculados: dentro de una etapa el total de victorias tiene que
+  dar igual al de derrotas.
+
 - **La capa de storage está detrás de una interfaz.** El torneo suizo de 20 equipos son ~65 partidas
   ≈ 920 MB, justo en el límite del plan free de Supabase; mudar los `.rofl` a R2 es escribir otro
   adaptador en [`src/lib/storage/`](src/lib/storage/).

@@ -24,6 +24,9 @@ export default async function AppLayout({ children }: LayoutProps<'/'>) {
             <Link href="/" className="text-ink-300 transition-colors hover:text-white">
               Partidas
             </Link>
+            <Link href="/torneo" className="text-ink-300 transition-colors hover:text-white">
+              Torneo
+            </Link>
             <Link href="/teams" className="text-ink-300 transition-colors hover:text-white">
               Equipos
             </Link>

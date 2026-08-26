@@ -84,3 +84,24 @@ export interface MatchTeamStatsRow {
   void_grubs: number
   team_id: string | null
 }
+
+export interface TeamStandingRow {
+  stage_label: string | null
+  team_id: string
+  team_name: string
+  team_tag: string | null
+  games: number
+  wins: number
+  losses: number
+  win_pct: number
+  kills: number
+  kills_against: number
+  kill_diff: number
+  gold_diff: number
+  avg_minutes: number | null
+  first_played_at: string | null
+  last_played_at: string | null
+  /** Últimos 5 resultados, del más nuevo al más viejo. */
+  form: boolean[] | null
+  position: number
+}
