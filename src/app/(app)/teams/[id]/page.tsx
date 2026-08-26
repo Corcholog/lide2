@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { requireUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { formatNumber, riotId } from '@/lib/format'
+import type { PlayerTotalsRow } from '@/types/db'
 import { addPlayerAction, deleteTeamAction, removePlayerAction } from '../actions'
 
 export const dynamic = 'force-dynamic'
@@ -10,17 +11,6 @@ export const dynamic = 'force-dynamic'
 interface MemberRow {
   player_id: string
   players: { id: string; puuid: string; riot_game_name: string | null; riot_tag_line: string | null }
-}
-
-interface PlayerTotalsRow {
-  puuid: string
-  player_id: string | null
-  riot_game_name: string | null
-  riot_tag_line: string | null
-  team_id: string | null
-  games: number
-  kda: number
-  avg_damage: number
 }
 
 export default async function TeamPage({ params }: PageProps<'/teams/[id]'>) {
@@ -80,9 +70,12 @@ export default async function TeamPage({ params }: PageProps<'/teams/[id]'>) {
               const stats = statsByPlayer.get(member.player_id)
               return (
                 <li key={member.player_id} className="flex items-center gap-4 px-4 py-2.5 text-sm">
-                  <span className="flex-1 truncate font-medium">
+                  <Link
+                    href={`/players/${member.player_id}`}
+                    className="flex-1 truncate font-medium transition-colors hover:text-brand-aqua"
+                  >
                     {riotId(member.players?.riot_game_name, member.players?.riot_tag_line)}
-                  </span>
+                  </Link>
                   {stats && (
                     <>
                       <span className="tabular w-20 text-right text-ink-500">

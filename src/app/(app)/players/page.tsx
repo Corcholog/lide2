@@ -2,28 +2,9 @@ import Link from 'next/link'
 import { requireUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { formatNumber, riotId } from '@/lib/format'
+import type { PlayerTotalsRow } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
-
-interface PlayerTotalsRow {
-  puuid: string
-  player_id: string | null
-  riot_game_name: string | null
-  riot_tag_line: string | null
-  display_name: string | null
-  team_id: string | null
-  games: number
-  wins: number
-  kda: number
-  avg_kills: number
-  avg_deaths: number
-  avg_assists: number
-  avg_cs: number
-  avg_damage: number
-  avg_vision: number
-  mvp_count: number
-  penta_kills: number
-}
 
 export default async function PlayersPage() {
   await requireUser()
@@ -79,7 +60,16 @@ export default async function PlayersPage() {
             {players.map((player) => (
               <tr key={player.puuid} className="hover:bg-ink-900/60">
                 <td className="px-4 py-2 font-medium">
-                  {player.display_name ?? riotId(player.riot_game_name, player.riot_tag_line)}
+                  {player.player_id ? (
+                    <Link
+                      href={`/players/${player.player_id}`}
+                      className="transition-colors hover:text-brand-aqua"
+                    >
+                      {player.display_name ?? riotId(player.riot_game_name, player.riot_tag_line)}
+                    </Link>
+                  ) : (
+                    player.display_name ?? riotId(player.riot_game_name, player.riot_tag_line)
+                  )}
                 </td>
                 <td className="px-3 py-2 text-ink-400">
                   {player.team_id ? (

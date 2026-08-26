@@ -105,3 +105,37 @@ export interface TeamStandingRow {
   form: boolean[] | null
   position: number
 }
+
+export interface PlayerTotalsRow {
+  puuid: string
+  player_id: string | null
+  riot_game_name: string | null
+  riot_tag_line: string | null
+  display_name: string | null
+  team_id: string | null
+  games: number
+  wins: number
+  avg_kills: number
+  avg_deaths: number
+  avg_assists: number
+  kda: number
+  kills: number
+  deaths: number
+  assists: number
+  avg_cs: number
+  avg_gold: number
+  avg_damage: number
+  avg_vision: number
+  penta_kills: number
+  quadra_kills: number
+  avg_score: number
+  mvp_count: number
+}
+
+export interface PlayerChampionRow {
+  puuid: string
+  champion: string
+  games: number
+  wins: number
+  kda: number
+}
