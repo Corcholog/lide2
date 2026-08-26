@@ -40,6 +40,7 @@ export const MIGRATIONS = [
   '0002_views.sql',
   '0003_ingest_match.sql',
   '0004_storage.sql',
+  '0005_standings.sql',
 ]
 
 export async function createTestDb(): Promise<PGlite> {
