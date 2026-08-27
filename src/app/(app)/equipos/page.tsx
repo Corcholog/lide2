@@ -1,7 +1,13 @@
 import Link from 'next/link'
 import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
+import { rows } from '@/lib/supabase/query'
 import { createTeamAction, relinkAction } from './actions'
+
+export const metadata = {
+  title: 'Equipos',
+  description: 'Los 20 equipos del torneo, con su récord y sus jugadores.',
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -24,8 +30,10 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
   const created = Number(params.creados ?? 0)
 
   const supabase = await createClient()
-  const { data } = await supabase.from('team_totals').select('*').order('wins', { ascending: false })
-  const teams = (data ?? []) as TeamTotalsRow[]
+  const teams = rows<TeamTotalsRow>(
+    await supabase.from('team_totals').select('*').order('wins', { ascending: false }),
+    'los equipos',
+  )
 
   return (
     <div className="flex flex-col gap-6">

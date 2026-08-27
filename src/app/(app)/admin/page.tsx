@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
+import { rows } from '@/lib/supabase/query'
 import { TOURNAMENT } from '@/lib/lide2/tournament'
 
 export const dynamic = 'force-dynamic'
@@ -38,7 +39,7 @@ export default async function AdminPage() {
     supabase.from('roster_status').select('player_id'),
   ])
 
-  const roster = (rosterRes.data ?? []) as { player_id: string | null }[]
+  const roster = rows<{ player_id: string | null }>(rosterRes, 'los inscriptos')
   const sinEmparejar = roster.filter((row) => row.player_id === null).length
 
   return (

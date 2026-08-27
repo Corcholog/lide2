@@ -15,7 +15,8 @@
     "ingest": "tsx --env-file=.env.local scripts/ingest-local.ts",
     "storage:audit": "tsx --env-file=.env.local scripts/storage-audit.ts",
     "seed:lide2": "tsx --env-file=.env.local scripts/seed-lide2.ts",
-    "datos:prueba": "tsx --env-file=.env.local scripts/datos-de-prueba.ts"
+    "datos:prueba": "tsx --env-file=.env.local scripts/datos-de-prueba.ts",
+    "og": "tsx scripts/og-image.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.5",

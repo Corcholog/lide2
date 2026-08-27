@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { maybeRow, rows } from '@/lib/supabase/query'
 import { assetVersion, championIcon } from '@/lib/ddragon'
 import { formatDate, formatNumber, formatPosition, playerName } from '@/lib/format'
 import { GameIcon } from '@/components/match/GameIcon'
@@ -36,6 +37,21 @@ function mainPosition(scores: MatchPlayerScoreRow[]): string | null {
   return top?.[0] ?? null
 }
 
+export async function generateMetadata({ params }: PageProps<'/jugadores/[id]'>) {
+  const { id } = await params
+  const { data } = await (await createClient())
+    .from('player_profiles')
+    .select('riot_game_name,display_name')
+    .eq('player_id', id)
+    .maybeSingle()
+
+  const nombre = playerName(
+    (data?.riot_game_name as string) ?? null,
+    (data?.display_name as string) ?? null,
+  )
+  return { title: nombre, description: `Partidas, números y pool de campeones de ${nombre}.` }
+}
+
 export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'>) {
   const { id } = await params
 
@@ -58,13 +74,13 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
     supabase.from('teams').select('id,name'),
   ])
 
-  const totals = totalsRes.data as PlayerTotalsRow | null
-  const champions = ((championsRes.data ?? []) as PlayerChampionRow[]).sort(
+  const totals = maybeRow<PlayerTotalsRow>(totalsRes, 'los totales del jugador')
+  const champions = rows<PlayerChampionRow>(championsRes, 'el pool de campeones').sort(
     (a, b) => b.games - a.games || b.kda - a.kda,
   )
-  const scores = (scoresRes.data ?? []) as MatchPlayerScoreRow[]
+  const scores = rows<MatchPlayerScoreRow>(scoresRes, 'las partidas del jugador')
   const teamNames = new Map(
-    ((teamsRes.data ?? []) as { id: string; name: string }[]).map((team) => [team.id, team.name]),
+    rows<{ id: string; name: string }>(teamsRes, 'los equipos').map((team) => [team.id, team.name]),
   )
 
   // El contexto de cada partida (fecha, etapa, rival) vive en match_summaries.

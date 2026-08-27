@@ -1,6 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { maybeRow, rows } from '@/lib/supabase/query'
 import {
   CALENDAR,
   SLOGAN_PARTS,
@@ -31,14 +32,41 @@ function shortDate(iso: string): { day: string; month: string } {
   return { day: String(date.getUTCDate()), month: MONTHS[date.getUTCMonth()] }
 }
 
+/**
+ * Cuántos días faltan, contando días de calendario y no milisegundos.
+ *
+ * La versión anterior dividía la diferencia por 86.400.000 y redondeaba para
+ * arriba, y eso se daba vuelta justo el día que importa: a las nueve de la
+ * mañana del 5 de septiembre faltaban cinco horas para el saque, la cuenta daba
+ * 0,2 y el `ceil` mostraba "falta 1 día". Recién decía "¡HOY!" una vez empezado
+ * el partido, que es cuando ya no sirve.
+ *
+ * Ahora se comparan las dos fechas a medianoche de Argentina —el horario del
+ * torneo— así que todo el 5 de septiembre da 0, sin importar la hora.
+ */
 function daysUntil(iso: string): number {
-  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000)
+  const day = (date: Date) =>
+    Date.UTC(
+      ...(new Intl.DateTimeFormat('en-CA', {
+        timeZone: AR_TIME_ZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      })
+        .format(date)
+        .split('-')
+        .map(Number) as [number, number, number]),
+    )
+
+  // El mes de Date.UTC va de 0 a 11 y el de la fecha formateada de 1 a 12; la
+  // resta entre dos valores corridos por igual no se entera.
+  return Math.round((day(new Date(iso)) - day(new Date())) / 86_400_000)
 }
 
 /** Agrupa la tabla por grupo, respetando el orden A, B, C, D. */
-function byGroup(rows: GroupStandingRow[]): { label: string; rows: GroupStandingRow[] }[] {
+function byGroup(standings: GroupStandingRow[]): { label: string; rows: GroupStandingRow[] }[] {
   const groups = new Map<string, GroupStandingRow[]>()
-  for (const row of rows) {
+  for (const row of standings) {
     groups.set(row.group_label, [...(groups.get(row.group_label) ?? []), row])
   }
 
@@ -72,13 +100,12 @@ function focusTeams(fixture: FixtureResultRow[]): FocusTeam[] {
 
 export default async function Lide2Page() {
   const supabase = await createClient()
-  const { data: tournament } = await supabase
-    .from('tournaments')
-    .select('id,name')
-    .eq('slug', 'lide-2')
-    .maybeSingle()
+  const tournament = maybeRow<{ id: string; name: string }>(
+    await supabase.from('tournaments').select('id,name').eq('slug', TOURNAMENT.slug).maybeSingle(),
+    'el torneo',
+  )
 
-  const tournamentId = (tournament?.id as string) ?? null
+  const tournamentId = tournament?.id ?? null
 
   const [standingsRes, seriesRes, fixtureRes, byesRes] = tournamentId
     ? await Promise.all([
@@ -111,12 +138,17 @@ export default async function Lide2Page() {
           .order('slot')
           .order('group_label'),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }]
+    : [
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+        { data: [], error: null },
+      ]
 
-  const groups = byGroup((standingsRes.data ?? []) as GroupStandingRow[])
-  const series = (seriesRes.data ?? []) as SeriesResultRow[]
-  const fixture = (fixtureRes.data ?? []) as FixtureResultRow[]
-  const byes = (byesRes.data ?? []) as FixtureByeRow[]
+  const groups = byGroup(rows<GroupStandingRow>(standingsRes, 'la tabla de posiciones'))
+  const series = rows<SeriesResultRow>(seriesRes, 'el bracket')
+  const fixture = rows<FixtureResultRow>(fixtureRes, 'el fixture')
+  const byes = rows<FixtureByeRow>(byesRes, 'los equipos libres')
   const next = CALENDAR.find((milestone) => daysUntil(milestone.date) >= 0)
 
   const rounds = ['Cuartos de final', 'Semifinales', 'Gran final']

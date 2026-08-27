@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Archivo_Black, Geist, Geist_Mono } from "next/font/google";
 import { InlineScript } from "@/components/theme/InlineScript";
+import { siteUrl } from "@/lib/env";
+import { TOURNAMENT } from "@/lib/lide2/tournament";
 import { DEFAULT_THEME, THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
@@ -32,9 +34,35 @@ const archivoBlack = Archivo_Black({
   display: "swap",
 });
 
+/*
+ * La tarjeta que arman WhatsApp, Discord, Twitter e Instagram cuando alguien
+ * pega el link. Un sitio de torneo se difunde justamente así, pegando el link,
+ * y sin esto sale pelado.
+ *
+ * La imagen es src/app/opengraph-image.jpg, que Next toma por convención de
+ * nombre; la genera `npm run og` una sola vez. `metadataBase` es lo que la
+ * convierte en una URL absoluta, que es la única forma en que las plataformas
+ * la pueden ir a buscar.
+ *
+ * El template deja que cada página ponga lo suyo adelante ("Estadísticas ·
+ * LIDE 2") sin repetir el nombre del torneo en cada archivo.
+ */
 export const metadata: Metadata = {
-  title: "LIDE · Torneo",
-  description: "Estadisticas del torneo, extraidas de los replays .rofl de cada partida",
+  metadataBase: siteUrl(),
+  title: {
+    default: `${TOURNAMENT.name} · ${TOURNAMENT.fullName}`,
+    template: `%s · ${TOURNAMENT.name}`,
+  },
+  description: `${TOURNAMENT.teams} equipos de ${TOURNAMENT.universities} universidades. Tabla, fixture, playoffs y estadísticas de cada partida, sacadas de los replays. Página no oficial.`,
+  applicationName: TOURNAMENT.name,
+  openGraph: {
+    type: "website",
+    locale: "es_AR",
+    siteName: TOURNAMENT.name,
+    title: `${TOURNAMENT.name} · ${TOURNAMENT.fullName}`,
+    description: `${TOURNAMENT.slogan} ${TOURNAMENT.teams} equipos, ${TOURNAMENT.universities} universidades. Arranca el 5 de septiembre de 2026.`,
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

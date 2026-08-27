@@ -7,6 +7,12 @@ import { buildStats } from '@/lib/stats/registry'
 import { StatCard } from '@/components/estadisticas/StatCard'
 import type { StatScope } from '@/lib/stats/types'
 
+export const metadata = {
+  title: 'Estadísticas',
+  description:
+    'Los rankings de la fase de grupos, fecha por fecha y acumulados: MVP, el quinteto, el meta y los récords.',
+}
+
 export const dynamic = 'force-dynamic'
 
 /**

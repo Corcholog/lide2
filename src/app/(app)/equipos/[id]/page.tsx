@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
+import { maybeRow, rows } from '@/lib/supabase/query'
+import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { formatNumber, playerName } from '@/lib/format'
 import type { PlayerTotalsRow, TeamAccountRow } from '@/types/db'
 import { addPlayerAction, deleteTeamAction, removePlayerAction } from '../actions'
@@ -20,6 +22,21 @@ interface RosterRow {
   order_index: number
   player_id: string | null
   universities: { tag: string } | null
+}
+
+/**
+ * El título de la pestaña y de la vista previa al compartir.
+ *
+ * Consulta aparte y mínima —sólo el nombre— en vez de reusar la de la página:
+ * el cliente de Supabase no pasa por `fetch`, así que Next no deduplica sola.
+ * Es una lectura por clave primaria; sale más barato que cachear.
+ */
+export async function generateMetadata({ params }: PageProps<'/equipos/[id]'>) {
+  const { id } = await params
+  const { data } = await (await createClient()).from('teams').select('name').eq('id', id).maybeSingle()
+
+  const nombre = (data?.name as string) ?? 'Equipo'
+  return { title: nombre, description: `Plantel, récord y números de ${nombre} en la ${TOURNAMENT.name}.` }
 }
 
 export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
@@ -43,16 +60,12 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
       .order('order_index'),
   ])
 
-  const team = teamRes.data as {
-    id: string
-    name: string
-    tag: string | null
-  } | null
+  const team = maybeRow<{ id: string; name: string; tag: string | null }>(teamRes, 'el equipo')
   if (!team) notFound()
 
-  const members = (membersRes.data ?? []) as TeamAccountRow[]
-  const roster = (rosterRes.data ?? []) as unknown as RosterRow[]
-  const totals = (totalsRes.data ?? []) as PlayerTotalsRow[]
+  const members = rows<TeamAccountRow>(membersRes, 'el roster del equipo')
+  const roster = rows<RosterRow>(rosterRes as never, 'los inscriptos')
+  const totals = rows<PlayerTotalsRow>(totalsRes, 'los totales por jugador')
   const memberIds = new Set(members.map((m) => m.player_id))
 
   const statsByPlayer = new Map(totals.map((t) => [t.player_id, t]))

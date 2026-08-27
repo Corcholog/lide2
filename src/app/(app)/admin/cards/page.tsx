@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
+import { rows } from '@/lib/supabase/query'
 import { CALENDAR, TOURNAMENT } from '@/lib/lide2/tournament'
 import { loadStats, resolveTournamentId } from '@/lib/stats/query'
 import { buildPosters } from '@/lib/cards/batch'
@@ -56,7 +57,7 @@ export default async function CardsPage({ searchParams }: PageProps<'/admin/card
   // La tabla de posiciones es siempre la acumulada, también cuando se está
   // mirando una fecha: no existe "la tabla de la fecha 2", existe cómo quedó
   // la tabla después de la fecha 2, que es lo que se publica.
-  const standings = (standingsRes.data ?? []) as GroupStandingRow[]
+  const standings = rows<GroupStandingRow>(standingsRes, 'la tabla de posiciones')
   const posters = buildPosters(data, standings)
 
   const prefix = scope.matchday === null ? 'lide2-acumulado' : `lide2-fecha-${scope.matchday}`

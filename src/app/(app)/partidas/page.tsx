@@ -1,19 +1,32 @@
 import Link from 'next/link'
+import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
+import { rows } from '@/lib/supabase/query'
 import { formatDate, formatDuration, formatGold, formatKda } from '@/lib/format'
 import type { MatchSummaryRow } from '@/types/db'
+
+export const metadata = {
+  title: 'Partidas',
+  description: 'Todas las partidas jugadas, con su marcador, su duración y su MVP.',
+}
 
 export const dynamic = 'force-dynamic'
 
 export default async function MatchesPage() {
+  // La lista se ve sin sesión; subir replays, no.
+  const user = await getUser()
   const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('match_summaries')
-    .select('*')
-    .order('played_at', { ascending: false, nullsFirst: false })
-    .limit(100)
-
-  const matches = (data ?? []) as MatchSummaryRow[]
+  // El cartel de error que tenía esta página se fue al error.tsx del sitio:
+  // era el único lugar donde un fallo se veía, y encima mostraba el mensaje
+  // crudo de Postgres a cualquiera que entrara.
+  const matches = rows<MatchSummaryRow>(
+    await supabase
+      .from('match_summaries')
+      .select('*')
+      .order('played_at', { ascending: false, nullsFirst: false })
+      .limit(100),
+    'las partidas',
+  )
 
   return (
     <div className="flex flex-col gap-6">
@@ -26,21 +39,17 @@ export default async function MatchesPage() {
               : `${matches.length} partida${matches.length === 1 ? '' : 's'} cargada${matches.length === 1 ? '' : 's'}.`}
           </p>
         </div>
-        <Link
-          href="/admin/upload"
-          className="rounded bg-accent-strong px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent"
-        >
-          Subir replays
-        </Link>
+        {user && (
+          <Link
+            href="/admin/upload"
+            className="rounded bg-accent-strong px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent"
+          >
+            Subir replays
+          </Link>
+        )}
       </div>
 
-      {error && (
-        <p className="rounded border border-danger/40 bg-danger-dim px-4 py-3 text-sm text-danger">
-          No se pudieron leer las partidas: {error.message}
-        </p>
-      )}
-
-      {matches.length === 0 && !error ? (
+      {matches.length === 0 ? (
         <div className="rounded-lg border border-dashed border-line-strong px-6 py-14 text-center">
           <p className="text-fg-soft">Subí los .rofl de las partidas jugadas para empezar.</p>
         </div>

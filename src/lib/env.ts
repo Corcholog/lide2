@@ -39,5 +39,23 @@ export function supabaseSecretKey(): string {
 
 export const REPLAYS_BUCKET = process.env.SUPABASE_REPLAYS_BUCKET ?? 'replays'
 
+/**
+ * De dónde cuelga el sitio. Sirve para una sola cosa, pero importante: resolver
+ * las URLs absolutas de las tarjetas que arma WhatsApp, Discord y Twitter
+ * cuando alguien pega el link. Con una URL relativa no hay vista previa.
+ *
+ * Vercel la expone sola; en otro lado se pone a mano. El default de desarrollo
+ * no sirve para compartir nada, pero deja el sitio andando sin configurarla.
+ */
+export function siteUrl(): URL {
+  const explicita = process.env.NEXT_PUBLIC_SITE_URL
+  if (explicita) return new URL(explicita)
+
+  const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL
+  if (vercel) return new URL(`https://${vercel}`)
+
+  return new URL('http://localhost:3000')
+}
+
 /** Techo del plan free de Supabase; tambien se valida en el browser antes de subir. */
 export const MAX_REPLAY_BYTES = 50 * 1024 * 1024

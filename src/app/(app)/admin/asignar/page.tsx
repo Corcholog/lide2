@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
+import { rows } from '@/lib/supabase/query'
 import { formatDate } from '@/lib/format'
 import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { AssignMatch, type FixtureOption, type UnassignedMatch } from '@/components/admin/AssignMatch'
@@ -52,10 +53,10 @@ export default async function AsignarPage() {
           .order('slot')
           .order('group_label')
           .order('team_a_name')
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
   ])
 
-  const matches = ((pendingRes.data ?? []) as UnassignedRow[]).map(
+  const matches = rows<UnassignedRow>(pendingRes, 'las partidas sin asignar').map(
     (row): UnassignedMatch => ({
       matchId: row.match_id,
       playedAt: row.played_at,
@@ -69,7 +70,7 @@ export default async function AsignarPage() {
     }),
   )
 
-  const fixture = (fixtureRes.data ?? []) as FixtureResultRow[]
+  const fixture = rows<FixtureResultRow>(fixtureRes, 'el fixture')
   const pending = fixture.filter((row) => row.match_id === null)
   const done = fixture.filter((row) => row.match_id !== null)
 
