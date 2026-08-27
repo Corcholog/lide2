@@ -1,11 +1,12 @@
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { formatDuration, formatNumber } from '@/lib/format'
-import { CALENDAR, TOURNAMENT } from '@/lib/lide2/tournament'
+import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { loadStats, resolveTournamentId } from '@/lib/stats/query'
 import { buildStats } from '@/lib/stats/registry'
 import { StatCard } from '@/components/estadisticas/StatCard'
-import type { StatScope } from '@/lib/stats/types'
+import { ScopeNav } from '@/components/estadisticas/ScopeNav'
+import { Empty } from '@/components/estadisticas/Empty'
+import { parseScope } from '@/lib/stats/scope'
 
 export const metadata = {
   title: 'Estadísticas',
@@ -15,26 +16,6 @@ export const metadata = {
 
 export const dynamic = 'force-dynamic'
 
-/**
- * Los recortes que se pueden elegir.
- *
- * Salen del calendario y no de una lista aparte para que no se desincronicen:
- * si se agrega una fecha, aparece sola acá. Ojo con la diferencia entre fecha y
- * turno: la 1 y la 2 se juegan en dos turnos cada una, así que "fecha" no es lo
- * mismo que "partido".
- */
-const MATCHDAYS = CALENDAR.filter((milestone) => milestone.phase === 'grupos').map(
-  (milestone, index) => ({ matchday: index + 1, label: milestone.label }),
-)
-
-/** `?fecha=2`, o el acumulado si no viene o no se entiende. */
-function parseScope(value: string | string[] | undefined, tournamentId: string): StatScope {
-  const raw = Array.isArray(value) ? value[0] : value
-  const matchday = Number(raw)
-  const valid = MATCHDAYS.some((entry) => entry.matchday === matchday)
-
-  return { tournamentId, phase: 'grupos', matchday: valid ? matchday : null }
-}
 
 export default async function StatsPage({ searchParams }: PageProps<'/estadisticas'>) {
   const supabase = await createClient()
@@ -68,17 +49,7 @@ export default async function StatsPage({ searchParams }: PageProps<'/estadistic
         </p>
       </header>
 
-      <nav aria-label="Recorte" className="flex flex-wrap gap-1">
-        <ScopeLink label="Toda la fase" href="/estadisticas" active={scope.matchday === null} />
-        {MATCHDAYS.map((entry) => (
-          <ScopeLink
-            key={entry.matchday}
-            label={entry.label}
-            href={`/estadisticas?fecha=${entry.matchday}`}
-            active={scope.matchday === entry.matchday}
-          />
-        ))}
-      </nav>
+      <ScopeNav base="/estadisticas" matchday={scope.matchday} />
 
       {played === 0 ? (
         <Empty
@@ -118,21 +89,6 @@ export default async function StatsPage({ searchParams }: PageProps<'/estadistic
   )
 }
 
-function ScopeLink({ label, href, active }: { label: string; href: string; active: boolean }) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? 'true' : undefined}
-      className={`border-2 px-3 py-1 text-xs font-bold uppercase tracking-wide transition-colors ${
-        active
-          ? 'border-accent bg-accent-dim text-accent'
-          : 'border-line text-muted hover:border-line-strong hover:text-accent'
-      }`}
-    >
-      {label}
-    </Link>
-  )
-}
 
 function Summary({ label, value }: { label: string; value: string }) {
   return (
@@ -143,11 +99,3 @@ function Summary({ label, value }: { label: string; value: string }) {
   )
 }
 
-function Empty({ title, detail }: { title: string; detail: string }) {
-  return (
-    <div className="border-2 border-line bg-surface px-6 py-10 text-center text-fg">
-      <p className="font-display text-lg uppercase tracking-wide">{title}</p>
-      <p className="mx-auto mt-2 max-w-md text-sm text-muted">{detail}</p>
-    </div>
-  )
-}

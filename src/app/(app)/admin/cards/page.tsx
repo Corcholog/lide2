@@ -2,11 +2,13 @@ import Link from 'next/link'
 import { requireUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
-import { CALENDAR, TOURNAMENT } from '@/lib/lide2/tournament'
+import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { loadStats, resolveTournamentId } from '@/lib/stats/query'
 import { buildPosters } from '@/lib/cards/batch'
 import { PosterBatch } from '@/components/cards/PosterBatch'
-import type { StatScope } from '@/lib/stats/types'
+import { ScopeNav } from '@/components/estadisticas/ScopeNav'
+import { Empty } from '@/components/estadisticas/Empty'
+import { parseScope } from '@/lib/stats/scope'
 import type { GroupStandingRow } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
@@ -20,17 +22,6 @@ export const dynamic = 'force-dynamic'
  * torneo.
  */
 
-const MATCHDAYS = CALENDAR.filter((milestone) => milestone.phase === 'grupos').map(
-  (milestone, index) => ({ matchday: index + 1, label: milestone.label }),
-)
-
-function parseScope(value: string | string[] | undefined, tournamentId: string): StatScope {
-  const raw = Array.isArray(value) ? value[0] : value
-  const matchday = Number(raw)
-  const valid = MATCHDAYS.some((entry) => entry.matchday === matchday)
-
-  return { tournamentId, phase: 'grupos', matchday: valid ? matchday : null }
-}
 
 export default async function CardsPage({ searchParams }: PageProps<'/admin/cards'>) {
   await requireUser()
@@ -76,17 +67,7 @@ export default async function CardsPage({ searchParams }: PageProps<'/admin/card
         </p>
       </header>
 
-      <nav aria-label="Recorte" className="flex flex-wrap gap-1">
-        <ScopeLink label="Toda la fase" href="/admin/cards" active={scope.matchday === null} />
-        {MATCHDAYS.map((entry) => (
-          <ScopeLink
-            key={entry.matchday}
-            label={entry.label}
-            href={`/admin/cards?fecha=${entry.matchday}`}
-            active={scope.matchday === entry.matchday}
-          />
-        ))}
-      </nav>
+      <ScopeNav base="/admin/cards" matchday={scope.matchday} />
 
       {posters.length === 0 ? (
         <Empty
@@ -104,27 +85,4 @@ export default async function CardsPage({ searchParams }: PageProps<'/admin/card
   )
 }
 
-function ScopeLink({ label, href, active }: { label: string; href: string; active: boolean }) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? 'true' : undefined}
-      className={`border-2 px-3 py-1 text-xs font-bold uppercase tracking-wide transition-colors ${
-        active
-          ? 'border-accent bg-accent-dim text-accent'
-          : 'border-line text-muted hover:border-line-strong hover:text-accent'
-      }`}
-    >
-      {label}
-    </Link>
-  )
-}
 
-function Empty({ title, detail }: { title: string; detail: string }) {
-  return (
-    <div className="border-2 border-line bg-surface px-6 py-10 text-center text-fg">
-      <p className="font-display text-lg uppercase tracking-wide">{title}</p>
-      <p className="mx-auto mt-2 max-w-md text-sm text-muted">{detail}</p>
-    </div>
-  )
-}

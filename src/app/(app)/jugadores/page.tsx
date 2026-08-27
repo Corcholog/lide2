@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
 import { formatNumber, playerName } from '@/lib/format'
@@ -12,6 +13,7 @@ export const metadata = {
 export const dynamic = 'force-dynamic'
 
 export default async function PlayersPage() {
+  const user = await getUser()
   const supabase = await createClient()
   const [totalsRes, teamsRes] = await Promise.all([
     supabase.from('player_totals').select('*'),
@@ -26,22 +28,33 @@ export default async function PlayersPage() {
   )
 
   const sinEquipo = players.filter((p) => !p.team_id).length
+  const mvps = players.reduce((total, p) => total + p.mvp_count, 0)
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Jugadores</h1>
+          {/*
+            Con sesión importa cuántos faltan atar a un equipo, que es trabajo
+            pendiente del panel. Sin sesión eso no le dice nada a nadie: lo que
+            interesa es cuántos jugaron y cuántos MVP se repartieron.
+          */}
           <p className="mt-1 text-sm text-muted">
-            {players.length} detectados en las partidas · {sinEquipo} sin equipo asignado
+            {players.length} jugadores en el torneo
+            {user
+              ? ` · ${sinEquipo} sin equipo asignado`
+              : mvps > 0 && ` · ${mvps} ${mvps === 1 ? 'MVP repartido' : 'MVP repartidos'}`}
           </p>
         </div>
-        <Link
-          href="/equipos"
-          className="rounded border border-line-strong px-4 py-2 text-sm transition-colors hover:border-accent"
-        >
-          Administrar equipos
-        </Link>
+        {user && (
+          <Link
+            href="/equipos"
+            className="rounded border border-line-strong px-4 py-2 text-sm transition-colors hover:border-accent"
+          >
+            Administrar equipos
+          </Link>
+        )}
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-line">
