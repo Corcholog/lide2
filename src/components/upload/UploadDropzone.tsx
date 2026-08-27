@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -29,13 +30,13 @@ const LABELS: Record<Status, string> = {
 }
 
 const TONE: Record<Status, string> = {
-  pending: 'text-ink-400',
-  hashing: 'text-ink-300',
-  uploading: 'text-ink-300',
-  parsing: 'text-ink-300',
-  done: 'text-brand-aqua',
-  duplicate: 'text-ink-300',
-  error: 'text-brand-red-soft',
+  pending: 'text-muted',
+  hashing: 'text-fg-soft',
+  uploading: 'text-fg-soft',
+  parsing: 'text-fg-soft',
+  done: 'text-ok',
+  duplicate: 'text-fg-soft',
+  error: 'text-danger',
 }
 
 function formatSize(bytes: number): string {
@@ -60,15 +61,13 @@ export function UploadDropzone() {
   const [items, setItems] = useState<Item[]>([])
   const [dragging, setDragging] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [stageLabel, setStageLabel] = useState('Suizo')
-  const [roundLabel, setRoundLabel] = useState('')
 
   const update = useCallback((id: string, patch: Partial<Item>) => {
     setItems((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)))
   }, [])
 
   const processOne = useCallback(
-    async (item: Item, labels: { stageLabel: string; roundLabel: string }) => {
+    async (item: Item) => {
       const { file } = item
 
       try {
@@ -121,8 +120,6 @@ export function UploadDropzone() {
             fileSize: file.size,
             lastModified: file.lastModified,
             sha256: digest,
-            stageLabel: labels.stageLabel || null,
-            roundLabel: labels.roundLabel || null,
           }),
         })
 
@@ -176,14 +173,13 @@ export function UploadDropzone() {
       if (accepted.length === 0) return
 
       setBusy(true)
-      const labels = { stageLabel, roundLabel }
       const queue = [...accepted]
 
       // Un archivo por request: si uno falla, el resto del lote sigue.
       await Promise.all(
         Array.from({ length: Math.min(CONCURRENCY, queue.length) }, async () => {
           for (let next = queue.shift(); next; next = queue.shift()) {
-            await processOne(next, labels)
+            await processOne(next)
           }
         }),
       )
@@ -191,7 +187,7 @@ export function UploadDropzone() {
       setBusy(false)
       router.refresh()
     },
-    [processOne, roundLabel, router, stageLabel],
+    [processOne, router],
   )
 
   const done = items.filter((i) => i.status === 'done').length
@@ -200,27 +196,6 @@ export function UploadDropzone() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="flex flex-col gap-2">
-          <span className="text-sm text-ink-400">Etapa</span>
-          <input
-            value={stageLabel}
-            onChange={(e) => setStageLabel(e.target.value)}
-            placeholder="Suizo"
-            className="rounded border border-ink-700 bg-ink-900 px-3 py-2 text-sm outline-none focus:border-brand-aqua"
-          />
-        </label>
-        <label className="flex flex-col gap-2">
-          <span className="text-sm text-ink-400">Ronda</span>
-          <input
-            value={roundLabel}
-            onChange={(e) => setRoundLabel(e.target.value)}
-            placeholder="Ronda 3"
-            className="rounded border border-ink-700 bg-ink-900 px-3 py-2 text-sm outline-none focus:border-brand-aqua"
-          />
-        </label>
-      </div>
-
       <div
         onDragOver={(e) => {
           e.preventDefault()
@@ -234,11 +209,11 @@ export function UploadDropzone() {
         }}
         onClick={() => inputRef.current?.click()}
         className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-6 py-14 text-center transition-colors ${
-          dragging ? 'border-brand-aqua bg-brand-aqua-dim/30' : 'border-ink-700 hover:border-ink-600'
+          dragging ? 'border-accent bg-accent-dim/50' : 'border-line-strong hover:border-accent'
         }`}
       >
         <p className="text-lg font-medium">Arrastrá los .rofl acá</p>
-        <p className="text-sm text-ink-400">
+        <p className="text-sm text-muted">
           o hacé clic para elegirlos. Se pueden subir varios a la vez, hasta 50 MB cada uno.
         </p>
         <input
@@ -256,27 +231,40 @@ export function UploadDropzone() {
 
       {items.length > 0 && (
         <div className="flex flex-col gap-2">
-          <div className="flex gap-4 text-sm text-ink-400">
+          <div className="flex gap-4 text-sm text-muted">
             <span>
-              <strong className="text-brand-aqua">{done}</strong> guardadas
+              <strong className="text-ok">{done}</strong> guardadas
             </span>
             {duplicated > 0 && <span>{duplicated} duplicadas</span>}
             {failed > 0 && (
-              <span className="text-brand-red-soft">
+              <span className="text-danger">
                 <strong>{failed}</strong> con error
               </span>
             )}
             {busy && <span>procesando…</span>}
           </div>
 
-          <ul className="divide-y divide-ink-800 rounded-lg border border-ink-800">
+          {/*
+            Subir no alcanza: hasta que no se diga de qué cruce es cada replay,
+            la partida no tiene equipos ni fecha y no aparece en ningún lado.
+          */}
+          {!busy && done > 0 && (
+            <Link
+              href="/admin/asignar"
+              className="self-start border-2 border-accent bg-accent-dim px-3 py-1.5 text-sm font-medium text-accent transition-colors hover:bg-accent-strong hover:text-white"
+            >
+              Asignarlas al fixture →
+            </Link>
+          )}
+
+          <ul className="divide-y divide-line rounded-lg border border-line">
             {items.map((item) => (
               <li key={item.id} className="flex items-center gap-4 px-4 py-3 text-sm">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{item.file.name}</p>
-                  {item.message && <p className="truncate text-xs text-ink-400">{item.message}</p>}
+                  {item.message && <p className="truncate text-xs text-muted">{item.message}</p>}
                 </div>
-                <span className="tabular shrink-0 text-xs text-ink-500">
+                <span className="tabular shrink-0 text-xs text-faint">
                   {formatSize(item.file.size)}
                 </span>
                 <span className={`shrink-0 text-xs font-medium ${TONE[item.status]}`}>

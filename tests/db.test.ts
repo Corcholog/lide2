@@ -142,9 +142,11 @@ describe('esquema e ingesta (Postgres embebido)', () => {
 
   it('acumula por jugador aunque todavia no haya equipos cargados', async () => {
     const { rows } = await db.query<{ games: string; kda: string; mvp_count: string }>(
+      // Por player_id y ya no por puuid: el puuid dejo de salir de la base
+      // cuando el sitio se abrio al publico (0013_publico.sql).
       `select pt.games::text, pt.kda::text, pt.mvp_count::text
          from public.player_totals pt
-         join public.match_players mp on mp.puuid = pt.puuid
+         join public.match_players mp on mp.player_id = pt.player_id
         where mp.champion = 'Yasuo'`,
     )
     expect(Number(rows[0].games)).toBe(1)

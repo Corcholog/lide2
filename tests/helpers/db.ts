@@ -41,7 +41,30 @@ export const MIGRATIONS = [
   '0003_ingest_match.sql',
   '0004_storage.sql',
   '0005_standings.sql',
+  '0006_tournament.sql',
+  '0007_fixture.sql',
+  '0008_rosters.sql',
+  '0009_fixture_detalle.sql',
+  '0010_stats.sql',
+  '0011_asignacion.sql',
+  '0012_planteles.sql',
+  '0013_publico.sql',
 ]
+
+/**
+ * Lo que hace Supabase por su cuenta: `anon` y `authenticated` tienen SELECT
+ * sobre todo lo que hay en `public`, y lo que decide qué ve cada uno es el RLS,
+ * no el GRANT.
+ *
+ * Sin esto los tests de acceso público darían un falso verde: `anon` no vería
+ * nada, pero por falta de permiso de tabla y no por las policies, que es lo que
+ * de verdad corre en producción.
+ */
+const SUPABASE_GRANTS = `
+grant usage on schema public to anon, authenticated;
+grant select on all tables in schema public to anon, authenticated;
+grant execute on all functions in schema public to anon, authenticated;
+`
 
 export async function createTestDb(): Promise<PGlite> {
   const db = new PGlite()
@@ -50,6 +73,8 @@ export async function createTestDb(): Promise<PGlite> {
   for (const file of MIGRATIONS) {
     await db.exec(readFileSync(`supabase/migrations/${file}`, 'utf8'))
   }
+
+  await db.exec(SUPABASE_GRANTS)
 
   return db
 }

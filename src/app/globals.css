@@ -1,11 +1,30 @@
 @import "tailwindcss";
 
 /*
- * Paleta del proyecto de esports: blanco, negro, grises.
- * Acentos: rojo y verde agua.
+ * El tema se cambia poniendo data-theme="dark" en <html>, no clase por clase.
+ * Con esto `dark:` en las utilidades sigue funcionando cuando hace falta un
+ * ajuste puntual, pero la regla general es no usarlo: los colores salen de los
+ * tokens semánticos de más abajo, que ya vienen con los dos valores.
+ */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+/*
+ * El inverso, para lo poco que necesita saber en cual de los dos esta. Se usa en
+ * el boton del nav: los dos iconos van siempre en el HTML y el CSS elige cual se
+ * ve, asi el servidor y el cliente renderizan lo mismo y no hay que adivinar el
+ * tema antes de hidratar.
+ */
+@custom-variant light (&:where([data-theme=light], [data-theme=light] *));
+
+/*
+ * PALETA CRUDA
  *
- * En el scoreboard el lado azul (100) usa el verde agua y el lado rojo (200) el
- * rojo, para no meter un color extra fuera de la marca.
+ * Estos son los pomos de pintura y no se usan directo en las páginas: cada
+ * valor de acá entra al sitio a través de un token semántico de más abajo. Están
+ * separados para poder cambiar un tono sin tener que cazar clases por el árbol.
+ * Blanco, negro, grises; acentos rojo y verde agua. Los tres últimos salen del
+ * arte de las skins de T1 que usa la portada de LIDE 2: acero azulado de las
+ * armaduras, rojo profundo de las gemas y el blanco humo del fondo. El rojo
+ * brillante del arte ya es, casi clavado, --color-brand-red.
  */
 @theme {
   --color-ink-950: #0a0a0b;
@@ -39,25 +58,213 @@
   --color-brand-aqua-soft: #6df0ca;
   --color-brand-aqua-dim: #0e3d33;
 
-  --color-bg: var(--color-ink-950);
-  --color-surface: var(--color-ink-900);
-  --color-surface-raised: var(--color-ink-850);
-  --color-line: var(--color-ink-800);
-  --color-muted: var(--color-ink-400);
-  --color-fg: var(--color-ink-100);
+  --color-steel: #454a57;
+  --color-blood: #7d0f1b;
+  --color-smoke: #d9d5d2;
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-archivo-black);
+
+  /*
+   * Esquinas al ras. El sitio esta lleno de `rounded-*` de antes; poniendo el
+   * radio en cero aca, todas se cuadran de una sola vez y se puede volver atras
+   * igual de rapido. Es el cambio que mas mueve la aguja hacia lo brutalista.
+   */
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
 }
 
-html {
+/*
+ * MEDIDAS FIJAS
+ *
+ * La barra del sitio y la de secciones tienen alto declarado y no el que salga
+ * del contenido. Eso es lo que le permite a la portada medir `100svh` menos las
+ * dos y terminar justo en el pliegue: la barra de secciones queda apoyada abajo
+ * de todo y no asoma media tarjeta del calendario debajo. Si alguna de las dos
+ * cambia de alto, se cambia acá y la cuenta sigue cerrando sola.
+ */
+:root {
+  --site-header: 3.875rem;
+  --section-nav: 2.75rem;
+}
+
+/*
+ * TEMA CLARO — humo tibio, no blanco puro
+ *
+ * El default declarado en <html> es el oscuro; esto vive en :root igual porque
+ * es el estado base sobre el que el atributo data-theme=dark pisa. El gris del
+ * fondo es un punto más oscuro que las tarjetas para que estas levanten.
+ */
+:root {
+  color-scheme: light;
+
+  --canvas: #eceae7;
+  --surface: #faf9f8;
+  --raised: #e4e0dc;
+  --line: #d5d0cb;
+  --line-strong: #b8b1aa;
+
+  --fg: #17171b;
+  --fg-soft: #3d3d46;
+  --muted: #5f5c62;
+  --faint: #6f6b71;
+  --dim: #8e8a89;
+
+  /*
+   * El rojo de marca (#e11d2f) sobre fondo claro queda en 3.9:1, por debajo del
+   * piso de texto: para el tema claro se baja al borde del blood.
+   */
+  --accent: #b01021;
+  --accent-soft: #d1152a;
+  --accent-strong: #7d0f1b;
+  --accent-dim: #f2dcdd;
+
+  --win: #b01021;
+  --loss: #6b6870;
+
+  --ok: #0f7a5c;
+  --ok-dim: #d3f0e6;
+
+  --danger: #b01021;
+  --danger-dim: #f7e3e4;
+
+  --side-blue: #0f7a5c;
+  --side-blue-fill: #19ad84;
+  --side-blue-dim: #d3f0e6;
+  --side-red: #b01021;
+  --side-red-fill: #e11d2f;
+  --side-red-dim: #f2dcdd;
+}
+
+/*
+ * TEMA OSCURO (el default del sitio)
+ */
+[data-theme='dark'] {
   color-scheme: dark;
+
+  --canvas: #0a0a0b;
+  --surface: #121215;
+  --raised: #1c1c21;
+  --line: #1e1e23;
+  --line-strong: #2b2b32;
+
+  --fg: #e9e9ee;
+  --fg-soft: #b4b4bf;
+  --muted: #8f8f9c;
+  --faint: #7c7c88;
+  --dim: #5a5a66;
+
+  --accent: #ff4353;
+  --accent-soft: #ff7a86;
+  --accent-strong: #e11d2f;
+  --accent-dim: #4a1119;
+
+  --win: #ff4353;
+  --loss: #8f8f9c;
+
+  --ok: #2fdcae;
+  --ok-dim: #0e3d33;
+
+  --danger: #ff4353;
+  --danger-dim: #2c0b10;
+
+  --side-blue: #2fdcae;
+  --side-blue-fill: #19ad84;
+  --side-blue-dim: #0e3d33;
+  --side-red: #ff4353;
+  --side-red-fill: #e11d2f;
+  --side-red-dim: #4a1119;
+}
+
+/*
+ * TOKENS SEMÁNTICOS
+ *
+ * `inline` es lo que hace que el tema cambie de una: sin él Tailwind copia el
+ * valor de la variable al momento de generar la utilidad y `bg-surface` queda
+ * clavado en el color del tema claro. Con `inline`, la utilidad emite
+ * `background-color: var(--surface)` y sigue lo que diga el data-theme vigente.
+ *
+ *   canvas / surface           fondo de la página y de las tarjetas
+ *   raised                     un escalón de contraste contra surface, para
+ *                              chips, barras de fondo y placeholders: en el
+ *                              tema oscuro aclara y en el claro oscurece,
+ *                              que es como se separa una capa en cada uno
+ *   line / line-strong          bordes y divisores
+ *   fg / fg-soft / muted / faint / dim   texto, de más a menos importante
+ *   win / loss                  resultado: rojo el que ganó, gris el que perdió
+ *   ok                          confirmaciones (guardado, subido); no es "ganó"
+ *   danger                      errores. Comparte el rojo con accent porque la
+ *                               marca es roja; lo separa el nombre, para que se
+ *                               pueda desacoplar sin cazar clases por el árbol
+ *   accent                      links, hovers y foco
+ *   side-blue / side-red        lado azul y lado rojo de la partida: no es
+ *                               ganó/perdió sino de qué mitad del mapa salió,
+ *                               así que sobrevive a la regla rojo/gris
+ */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-fg: var(--fg);
+  --color-fg-soft: var(--fg-soft);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-dim: var(--dim);
+
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-dim: var(--accent-dim);
+
+  --color-win: var(--win);
+  --color-loss: var(--loss);
+
+  --color-ok: var(--ok);
+  --color-ok-dim: var(--ok-dim);
+
+  --color-danger: var(--danger);
+  --color-danger-dim: var(--danger-dim);
+
+  --color-side-blue: var(--side-blue);
+  --color-side-blue-fill: var(--side-blue-fill);
+  --color-side-blue-dim: var(--side-blue-dim);
+  --color-side-red: var(--side-red);
+  --color-side-red-fill: var(--side-red-fill);
+  --color-side-red-dim: var(--side-red-dim);
+
+  /*
+   * Sombra sin difuminar: un bloque proyecta otro bloque, corrido. Es lo que
+   * reemplaza al degradado suave de una sombra normal.
+   */
+  --shadow-hard: 4px 4px 0 0 var(--line-strong);
+  --shadow-hard-accent: 4px 4px 0 0 var(--accent);
 }
 
 body {
-  background: var(--color-bg);
-  color: var(--color-fg);
+  background: var(--canvas);
+  color: var(--fg);
   font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/*
+ * Titulares en la condensada, sin tener que acordarse de ponerla en cada uno.
+ * Las excepciones se marcan con font-sans en el elemento.
+ */
+h1,
+h2,
+h3 {
+  font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
+  letter-spacing: -0.02em;
 }
 
 /* Números de estadísticas: tabular para que las columnas no bailen. */

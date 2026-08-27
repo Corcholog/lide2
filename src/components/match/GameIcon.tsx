@@ -22,7 +22,7 @@ export function GameIcon({
     return (
       <span
         style={{ width: size, height: size }}
-        className={`inline-block shrink-0 rounded bg-ink-800 ${className}`}
+        className={`inline-block shrink-0 rounded bg-raised ${className}`}
         aria-hidden
       />
     )
@@ -36,7 +36,7 @@ export function GameIcon({
       height={size}
       loading="lazy"
       style={{ width: size, height: size }}
-      className={`shrink-0 rounded bg-ink-800 ${className}`}
+      className={`shrink-0 rounded bg-raised ${className}`}
     />
   )
 }
