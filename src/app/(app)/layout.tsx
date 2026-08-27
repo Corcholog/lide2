@@ -1,9 +1,16 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { Backdrop } from '@/components/layout/Backdrop'
-import { ThemeToggle } from '@/components/theme/ThemeToggle'
+import { SiteHeader, type NavLink } from '@/components/layout/SiteHeader'
+
+/** Las secciones del sitio, en el orden en que se leen. */
+const LINKS: NavLink[] = [
+  { href: '/estadisticas', label: 'Estadísticas' },
+  { href: '/partidas', label: 'Partidas' },
+  { href: '/equipos', label: 'Equipos' },
+  { href: '/jugadores', label: 'Jugadores' },
+]
 
 export default async function AppLayout({ children }: LayoutProps<'/'>) {
   // getUser y no requireUser: el sitio se ve sin sesión. Lo que cambia con la
@@ -19,64 +26,13 @@ export default async function AppLayout({ children }: LayoutProps<'/'>) {
     redirect('/')
   }
 
+  const links = user ? [...LINKS, { href: '/admin', label: 'Panel' }] : LINKS
+
   return (
     <div className="flex min-h-screen flex-col">
       <Backdrop />
 
-      {/*
-        Alto declarado, no el del contenido: la portada del torneo se mide
-        contra él para terminar exactamente en el pliegue. Ver --site-header en
-        globals.css.
-      */}
-      <header className="h-[var(--site-header)] border-b-2 border-line bg-surface/85 backdrop-blur">
-        <div className="mx-auto flex h-full w-full max-w-6xl items-center gap-6 px-6">
-          <Link href="/" className="font-display text-xl font-bold uppercase tracking-wide">
-            LIDE
-          </Link>
-          {/*
-            Sin link a "Torneo": la home ES el torneo, y el logo de la izquierda
-            ya lleva ahí. Un item de nav que apunta a la página donde ya estás es
-            una invitación a hacer clic para nada.
-          */}
-          <nav className="flex flex-1 gap-4 text-sm">
-            <Link href="/estadisticas" className="text-fg-soft transition-colors hover:text-accent">
-              Estadísticas
-            </Link>
-            <Link href="/partidas" className="text-fg-soft transition-colors hover:text-accent">
-              Partidas
-            </Link>
-            <Link href="/equipos" className="text-fg-soft transition-colors hover:text-accent">
-              Equipos
-            </Link>
-            <Link href="/jugadores" className="text-fg-soft transition-colors hover:text-accent">
-              Jugadores
-            </Link>
-            {user && (
-              <Link href="/admin" className="text-fg-soft transition-colors hover:text-accent">
-                Panel
-              </Link>
-            )}
-          </nav>
-          <ThemeToggle />
-          {user ? (
-            <>
-              <span className="hidden text-xs text-faint sm:inline">{user.email}</span>
-              <form action={signOut}>
-                <button
-                  type="submit"
-                  className="text-xs text-muted transition-colors hover:text-accent"
-                >
-                  Salir
-                </button>
-              </form>
-            </>
-          ) : (
-            <Link href="/login" className="text-xs text-muted transition-colors hover:text-accent">
-              Entrar
-            </Link>
-          )}
-        </div>
-      </header>
+      <SiteHeader links={links} email={user?.email ?? null} signOut={signOut} />
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">{children}</main>
     </div>
