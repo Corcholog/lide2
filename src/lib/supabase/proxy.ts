@@ -2,8 +2,20 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { supabasePublishableKey, supabaseUrl } from '../env'
 
-/** Rutas accesibles sin sesion. Todo lo demas redirige al login. */
-const PUBLIC_PATHS = ['/login', '/auth']
+/**
+ * Rutas que piden sesion. Todo lo demas es publico.
+ *
+ * Antes era al reves —una lista de rutas publicas y todo lo demas cerrado— y se
+ * dio vuelta cuando el sitio se abrio a los visitantes. El default cambio de
+ * "cerrado salvo que se diga" a "abierto salvo que se diga", asi que una ruta
+ * nueva del panel que no se anote aca queda a la vista.
+ *
+ * Igual esto es solo UX: lo que de verdad protege los datos es el RLS (ver
+ * supabase/migrations/0013_publico.sql) y el `requireUser()` de cada pagina y
+ * cada server action. El proxy solo evita que un visitante llegue a una
+ * pantalla vacia.
+ */
+const PRIVATE_PATHS = ['/admin', '/equipos/detectar']
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request })
@@ -32,7 +44,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
-  const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+  const isPrivate = PRIVATE_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
 
   // Las rutas de API nunca se redirigen: un fetch que sigue el redirect recibe
   // el HTML del login y falla al parsear el JSON con un error indescifrable.
@@ -41,10 +53,15 @@ export async function updateSession(request: NextRequest) {
     return response
   }
 
-  if (!user && !isPublic) {
+  if (!user && isPrivate) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    url.searchParams.set('next', pathname)
+    // El destino se lleva su query: a /admin/cards?fecha=2 hay que volver a la
+    // fecha 2, no al acumulado. Se limpia primero para no dejar los parámetros
+    // del original sueltos al lado del `next`, apuntando a la nada.
+    const destino = `${pathname}${request.nextUrl.search}`
+    url.search = ''
+    url.searchParams.set('next', destino)
     return NextResponse.redirect(url)
   }
 

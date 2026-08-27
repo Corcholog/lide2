@@ -76,18 +76,18 @@ export function MatchCard({ data, fileName }: { data: MatchCardData; fileName: s
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="flex w-full items-center justify-between gap-4">
-        <p className="text-sm text-ink-400">1080 × 1080, listo para publicar</p>
+        <p className="text-sm text-muted">1080 × 1080, listo para publicar</p>
         <button
           onClick={download}
           disabled={busy}
-          className="rounded bg-brand-red px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-red-soft disabled:opacity-50"
+          className="rounded bg-accent-strong px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent disabled:opacity-50"
         >
           {busy ? 'Generando…' : 'Descargar PNG'}
         </button>
       </div>
 
       {error && (
-        <p className="w-full rounded border border-brand-red/40 bg-brand-red-dim/40 px-3 py-2 text-sm text-brand-red-soft">
+        <p className="w-full rounded border border-danger/40 bg-danger-dim px-3 py-2 text-sm text-danger">
           {error}
         </p>
       )}
@@ -95,14 +95,20 @@ export function MatchCard({ data, fileName }: { data: MatchCardData; fileName: s
       {/* El contenedor escala visualmente; el nodo exportado mantiene sus 1080px. */}
       <div className="w-full overflow-hidden" style={{ height: SIZE / 2 }}>
         <div style={{ transform: 'scale(0.5)', transformOrigin: 'top left' }}>
+          {/*
+            La pieza exportada queda siempre oscura, aunque el sitio esté en
+            claro: es una imagen que se publica en Instagram y tiene que salir
+            igual la suba quien la suba.
+          */}
           <div
             ref={cardRef}
+            data-theme="dark"
             style={{ width: SIZE, height: SIZE }}
-            className="flex flex-col justify-between bg-ink-950 p-16"
+            className="flex flex-col justify-between bg-canvas p-16 text-fg"
           >
             <header className="flex items-center justify-between">
               <p className="text-4xl font-black tracking-tight text-white">LIDE</p>
-              <p className="text-2xl font-medium text-ink-400">
+              <p className="text-2xl font-medium text-muted">
                 {[data.stageLabel, data.roundLabel].filter(Boolean).join(' · ') || 'Torneo'}
               </p>
             </header>
@@ -112,15 +118,15 @@ export function MatchCard({ data, fileName }: { data: MatchCardData; fileName: s
                 <TeamName name={data.blueName} won={blueWon} accent="aqua" align="right" />
                 <div className="tabular shrink-0 text-center">
                   <p className="text-9xl font-black leading-none">
-                    <span className={blueWon ? 'text-brand-aqua' : 'text-ink-500'}>
+                    <span className={blueWon ? 'text-side-blue' : 'text-faint'}>
                       {data.blueKills}
                     </span>
-                    <span className="mx-4 text-ink-700">–</span>
-                    <span className={redWon ? 'text-brand-red-soft' : 'text-ink-500'}>
+                    <span className="mx-4 text-dim">–</span>
+                    <span className={redWon ? 'text-side-red' : 'text-faint'}>
                       {data.redKills}
                     </span>
                   </p>
-                  <p className="mt-3 text-2xl text-ink-500">
+                  <p className="mt-3 text-2xl text-faint">
                     {formatDuration(data.durationMs)} · {formatGold(data.blueGold)} vs{' '}
                     {formatGold(data.redGold)} oro
                   </p>
@@ -130,7 +136,7 @@ export function MatchCard({ data, fileName }: { data: MatchCardData; fileName: s
             </section>
 
             {data.mvp && (
-              <section className="flex items-center gap-8 rounded-2xl border-2 border-ink-800 bg-ink-900 p-8">
+              <section className="flex items-center gap-8 rounded-2xl border-2 border-line bg-surface p-8">
                 <GameIcon
                   src={data.mvp.championIcon}
                   alt={data.mvp.champion}
@@ -138,15 +144,15 @@ export function MatchCard({ data, fileName }: { data: MatchCardData; fileName: s
                   className="rounded-xl"
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="text-2xl font-bold tracking-widest text-brand-red">MVP</p>
+                  <p className="text-2xl font-bold tracking-widest text-accent">MVP</p>
                   <p className="truncate text-5xl font-bold text-white">{data.mvp.name}</p>
-                  <p className="mt-1 text-3xl text-ink-400">{data.mvp.champion}</p>
+                  <p className="mt-1 text-3xl text-muted">{data.mvp.champion}</p>
                 </div>
                 <div className="tabular shrink-0 text-right">
                   <p className="text-5xl font-bold text-white">
                     {formatKda(data.mvp.kills, data.mvp.deaths, data.mvp.assists)}
                   </p>
-                  <p className="mt-1 text-2xl text-ink-400">
+                  <p className="mt-1 text-2xl text-muted">
                     {formatNumber(data.mvp.damage)} de daño
                   </p>
                 </div>
@@ -157,9 +163,9 @@ export function MatchCard({ data, fileName }: { data: MatchCardData; fileName: s
               {data.highlights.map((highlight) => (
                 <div
                   key={highlight.label}
-                  className="flex flex-col gap-3 rounded-2xl border-2 border-ink-800 p-6"
+                  className="flex flex-col gap-3 rounded-2xl border-2 border-line p-6"
                 >
-                  <p className="text-xl uppercase tracking-wide text-ink-500">{highlight.label}</p>
+                  <p className="text-xl uppercase tracking-wide text-faint">{highlight.label}</p>
                   <p className="tabular text-5xl font-bold text-white">{highlight.value}</p>
                   <div className="flex items-center gap-3">
                     <GameIcon
@@ -168,13 +174,13 @@ export function MatchCard({ data, fileName }: { data: MatchCardData; fileName: s
                       size={44}
                       className="rounded-lg"
                     />
-                    <p className="min-w-0 truncate text-2xl text-ink-300">{highlight.player}</p>
+                    <p className="min-w-0 truncate text-2xl text-fg-soft">{highlight.player}</p>
                   </div>
                 </div>
               ))}
             </section>
 
-            <footer className="flex items-center justify-between text-xl text-ink-600">
+            <footer className="flex items-center justify-between text-xl text-dim">
               <span>{formatDate(data.playedAt)}</span>
               <span>parche {data.patch ?? '?'}</span>
             </footer>
@@ -200,13 +206,13 @@ function TeamName({
     <div className={`min-w-0 flex-1 ${align === 'right' ? 'text-right' : 'text-left'}`}>
       <p
         className={`truncate text-5xl font-bold ${
-          won ? (accent === 'aqua' ? 'text-brand-aqua' : 'text-brand-red-soft') : 'text-ink-400'
+          won ? (accent === 'aqua' ? 'text-side-blue' : 'text-side-red') : 'text-muted'
         }`}
       >
         {name}
       </p>
       {/* El resultado va escrito, no sólo por color. */}
-      <p className="mt-2 text-2xl font-medium text-ink-500">{won ? 'VICTORIA' : 'DERROTA'}</p>
+      <p className="mt-2 text-2xl font-medium text-faint">{won ? 'VICTORIA' : 'DERROTA'}</p>
     </div>
   )
 }

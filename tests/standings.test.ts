@@ -1,12 +1,9 @@
 import type { PGlite } from '@electric-sql/pglite'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestDb } from './helpers/db'
+import { playMatch } from './helpers/matches'
 
-/**
- * Las partidas se arman a mano (dos jugadores por partida, uno por lado) en
- * lugar de ingestar un .rofl: lo que se prueba es la agregación de la tabla de
- * posiciones, y para eso alcanza con los kills de cada lado.
- */
+/** Un cruce del fixture, en los terminos del torneo. */
 interface Played {
   blue: string
   red: string
@@ -18,40 +15,17 @@ interface Played {
   playedAt: string
 }
 
-let matchSeq = 0
-
 async function play(db: PGlite, teams: Map<string, string>, game: Played): Promise<void> {
-  const winningSide = game.winner === 'blue' ? 100 : 200
-  const id = `00000000-0000-0000-0000-${String(++matchSeq).padStart(12, '0')}`
-
-  await db.query(
-    `insert into public.matches
-       (id, fingerprint, format, game_length_ms, played_at, winning_side,
-        blue_team_id, red_team_id, stage_label, round_label, raw_metadata)
-     values ($1, $2, 'CLASSIC', 1800000, $3, $4, $5, $6, $7, $8, '{}'::jsonb)`,
-    [
-      id,
-      `fp-${matchSeq}`,
-      game.playedAt,
-      winningSide,
-      teams.get(game.blue),
-      teams.get(game.red),
-      game.stage,
-      game.round,
-    ],
-  )
-
-  for (const [side, kills] of [
-    [100, game.blueKills],
-    [200, game.redKills],
-  ] as const) {
-    await db.query(
-      `insert into public.match_players
-         (match_id, side, participant_index, puuid, champion, win, kills, gold_earned, raw)
-       values ($1, $2, $3, $4, 'Ahri', $5, $6, $7, '{}'::jsonb)`,
-      [id, side, side, `puuid-${matchSeq}-${side}`, side === winningSide, kills, kills * 1000],
-    )
-  }
+  await playMatch(db, {
+    blueTeamId: teams.get(game.blue),
+    redTeamId: teams.get(game.red),
+    winner: game.winner,
+    blueKills: game.blueKills,
+    redKills: game.redKills,
+    stageLabel: game.stage,
+    roundLabel: game.round,
+    playedAt: game.playedAt,
+  })
 }
 
 interface StandingRow {

@@ -36,31 +36,31 @@ export function LoginForm({ next }: { next: string }) {
   return (
     <form onSubmit={onSubmit} className="flex w-full max-w-sm flex-col gap-4">
       <label className="flex flex-col gap-2">
-        <span className="text-sm text-ink-400">Email</span>
+        <span className="text-sm text-muted">Email</span>
         <input
           type="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="username"
-          className="rounded border border-ink-700 bg-ink-900 px-3 py-2 outline-none focus:border-brand-aqua"
+          className="rounded border border-line-strong bg-surface px-3 py-2 outline-none focus:border-accent"
         />
       </label>
 
       <label className="flex flex-col gap-2">
-        <span className="text-sm text-ink-400">Contraseña</span>
+        <span className="text-sm text-muted">Contraseña</span>
         <input
           type="password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoComplete="current-password"
-          className="rounded border border-ink-700 bg-ink-900 px-3 py-2 outline-none focus:border-brand-aqua"
+          className="rounded border border-line-strong bg-surface px-3 py-2 outline-none focus:border-accent"
         />
       </label>
 
       {error && (
-        <p className="rounded border border-brand-red/40 bg-brand-red-dim/40 px-3 py-2 text-sm text-brand-red-soft">
+        <p className="rounded border border-danger/40 bg-danger-dim px-3 py-2 text-sm text-danger">
           {error}
         </p>
       )}
@@ -68,7 +68,7 @@ export function LoginForm({ next }: { next: string }) {
       <button
         type="submit"
         disabled={loading}
-        className="rounded bg-brand-red px-4 py-2 font-medium text-white transition-colors hover:bg-brand-red-soft disabled:opacity-50"
+        className="rounded bg-accent-strong px-4 py-2 font-medium text-white transition-colors hover:bg-accent disabled:opacity-50"
       >
         {loading ? 'Entrando…' : 'Entrar'}
       </button>
