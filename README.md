@@ -64,9 +64,6 @@ vive bajo `/admin` y pide sesión; todo lo demás es público.
   corren con permisos de dueño y exponen únicamente lo que puede ser público. Los nombres de los
   inscriptos son nombres legales de personas reales y no salen nunca; de la tabla de inscriptos, la
   vista del plantel sólo lee *cuántos* son (ver `supabase/migrations/0013_publico.sql`).
-- **Ojo con las vistas anidadas.** `security_invoker` se chequea contra quien consulta, y eso no se
-  hereda: si una vista pública lee otra que corre como invocador, el visitante ve cero filas y la
-  estadística sale vacía sin ningún error. Toda la cadena pública va con permisos de dueño.
 - **Un equipo puede representar a varias universidades.** Cuatro de los veinte se armaron con
   inscripciones sueltas y juntan hasta tres. Por eso los rankings por universidad se miden por
   aparición de jugador y no por partido: no hay forma correcta de decidir de quién es un partido que
