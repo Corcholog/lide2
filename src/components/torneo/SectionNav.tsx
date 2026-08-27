@@ -90,6 +90,15 @@ export function SectionNav({ sections }: { sections: NavSection[] }) {
     return () => observer.disconnect()
   }, [sections])
 
+  /*
+   * En qué escalón está el paso a paso.
+   *
+   * Arriba de todo, con la portada llena, no hay ninguna sección en la franja
+   * de lectura y el scroll-spy no marca ninguna: ahí el paso a paso se planta
+   * en la primera, que es a dónde lleva el primer movimiento.
+   */
+  const current = Math.max(0, sections.findIndex((section) => section.id === active))
+
   return (
     <div ref={holder} className="h-[var(--section-nav)]">
       <nav
@@ -111,7 +120,11 @@ export function SectionNav({ sections }: { sections: NavSection[] }) {
             docked ? 'px-6' : ''
           }`}
         >
-          <ul className="flex flex-1 gap-1 overflow-x-auto">
+          {/*
+            La lista entera, desde `sm`. Los cinco items suman unos 470px y en
+            un teléfono hay 312: abajo de ese ancho va el paso a paso.
+          */}
+          <ul className="hidden flex-1 gap-1 sm:flex">
             {sections.map((section) => (
               <li key={section.id}>
                 <a
@@ -138,17 +151,43 @@ export function SectionNav({ sections }: { sections: NavSection[] }) {
           </ul>
 
           {/*
-            La flechita. La portada ocupa la pantalla entera, así que sin esto no
-            queda ninguna señal de que abajo siga habiendo algo. Lleva a la
-            primera sección, la misma del primer item: es un gesto, no un atajo
-            distinto. Se apaga apenas la barra se ancla, que es cuando ya se
-            entendió que la página sigue.
+            El paso a paso del teléfono.
+
+            Antes la lista scrolleaba de costado, que es la peor opción de las
+            dos: en un teléfono no se dibuja barra de scroll, así que las tres
+            secciones que quedaban afuera no existían. Acá siempre se ve en cuál
+            estás y las dos flechas llevan a la anterior y a la siguiente.
+
+            El nombre sale del mismo scroll-spy que pinta la lista de arriba, o
+            sea que se actualiza solo mientras se scrollea.
+          */}
+          <div className="flex flex-1 items-center gap-1 sm:hidden">
+            <Step section={sections[current - 1]} direction="prev" />
+            <a
+              href={`#${sections[current]?.id ?? ''}`}
+              aria-current={active ? 'true' : undefined}
+              className="min-w-0 flex-1 truncate border-2 border-accent bg-accent-dim px-2 py-1 text-center text-xs font-bold uppercase tracking-wide text-accent"
+            >
+              {sections[current]?.label}
+            </a>
+            <Step section={sections[current + 1]} direction="next" />
+          </div>
+
+          {/*
+            La flechita hacia abajo. La portada ocupa la pantalla entera, así que
+            sin esto no queda ninguna señal de que abajo siga habiendo algo.
+            Lleva a la primera sección, la misma del primer item: es un gesto, no
+            un atajo distinto. Se apaga apenas la barra se ancla, que es cuando
+            ya se entendió que la página sigue.
+
+            En el teléfono no va: ese papel lo hace la flecha derecha del paso a
+            paso, y tres flechas en 312px es ruido.
           */}
           {sections.length > 0 && (
             <a
               href={`#${sections[0].id}`}
               aria-label="Bajar al contenido"
-              className={`shrink-0 border-2 border-transparent p-1 text-accent transition-opacity duration-200 hover:bg-accent-dim/60 hover:text-accent-soft ${
+              className={`hidden shrink-0 border-2 border-transparent p-1 text-accent transition-opacity duration-200 hover:bg-accent-dim/60 hover:text-accent-soft sm:block ${
                 docked ? 'pointer-events-none opacity-0' : 'opacity-100 motion-safe:animate-bounce'
               }`}
             >
@@ -169,5 +208,51 @@ export function SectionNav({ sections }: { sections: NavSection[] }) {
         </div>
       </nav>
     </div>
+  )
+}
+
+/**
+ * Una de las dos flechas del paso a paso.
+ *
+ * Cuando no hay a dónde ir —la primera y la última sección— queda apagada en
+ * vez de desaparecer: si se fuera, el nombre del medio se correría de lugar en
+ * cada paso y la barra bailaría.
+ */
+function Step({ section, direction }: { section: NavSection | undefined; direction: 'prev' | 'next' }) {
+  const shared = 'shrink-0 border-2 border-transparent p-1 text-accent'
+
+  if (!section) {
+    return (
+      <span className={`${shared} opacity-25`} aria-hidden>
+        <Chevron direction={direction} />
+      </span>
+    )
+  }
+
+  return (
+    <a
+      href={`#${section.id}`}
+      aria-label={`${direction === 'prev' ? 'Anterior' : 'Siguiente'}: ${section.label}`}
+      className={`${shared} transition-colors hover:bg-accent-dim/60 hover:text-accent-soft`}
+    >
+      <Chevron direction={direction} />
+    </a>
+  )
+}
+
+function Chevron({ direction }: { direction: 'prev' | 'next' }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-4"
+      aria-hidden
+    >
+      <path d={direction === 'prev' ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7'} />
+    </svg>
   )
 }
