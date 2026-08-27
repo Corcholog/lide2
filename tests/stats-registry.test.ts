@@ -182,13 +182,13 @@ describe('presentacion de estadisticas', () => {
         players: [
           player({ player_name: 'Top A', position: 'TOP', avg_score: 12 }),
           player({ player_name: 'Top B', position: 'TOP', avg_score: 9 }),
-          player({ player_name: 'Sup', position: 'UTILITY', avg_score: 8 }),
+          player({ player_name: 'Sup', position: 'SUPPORT', avg_score: 8 }),
         ],
       }),
     )
 
     expect(block!.rows.map((row) => row.name)).toEqual(['Top A', 'Sup'])
-    expect(block!.rows.map((row) => row.display)).toEqual(['Top', 'Support'])
+    expect(block!.rows.map((row) => row.display)).toEqual(['Top', 'Soporte'])
   })
 
   it('un campeon que solo se baneo no entra en los mas elegidos, pero si en los mas baneados', () => {

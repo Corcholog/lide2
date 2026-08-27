@@ -26,13 +26,25 @@ export function formatKda(kills: number, deaths: number, assists: number): strin
   return `${kills}/${deaths}/${assists}`
 }
 
+/**
+ * Los cinco roles, en orden de línea. Es el orden en que se lee un plantel y en
+ * el que se dibuja un scoreboard.
+ *
+ * El soporte es `SUPPORT`. El .rofl lo llama `UTILITY`, pero eso se normaliza al
+ * entrar (`normalizePosition` en el parser, y un trigger en la base por si algo
+ * escribe sin pasar por ahí): del lado de acá hay un solo nombre.
+ */
+export const ROLES = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'SUPPORT'] as const
+
 /** El .rofl trae la posición en inglés; la UI la muestra en castellano. */
 const POSITIONS: Record<string, string> = {
   TOP: 'Top',
   JUNGLE: 'Jungla',
   MIDDLE: 'Mid',
   BOTTOM: 'ADC',
-  UTILITY: 'Support',
+  SUPPORT: 'Soporte',
+  // Por si quedara alguna fila vieja sin normalizar: es el mismo rol, no otro.
+  UTILITY: 'Soporte',
 }
 
 export function formatPosition(position: string | null): string {

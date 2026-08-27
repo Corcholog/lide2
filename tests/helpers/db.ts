@@ -49,6 +49,7 @@ export const MIGRATIONS = [
   '0011_asignacion.sql',
   '0012_planteles.sql',
   '0013_publico.sql',
+  '0014_plantel.sql',
 ]
 
 /**

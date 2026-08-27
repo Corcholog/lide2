@@ -51,3 +51,11 @@ supabase/.temp
 # generado por npm run db:sql
 supabase/all-migrations.sql
 !.env.example
+
+# logos de universidad tal como los manda cada una: formatos mezclados, uno con
+# la extension cambiada y otro en mayusculas. No los usa el sitio —lo que se
+# sirve es public/universidades/, que si va al repo— sino que son la entrada de
+# scripts/normalizar-logos.ts. Ojo: sin esta carpeta el script no se puede
+# volver a correr desde un clon limpio; para agregar una universidad nueva hay
+# que conseguir de nuevo los originales.
+assets/universidades/

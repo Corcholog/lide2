@@ -6,7 +6,7 @@
  * escribir una función y sumarla al registro.
  */
 
-import { formatKda, formatNumber, formatPosition } from '@/lib/format'
+import { formatKda, formatNumber, formatPosition, ROLES } from '@/lib/format'
 import { block, minGamesForAverages, rankRows } from './rank'
 import type { StatBlock, StatsData } from './types'
 import type { PlayerPhaseTotalsRow } from '@/types/db'
@@ -80,8 +80,6 @@ export function mvp(data: StatsData): StatBlock | null {
  * que rotó de línea aparece en la que más repitió.
  */
 export function bestFive(data: StatsData): StatBlock | null {
-  const ROLES = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY']
-
   const rows = ROLES.flatMap((role) => {
     const best = data.players
       .filter((row) => row.position === role)

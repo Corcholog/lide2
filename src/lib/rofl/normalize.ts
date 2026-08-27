@@ -128,6 +128,24 @@ function text(value: unknown): string | null {
   return v.length > 0 ? v : null
 }
 
+/**
+ * El rol, con un solo nombre.
+ *
+ * El .rofl escribe `UTILITY` para el soporte. Adentro del proyecto ese rol se
+ * llama `SUPPORT` y nada más: tener el mismo puesto con dos nombres hace que
+ * las vistas que agrupan por `position` lo cuenten como dos roles distintos y
+ * que un rótulo sin traducir salga crudo en la web.
+ *
+ * `Invalid` y `NONE` no son roles: es lo que deja Riot cuando la partida no
+ * tiene líneas asignadas (un custom raro, un remake). Se van como null para que
+ * la posición caiga en el otro campo, que puede tener algo bueno.
+ */
+function normalizePosition(value: unknown): string | null {
+  const position = text(value)?.toUpperCase() ?? null
+  if (position === null || position === 'INVALID' || position === 'NONE') return null
+  return position === 'UTILITY' ? 'SUPPORT' : position
+}
+
 function normalizePlayer(raw: RoflPlayerStats, index: number): NormalizedPlayer {
   const side: TeamSide = toInt(raw.TEAM) === 200 ? 200 : 100
 
@@ -139,7 +157,7 @@ function normalizePlayer(raw: RoflPlayerStats, index: number): NormalizedPlayer 
     riotTagLine: text(raw.RIOT_ID_TAG_LINE),
     summonerName: text(raw.NAME),
     champion: String(raw.SKIN),
-    position: text(raw.TEAM_POSITION) ?? text(raw.INDIVIDUAL_POSITION),
+    position: normalizePosition(raw.TEAM_POSITION) ?? normalizePosition(raw.INDIVIDUAL_POSITION),
     win: String(raw.WIN ?? '').trim().toLowerCase() === 'win',
 
     kills: toInt(raw.CHAMPIONS_KILLED),
