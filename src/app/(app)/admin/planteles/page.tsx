@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
+import { rows } from '@/lib/supabase/query'
 import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { RosterImport } from '@/components/admin/RosterImport'
 import { RosterTeam } from '@/components/admin/RosterTeam'
@@ -37,8 +38,8 @@ export default async function PlantelesPage() {
     supabase.from('team_accounts').select('*'),
   ])
 
-  const roster = (rosterRes.data ?? []) as RosterStatusRow[]
-  const accounts = (accountsRes.data ?? []) as TeamAccountRow[]
+  const roster = rows<RosterStatusRow>(rosterRes, 'los inscriptos')
+  const accounts = rows<TeamAccountRow>(accountsRes, 'las cuentas enlazadas')
 
   const byTeam = new Map<string, RosterStatusRow[]>()
   for (const row of roster) {

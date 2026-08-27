@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { maybeRow, rows } from '@/lib/supabase/query'
 import { assetVersion, championIcon } from '@/lib/ddragon'
 import { formatGold, formatNumber, playerName } from '@/lib/format'
 import { MatchCard, type CardHighlight, type MatchCardData } from '@/components/card/MatchCard'
@@ -17,10 +18,10 @@ export default async function MatchCardPage({ params }: PageProps<'/partidas/[id
     supabase.from('match_player_scores').select('*').eq('match_id', id),
   ])
 
-  const summary = summaryRes.data as MatchSummaryRow | null
+  const summary = maybeRow<MatchSummaryRow>(summaryRes, 'la partida')
   if (!summary) notFound()
 
-  const scores = (scoresRes.data ?? []) as MatchPlayerScoreRow[]
+  const scores = rows<MatchPlayerScoreRow>(scoresRes, 'el scoreboard')
   const version = await assetVersion(summary.patch)
 
   const best = (pick: (row: MatchPlayerScoreRow) => number) =>

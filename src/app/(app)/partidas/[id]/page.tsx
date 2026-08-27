@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
+import { maybeRow, rows } from '@/lib/supabase/query'
 import { assetVersion, summonerSpellNames } from '@/lib/ddragon'
 import { formatDate, formatDuration } from '@/lib/format'
 import { Scoreboard, type ScoreboardPlayer } from '@/components/match/Scoreboard'
@@ -8,7 +10,28 @@ import type { MatchPlayerScoreRow, MatchSummaryRow, MatchTeamStatsRow } from '@/
 
 export const dynamic = 'force-dynamic'
 
+export async function generateMetadata({ params }: PageProps<'/partidas/[id]'>) {
+  const { id } = await params
+  const { data } = await (await createClient())
+    .from('match_summaries')
+    .select('blue_team_name,red_team_name,round_label')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (!data) return { title: 'Partida' }
+
+  const cruce = `${(data.blue_team_name as string) ?? 'Azul'} vs ${(data.red_team_name as string) ?? 'Rojo'}`
+  return {
+    title: cruce,
+    description: [data.round_label, `Scoreboard completo de ${cruce}.`].filter(Boolean).join(' · '),
+  }
+}
+
 export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>) {
+  // El scoreboard se ve sin sesión. El .rofl no: el bucket es privado y el link
+  // de descarga lo rechaza igual, así que mostrarlo sólo servía para que un
+  // visitante hiciera clic y terminara en el login.
+  const user = await getUser()
   const { id } = await params
 
   const supabase = await createClient()
@@ -21,11 +44,11 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
     supabase.from('match_player_scores').select('*').eq('match_id', id),
   ])
 
-  const summary = summaryRes.data as MatchSummaryRow | null
+  const summary = maybeRow<MatchSummaryRow>(summaryRes, 'la partida')
   if (!summary) notFound()
 
-  const teamStats = (teamsRes.data ?? []) as MatchTeamStatsRow[]
-  const scores = (scoresRes.data ?? []) as MatchPlayerScoreRow[]
+  const teamStats = rows<MatchTeamStatsRow>(teamsRes, 'los totales por equipo')
+  const scores = rows<MatchPlayerScoreRow>(scoresRes, 'el scoreboard')
 
   const version = await assetVersion(summary.patch)
   const spellNames = await summonerSpellNames(version)
@@ -68,20 +91,22 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
         <Link href="/" className="text-sm text-muted transition-colors hover:text-fg">
           ← Partidas
         </Link>
-        <div className="flex gap-2">
-          <Link
-            href={`/partidas/${id}/card`}
-            className="rounded border border-line-strong px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
-          >
-            Card para Instagram
-          </Link>
-          <a
-            href={`/api/matches/${id}/download`}
-            className="rounded border border-line-strong px-3 py-1.5 text-sm transition-colors hover:border-accent"
-          >
-            Descargar .rofl
-          </a>
-        </div>
+        {user && (
+          <div className="flex gap-2">
+            <Link
+              href={`/partidas/${id}/card`}
+              className="rounded border border-line-strong px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
+            >
+              Card para Instagram
+            </Link>
+            <a
+              href={`/api/matches/${id}/download`}
+              className="rounded border border-line-strong px-3 py-1.5 text-sm transition-colors hover:border-accent"
+            >
+              Descargar .rofl
+            </a>
+          </div>
+        )}
       </div>
 
       <header className="rounded-lg border border-line bg-surface px-6 py-5">

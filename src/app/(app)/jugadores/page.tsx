@@ -1,7 +1,13 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { rows } from '@/lib/supabase/query'
 import { formatNumber, playerName } from '@/lib/format'
 import type { PlayerTotalsRow } from '@/types/db'
+
+export const metadata = {
+  title: 'Jugadores',
+  description: 'Todos los jugadores del torneo, con sus números y su pool de campeones.',
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -12,11 +18,11 @@ export default async function PlayersPage() {
     supabase.from('teams').select('id,name'),
   ])
 
-  const players = ((totalsRes.data ?? []) as PlayerTotalsRow[]).sort(
+  const players = rows<PlayerTotalsRow>(totalsRes, 'los jugadores').sort(
     (a, b) => b.mvp_count - a.mvp_count || b.games - a.games,
   )
   const teamNames = new Map(
-    ((teamsRes.data ?? []) as { id: string; name: string }[]).map((t) => [t.id, t.name]),
+    rows<{ id: string; name: string }>(teamsRes, 'los equipos').map((t) => [t.id, t.name]),
   )
 
   const sinEquipo = players.filter((p) => !p.team_id).length

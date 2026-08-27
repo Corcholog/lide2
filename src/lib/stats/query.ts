@@ -18,18 +18,18 @@ import type {
   TournamentMvpRow,
   UniversityTotalsRow,
 } from '@/types/db'
+import { maybeRow, rows } from '@/lib/supabase/query'
 import type { StatScope, StatsData } from './types'
 
 type Supabase = Awaited<ReturnType<typeof createClient>>
 
 export async function resolveTournamentId(supabase: Supabase): Promise<string | null> {
-  const { data } = await supabase
-    .from('tournaments')
-    .select('id')
-    .eq('slug', TOURNAMENT.slug)
-    .maybeSingle()
+  const torneo = maybeRow<{ id: string }>(
+    await supabase.from('tournaments').select('id').eq('slug', TOURNAMENT.slug).maybeSingle(),
+    'el torneo',
+  )
 
-  return (data?.id as string) ?? null
+  return torneo?.id ?? null
 }
 
 /**
@@ -66,13 +66,20 @@ export async function loadStats(supabase: Supabase, scope: StatScope): Promise<S
     supabase.from('tournament_mvp').select('*').match(filter),
   ])
 
+  /*
+   * Si una de las seis falla, falla todo.
+   *
+   * Un recorte al que le falta una consulta no está incompleto, está mal: la
+   * página mostraría el meta sin el MVP, o los récords sin las universidades,
+   * sin decir en ningún lado que falta algo.
+   */
   return {
     scope,
-    players: (players.data ?? []) as PlayerPhaseTotalsRow[],
-    teams: (teams.data ?? []) as TeamPhaseTotalsRow[],
-    universities: (universities.data ?? []) as UniversityTotalsRow[],
-    champions: (champions.data ?? []) as ChampionStatRow[],
-    records: (records.data ?? []) as MatchRecordRow[],
-    mvp: (mvp.data ?? []) as TournamentMvpRow[],
+    players: rows<PlayerPhaseTotalsRow>(players, 'los totales por jugador'),
+    teams: rows<TeamPhaseTotalsRow>(teams, 'los totales por equipo'),
+    universities: rows<UniversityTotalsRow>(universities, 'los totales por universidad'),
+    champions: rows<ChampionStatRow>(champions, 'las estadísticas de campeones'),
+    records: rows<MatchRecordRow>(records, 'los récords de partida'),
+    mvp: rows<TournamentMvpRow>(mvp, 'el MVP del torneo'),
   }
 }
