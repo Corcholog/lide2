@@ -4,7 +4,7 @@ import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { maybeRow, rows } from '@/lib/supabase/query'
 import { assetVersion, summonerSpellNames } from '@/lib/ddragon'
-import { formatDate, formatDuration } from '@/lib/format'
+import { formatDate, formatDuration, ROLES } from '@/lib/format'
 import { Scoreboard, type ScoreboardPlayer } from '@/components/match/Scoreboard'
 import type { MatchPlayerScoreRow, MatchSummaryRow, MatchTeamStatsRow } from '@/types/db'
 
@@ -176,4 +176,4 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
   )
 }
 
-const POSITION_ORDER = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY']
+const POSITION_ORDER: readonly string[] = ROLES

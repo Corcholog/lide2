@@ -144,6 +144,23 @@ describe('acceso publico', () => {
       expect(
         await asAnon(db, `select * from public.team_accounts where team_id = '${equipo01}'`),
       ).toHaveLength(5)
+
+      // El plantel es lo que ve un visitante en la ficha del equipo: los cinco
+      // lugares con el nick de quien los juega. La vista lee team_roster para
+      // contar los anotados, asi que corre como definer; que un `anon` la pueda
+      // leer es justamente lo que hay que probar.
+      const plantel = await asAnon<{ role: string | null; name: string | null }>(
+        db,
+        `select role, name from public.team_lineup where team_id = '${equipo01}' order by slot`,
+      )
+      expect(plantel.map((r) => r.role)).toEqual([
+        'TOP',
+        'JUNGLE',
+        'MIDDLE',
+        'BOTTOM',
+        'SUPPORT',
+      ])
+      expect(plantel.every((r) => r.name !== null)).toBe(true)
     })
   })
 

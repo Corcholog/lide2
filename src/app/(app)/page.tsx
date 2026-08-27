@@ -13,8 +13,9 @@ import {
 } from '@/lib/lide2/tournament'
 import { SectionNav, type NavSection } from '@/components/torneo/SectionNav'
 import { TeamFocus, type FocusTeam } from '@/components/torneo/TeamFocus'
+import { LogoUniversidad } from '@/components/torneo/LogoUniversidad'
+import { FixtureFechas } from '@/components/torneo/FixtureFechas'
 import type {
-  FixtureByeRow,
   FixtureResultRow,
   GroupStandingRow,
   SeriesResultRow,
@@ -107,7 +108,7 @@ export default async function Lide2Page() {
 
   const tournamentId = tournament?.id ?? null
 
-  const [standingsRes, seriesRes, fixtureRes, byesRes] = tournamentId
+  const [standingsRes, seriesRes, fixtureRes] = tournamentId
     ? await Promise.all([
         supabase
           .from('group_standings')
@@ -130,25 +131,24 @@ export default async function Lide2Page() {
           // Dentro de un grupo hay dos cruces por turno y ninguno va antes que
           // el otro: se desempata por nombre para que la lista no baile.
           .order('team_a_name'),
-        supabase
-          .from('fixture_byes')
-          .select('*')
-          .eq('tournament_id', tournamentId)
-          .order('matchday')
-          .order('slot')
-          .order('group_label'),
       ])
     : [
         { data: [], error: null },
         { data: [], error: null },
         { data: [], error: null },
-        { data: [], error: null },
       ]
+
+  // Las 13 universidades, para la tira de abajo de la portada. Va suelta y no
+  // dentro del Promise.all de arriba porque no depende de que el torneo este
+  // cargado: si falta el torneo, la tira sigue teniendo sentido.
+  const universidades = rows<{ tag: string; name: string }>(
+    await supabase.from('universities').select('tag,name').order('tag'),
+    'las universidades',
+  )
 
   const groups = byGroup(rows<GroupStandingRow>(standingsRes, 'la tabla de posiciones'))
   const series = rows<SeriesResultRow>(seriesRes, 'el bracket')
   const fixture = rows<FixtureResultRow>(fixtureRes, 'el fixture')
-  const byes = rows<FixtureByeRow>(byesRes, 'los equipos libres')
   const next = CALENDAR.find((milestone) => daysUntil(milestone.date) >= 0)
 
   const rounds = ['Cuartos de final', 'Semifinales', 'Gran final']
@@ -165,6 +165,8 @@ export default async function Lide2Page() {
     <TeamFocus teams={focusTeams(fixture)} className="flex flex-col gap-10">
       {/* La barra de secciones va adentro: cierra la portada, no la sigue. */}
       <Hero next={next} sections={sections} />
+
+      <Universidades universidades={universidades} />
 
       {!tournamentId && (
         <p className="rounded border border-danger/40 bg-danger-dim px-4 py-3 text-sm text-danger">
@@ -195,7 +197,7 @@ export default async function Lide2Page() {
         )}
       </section>
 
-      <Fixture rounds={fixture} byes={byes} />
+      <Fixture rounds={fixture} />
 
       <section id="playoffs" className="flex scroll-mt-16 flex-col gap-4">
         <div className="flex items-end justify-between gap-4">
@@ -413,6 +415,50 @@ function Hero({ next, sections }: { next: Milestone | undefined; sections: NavSe
 }
 
 /**
+ * La tira de universidades, apenas termina la portada.
+ *
+ * La portada promete "13 universidades" como cifra suelta; esto lo cumple y de
+ * paso es lo primero que ve alguien que entra sin saber que es la LIDE: un
+ * torneo entre universidades de todo el pais, no una liga de equipos con nombre
+ * inventado.
+ *
+ * Se desplaza sola porque a 32px las trece no entran en el ancho de un telefono
+ * y una fila cortada parece un error. La lista va dos veces: la animacion
+ * termina justo cuando la segunda copia esta donde arrancaba la primera, y ahi
+ * vuelve a cero sin salto. La copia es aria-hidden para que un lector de
+ * pantalla lea las trece una sola vez.
+ *
+ * Se frena al pasar el mouse y —lo que importa de verdad— con
+ * `prefers-reduced-motion`, donde queda quieta y se arrastra a mano: hay gente a
+ * la que el movimiento en bucle le da mareo, y una tira decorativa no vale eso.
+ */
+function Universidades({ universidades }: { universidades: { tag: string; name: string }[] }) {
+  if (universidades.length === 0) return null
+
+  const tira = (oculto: boolean) => (
+    <ul className="flex shrink-0 items-center gap-8 pr-8" aria-hidden={oculto || undefined}>
+      {universidades.map((u) => (
+        <li key={u.tag} className="flex shrink-0 items-center gap-2">
+          <LogoUniversidad tag={u.tag} size="lg" />
+          <span className="whitespace-nowrap text-xs text-faint">{u.name}</span>
+        </li>
+      ))}
+    </ul>
+  )
+
+  return (
+    <section aria-label="Universidades participantes" className="-mt-4">
+      <div className="group flex overflow-x-auto border-y border-line py-3 motion-safe:overflow-hidden">
+        <div className="flex motion-safe:animate-[tira_60s_linear_infinite] motion-safe:group-hover:[animation-play-state:paused]">
+          {tira(false)}
+          {tira(true)}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/**
  * El fixture publicado, agrupado por turno.
  *
  * Cada fecha tiene uno o dos turnos y cada turno son ocho cruces, dos por
@@ -428,7 +474,7 @@ function Hero({ next, sections }: { next: Milestone | undefined; sections: NavSe
  * sola vez como encabezado se lee mejor y ademas cada grupo puede mostrar quien
  * descansa, que antes era una linea suelta con los cuatro juntos.
  */
-function Fixture({ rounds, byes }: { rounds: FixtureResultRow[]; byes: FixtureByeRow[] }) {
+function Fixture({ rounds }: { rounds: FixtureResultRow[] }) {
   if (rounds.length === 0) return null
 
   interface Slot {
@@ -452,12 +498,18 @@ function Fixture({ rounds, byes }: { rounds: FixtureResultRow[]; byes: FixtureBy
     slots.set(key, slot)
   }
 
-  const resting = new Map<string, string>()
-  for (const bye of byes) {
-    resting.set(`${bye.matchday}-${bye.slot}-${bye.group_label}`, bye.team_name)
-  }
-
   const played = rounds.filter((row) => row.status === 'jugado').length
+
+  /*
+   * Y ahora otra vuelta mas: los turnos se agrupan por fecha, que es la unidad
+   * de la pestaña. La fecha 1 y la 2 tienen dos turnos y la 3 uno solo, asi que
+   * un panel puede traer uno o dos bloques adentro.
+   */
+  const fechas = new Map<number, Slot[]>()
+  for (const slot of slots.values()) {
+    fechas.set(slot.matchday, [...(fechas.get(slot.matchday) ?? []), slot])
+  }
+  const porFecha = [...fechas.entries()].sort((a, b) => a[0] - b[0])
 
   return (
     <section id="fixture" className="flex scroll-mt-16 flex-col gap-4">
@@ -468,63 +520,111 @@ function Fixture({ rounds, byes }: { rounds: FixtureResultRow[]; byes: FixtureBy
         </p>
       </div>
 
-      <div className="flex flex-col gap-4">
-        {[...slots.entries()].map(([key, slot]) => (
-          <div key={key} className="border-2 border-line bg-surface">
-            <div className="flex flex-wrap items-baseline gap-x-3 border-b-2 border-line px-4 py-2.5">
-              <h3 className="text-sm uppercase tracking-tight">Fecha {slot.matchday}</h3>
-              <span className="text-xs text-muted">{kickoffLabel(slot.kickoff)}</span>
-            </div>
+      {/*
+        Una fecha por vez. Con los grupos en dos columnas, las tres fechas
+        seguidas son seis filas de grupos: el fixture se comia la portada entera
+        y lo que venia despues —playoffs, la final— quedaba enterrado.
 
-            {/*
-              Las lineas entre celdas salen del gap: la grilla se pinta del color
-              del borde y cada celda tapa lo suyo con el fondo. Sale mas robusto
-              que ponerle bordes a unas celdas si y a otras no segun la columna,
-              que cambia con cada breakpoint.
-            */}
-            <div className="grid gap-0.5 bg-line sm:grid-cols-2 xl:grid-cols-4">
-              {[...slot.groups.entries()].map(([group, matches]) => (
-                <div key={group} className="bg-surface px-4 py-3">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-accent">
-                    {group}
-                  </p>
+        Los paneles se dibujan aca, en el servidor, y viajan como children: el
+        componente de cliente solo decide cual se ve. Ver FixtureFechas.
+      */}
+      <FixtureFechas
+        fechas={porFecha.map(([matchday, delDia]) => {
+          const cruces = delDia.reduce(
+            (total, slot) => total + [...slot.groups.values()].flat().length,
+            0,
+          )
+          const jugados = delDia
+            .flatMap((slot) => [...slot.groups.values()].flat())
+            .filter((row) => row.status === 'jugado').length
 
-                  <ul className="mt-2 flex flex-col gap-2">
-                    {matches.map((match) => (
-                      <FixtureRow key={match.id} match={match} />
-                    ))}
-                  </ul>
-
-                  {resting.get(`${key}-${group}`) && (
-                    <p className="mt-2 border-t border-line pt-2 text-[11px] text-dim">
-                      Libre: {resting.get(`${key}-${group}`)}
-                    </p>
-                  )}
+          return {
+            matchday,
+            cuando: diaCorto(delDia[0].kickoff),
+            detalle: jugados > 0 ? `${jugados} de ${cruces} jugados` : null,
+          }
+        })}
+      >
+        {porFecha.map(([matchday, delDia]) => (
+          <div key={matchday} className="flex flex-col gap-4">
+            {delDia.map((slot) => (
+              <div key={`${slot.matchday}-${slot.slot}`} className="border-2 border-line bg-surface">
+                <div className="flex flex-wrap items-baseline gap-x-3 border-b-2 border-line px-4 py-2.5">
+                  {/*
+                    La hora y no "Turno 1". La pestaña de arriba ya dice "Fecha
+                    2", asi que repetirlo seria decirlo dos veces en diez
+                    centimetros; y entre los dos turnos de una fecha, lo que
+                    alguien necesita saber es a que hora juega, no si el suyo es
+                    el primero o el segundo. El numero de turno no significa nada
+                    afuera de la planilla.
+                  */}
+                  <h3 className="tabular text-sm uppercase tracking-tight">
+                    {horaCorta(slot.kickoff)}
+                  </h3>
+                  <span className="text-xs text-muted">{diaCorto(slot.kickoff)}</span>
                 </div>
-              ))}
-            </div>
+
+                {/*
+                  Las lineas entre celdas salen del gap: la grilla se pinta del
+                  color del borde y cada celda tapa lo suyo con el fondo. Sale
+                  mas robusto que ponerle bordes a unas celdas si y a otras no
+                  segun la columna, que cambia con cada breakpoint.
+                */}
+                {/*
+                  Dos columnas y no cuatro. Con cuatro, la celda de un grupo
+                  queda en 274px: sacando el padding, el marcador y los escudos,
+                  al nombre del equipo le sobraban 51px y "Equipo 15" necesita
+                  63, asi que todos se leian "Equip…". Con dos columnas la celda
+                  pasa a 551px y el nombre tiene lugar de sobra.
+                */}
+                <div className="grid gap-0.5 bg-line sm:grid-cols-2">
+                  {[...slot.groups.entries()].map(([group, matches]) => (
+                    <div key={group} className="bg-surface px-4 py-3">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-accent">
+                        {group}
+                      </p>
+
+                      <ul className="mt-2 flex flex-col gap-2">
+                        {matches.map((match) => (
+                          <FixtureRow key={match.id} match={match} />
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         ))}
-      </div>
+      </FixtureFechas>
     </section>
   )
 }
 
-/** "sábado 5 de septiembre, 14:00". El horario del torneo es el de Argentina. */
-function kickoffLabel(iso: string): string {
-  const date = new Date(iso)
-  const day = date.toLocaleDateString('es-AR', {
+/** "sábado 5 de septiembre", para el boton de la fecha. */
+function diaCorto(iso: string): string {
+  return new Date(iso).toLocaleDateString('es-AR', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     timeZone: AR_TIME_ZONE,
   })
-  const time = date.toLocaleTimeString('es-AR', {
+}
+
+/**
+ * "14:00". El horario del torneo es el de Argentina.
+ *
+ * `hourCycle: 'h23'` no es decorativo: sin eso, `es-AR` en el ICU que traen
+ * Node y los navegadores devuelve "02:00 p. m.". Y es h23 y no `hour12: false`,
+ * que para la medianoche da "24:00" en vez de "00:00".
+ */
+function horaCorta(iso: string): string {
+  return new Date(iso).toLocaleTimeString('es-AR', {
     hour: '2-digit',
     minute: '2-digit',
+    hourCycle: 'h23',
     timeZone: AR_TIME_ZONE,
   })
-  return `${day}, ${time}`
 }
 
 function FixtureRow({ match }: { match: FixtureResultRow }) {
@@ -533,7 +633,7 @@ function FixtureRow({ match }: { match: FixtureResultRow }) {
   return (
     // data-fixture: es la marca que busca el resaltado para apagar los cruces
     // donde no juega el equipo fijado. Ver TeamFocus.
-    <li data-fixture className="flex items-start gap-2 text-sm transition-opacity duration-200">
+    <li data-fixture className="flex items-center gap-1.5 text-sm transition-opacity duration-200">
       <FixtureTeam
         id={match.team_a_id}
         name={match.team_a_name}
@@ -542,7 +642,13 @@ function FixtureRow({ match }: { match: FixtureResultRow }) {
         align="right"
       />
 
-      <span className="tabular w-12 shrink-0 pt-1 text-center text-xs">
+      {/*
+        w-10 y no w-12: lo mas ancho que muestra es un marcador en kills de dos
+        digitos por lado ("15-23"), que en text-xs son unos 30px. Los 8px que
+        sobraban valen mas repartidos entre los dos nombres, que es lo que se
+        trunca cuando la ventana esta entre 640 y 768.
+      */}
+      <span className="tabular w-10 shrink-0 text-center text-xs">
         {jugado ? (
           <>
             <span className={match.team_a_win ? 'font-bold text-win' : 'text-loss'}>
@@ -591,30 +697,72 @@ function FixtureTeam({
    *
    * aria-pressed arranca en false y lo actualiza TeamFocus por DOM, porque este
    * árbol lo dibuja el servidor y no se vuelve a renderizar.
+   *
+   * UNA SOLA LÍNEA, CON EL ESCUDO AFUERA. Antes eran dos: el nombre arriba y
+   * abajo "UNER / UADE / UNLP" con un escudo de 16px adelante. En una grilla de
+   * cuatro columnas eso entra a la fuerza —la sigla se truncaba y el escudo era
+   * una mancha—, y encima el fixture es lo más largo de la portada, así que
+   * cada renglón de más se paga cuarenta veces.
+   *
+   * Sacando la línea de siglas queda lugar para el escudo al costado, a 24px,
+   * y la fila mide la mitad. La identidad no se pierde: el escudo es
+   * justamente lo que contesta "de quién es este equipo" sin gastar ancho, que
+   * era el trabajo que hacía el texto cuando no había logos. Los nombres
+   * completos siguen a un hover de distancia, en el title, y la tabla de
+   * posiciones —que sí tiene lugar— los escribe.
    */
+  const universidades = universities ?? []
+
   return (
     <button
       type="button"
       data-team={id}
       aria-pressed={false}
-      title={`Resaltar los partidos de ${name}`}
-      className={`group min-w-0 flex-1 cursor-pointer px-1 ${
-        align === 'right' ? 'text-right' : 'text-left'
+      title={
+        universidades.length > 0
+          ? `Resaltar los partidos de ${name} (${universidades.join(' · ')})`
+          : `Resaltar los partidos de ${name}`
+      }
+      className={`group flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 px-1 ${
+        // El escudo va contra el borde de afuera y el nombre contra el
+        // marcador, así los dos equipos quedan en espejo alrededor del
+        // resultado.
+        align === 'right' ? 'flex-row' : 'flex-row-reverse'
       }`}
     >
+      {/*
+        Los escudos de todas las universidades del equipo, no solo el principal.
+        Entran porque se ve una fecha por vez y los grupos van en dos columnas:
+        a cada equipo le tocan 233px, y tres escudos de 40 con sus separaciones
+        ocupan 142. Sobran 91 para "Equipo 15", que necesita 63.
+
+        A 48px tambien "entrarian" —quedarian 67— pero cuatro pixeles de margen
+        no son margen: cualquier nombre un poco mas largo, o una fuente que
+        cargue distinto, vuelve a cortar el texto. 40 deja 28 de aire.
+
+        En un telefono no entran: con una sola columna el equipo tiene 114px y
+        los tres se comerian el nombre. Ahi se ve el principal nomas —los demas
+        salen con `hidden`— y a 28px en vez de 40.
+      */}
+      {universidades.length > 0 && (
+        <span className="flex shrink-0 items-center gap-1">
+          {universidades.map((tag, i) => (
+            <LogoUniversidad
+              key={tag}
+              tag={tag}
+              size="fixture"
+              className={i > 0 ? 'hidden sm:block' : ''}
+            />
+          ))}
+        </span>
+      )}
       <span
-        className={`block truncate transition-colors group-hover:text-accent ${
-          won === null ? 'text-fg-soft' : won ? 'font-semibold text-fg' : 'text-loss'
-        }`}
+        className={`min-w-0 flex-1 truncate transition-colors group-hover:text-accent ${
+          align === 'right' ? 'text-right' : 'text-left'
+        } ${won === null ? 'text-fg-soft' : won ? 'font-semibold text-fg' : 'text-loss'}`}
       >
         {name}
       </span>
-      {/* Quien es cada equipo: "Equipo 15" solo no dice nada. */}
-      {universities && universities.length > 0 && (
-        <span className="mt-0.5 block text-[11px] leading-tight text-faint">
-          {universities.join(' / ')}
-        </span>
-      )}
     </button>
   )
 }
@@ -673,14 +821,17 @@ function GroupTable({ label, rows }: { label: string; rows: GroupStandingRow[] }
             <th className="w-8 px-2 py-2 text-right font-medium">#</th>
             <th className="px-2 py-2 text-left font-medium">Equipo</th>
             <th className="w-14 px-2 py-2 text-right font-medium">G-P</th>
-            <th className="w-12 px-2 py-2 text-right font-medium">Dif.</th>
             {/*
-              En un teléfono de 360px la tabla tiene 312 de ancho útil y las
-              columnas fijas se comen 232. Sacando "Forma" —la más ancha y la
-              menos importante— el nombre del equipo pasa de 76px a 172 y deja
-              de truncarse en "Equip…".
+              "Dif. de kills" y no "Dif.": es la diferencia entre los kills que
+              hizo el equipo y los que recibio, y sirve de desempate cuando dos
+              quedan con el mismo record. Abreviado no lo adivina nadie.
+
+              w-16 y el texto envuelto en dos lineas. Es una columna de numeros
+              de dos digitos, asi que darle los 78px que mide el titulo entero
+              seria sacarselos al nombre del equipo, que en un telefono es lo
+              que primero se trunca.
             */}
-            <th className="hidden w-24 px-3 py-2 text-right font-medium sm:table-cell">Forma</th>
+            <th className="w-16 px-2 py-2 text-right font-medium">Dif. de kills</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
@@ -706,22 +857,37 @@ function Row({ row }: { row: GroupStandingRow }) {
         {row.position}
       </td>
       <td className="px-2 py-2">
-        <Link
-          href={`/equipos/${row.team_id}`}
-          className={`truncate transition-colors hover:text-accent ${
-            qualified ? 'font-semibold' : 'font-medium'
-          }`}
-        >
-          {row.team_name}
-        </Link>
-        {row.university_tags.length > 0 && (
-          <p
-            className="truncate text-xs text-faint"
-            title={row.university_tags.length > 1 ? row.university_tags.join(' · ') : undefined}
-          >
-            {row.university_tags.join(' / ')}
-          </p>
-        )}
+        {/*
+          El escudo al costado y no adentro de la segunda linea. Puesto ahi
+          media 16px, que para estos dibujos —el de la UNLP tiene una escena
+          entera adentro— es una mancha. Al costado abarca las dos lineas, asi
+          que entra a 32px sin que la fila crezca un pixel: el alto ya lo fijaba
+          el nombre mas la sigla.
+
+          Va solo el principal aunque el equipo represente a tres. Los tres
+          escudos serian 96px de ancho en la columna que tiene que mostrar el
+          nombre, y la linea de abajo ya los nombra a todos.
+        */}
+        <div className="flex items-center gap-2">
+          {row.university_tags[0] && (
+            <LogoUniversidad tag={row.university_tags[0]} size="md" />
+          )}
+          <div className="min-w-0 flex-1">
+            <Link
+              href={`/equipos/${row.team_id}`}
+              className={`block truncate transition-colors hover:text-accent ${
+                qualified ? 'font-semibold' : 'font-medium'
+              }`}
+            >
+              {row.team_name}
+            </Link>
+            {row.university_tags.length > 0 && (
+              <p className="truncate text-xs text-faint">
+                {row.university_tags.join(' / ')}
+              </p>
+            )}
+          </div>
+        </div>
       </td>
       <td className="tabular px-2 py-2 text-right">
         <span className="text-win">{row.wins}</span>
@@ -739,24 +905,6 @@ function Row({ row }: { row: GroupStandingRow }) {
       >
         {row.kill_diff > 0 ? '+' : ''}
         {row.kill_diff}
-      </td>
-      <td className="hidden px-3 py-2 sm:table-cell">
-        <span className="flex justify-end gap-1">
-          {(row.form ?? [])
-            .slice()
-            .reverse()
-            .map((win, index) => (
-              <span
-                key={index}
-                title={win ? 'Victoria' : 'Derrota'}
-                className={`flex size-4 items-center justify-center rounded text-[9px] font-bold ${
-                  win ? 'bg-accent-dim text-win' : 'bg-raised text-loss'
-                }`}
-              >
-                {win ? 'V' : 'D'}
-              </span>
-            ))}
-        </span>
       </td>
     </tr>
   )

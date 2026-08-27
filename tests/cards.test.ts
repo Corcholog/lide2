@@ -451,7 +451,7 @@ describe('el lote contra la base de verdad', () => {
       const matchId = await playScoreboard(db, {
         winner: matchday === 1 ? 'blue' : 'red',
         minutes: matchday === 1 ? 24 : 38,
-        blue: ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY'].map((position, index) => ({
+        blue: ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'SUPPORT'].map((position, index) => ({
           puuid: `a${index}`,
           position,
           champion: `Azul${index}`,
@@ -460,7 +460,7 @@ describe('el lote contra la base de verdad', () => {
           assists: 5,
           damage: 20_000,
         })),
-        red: ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY'].map((position, index) => ({
+        red: ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'SUPPORT'].map((position, index) => ({
           puuid: `b${index}`,
           position,
           champion: `Rojo${index}`,

@@ -112,14 +112,14 @@ describe('estadisticas', () => {
           { puuid: BLUE[1], position: 'JUNGLE', kills: 5, deaths: 2, assists: 8, damage: 20_000 },
           { puuid: BLUE[2], position: 'MIDDLE', kills: 8, deaths: 2, assists: 6, damage: 34_000 },
           { puuid: BLUE[3], position: 'BOTTOM', kills: 3, deaths: 3, assists: 5, damage: 22_000 },
-          { puuid: BLUE[4], position: 'UTILITY', kills: 0, deaths: 2, assists: 16, damage: 6_000 },
+          { puuid: BLUE[4], position: 'SUPPORT', kills: 0, deaths: 2, assists: 16, damage: 6_000 },
         ],
         red: [
           { puuid: RED[0], position: 'TOP', kills: 1, deaths: 3, assists: 1, damage: 12_000 },
           { puuid: RED[1], position: 'JUNGLE', kills: 1, deaths: 4, assists: 2, damage: 11_000 },
           { puuid: RED[2], position: 'MIDDLE', kills: 2, deaths: 3, assists: 1, damage: 16_000 },
           { puuid: RED[3], position: 'BOTTOM', kills: 1, deaths: 4, assists: 2, damage: 14_000 },
-          { puuid: RED[4], position: 'UTILITY', kills: 0, deaths: 6, assists: 3, damage: 4_000 },
+          { puuid: RED[4], position: 'SUPPORT', kills: 0, deaths: 6, assists: 3, damage: 4_000 },
         ],
       })
     })
@@ -131,7 +131,7 @@ describe('estadisticas', () => {
         [matchId],
       )
 
-      expect(rows[0].position).toBe('UTILITY')
+      expect(rows[0].position).toBe('SUPPORT')
       expect(rows[0].riot_game_name).toBe('b-sup')
     })
 

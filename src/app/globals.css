@@ -271,3 +271,36 @@ h3 {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/*
+ * La tira de universidades de la portada. Recorre media pista y vuelve a cero:
+ * como la lista esta dos veces, en ese punto la segunda copia quedo exactamente
+ * donde arrancaba la primera y el salto no se ve.
+ *
+ * Solo se usa dentro de `motion-safe:`, asi que con prefers-reduced-motion la
+ * tira no se mueve y queda como una fila que se arrastra a mano.
+ */
+@keyframes tira {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/*
+ * El cambio de fecha en el fixture. El panel nuevo entra desde el lado hacia el
+ * que se avanza: yendo a la fecha siguiente aparece por la derecha y se acomoda
+ * hacia la izquierda.
+ *
+ * Se desplaza poco (6%) y no una pantalla entera: los paneles estan apilados en
+ * el mismo lugar, asi que no hay nada que "venga viajando" desde afuera; el
+ * corrimiento corto mas el fundido alcanzan para que se lea como un cambio de
+ * pagina sin que parezca que algo se cayo. Solo se usa dentro de motion-safe.
+ */
+@keyframes entra-izq {
+  from { transform: translateX(6%); opacity: 0; }
+  to   { transform: none;           opacity: 1; }
+}
+
+@keyframes entra-der {
+  from { transform: translateX(-6%); opacity: 0; }
+  to   { transform: none;            opacity: 1; }
+}

@@ -491,6 +491,27 @@ export interface TeamAccountRow {
   linked: boolean
 }
 
+/**
+ * Un lugar del plantel de un equipo, de `team_lineup`.
+ *
+ * Es un casillero, no un jugador: los cinco roles existen siempre y los del
+ * banco salen de cuántos anotó el equipo. `player_id` en null es un lugar que
+ * todavía no se sabe quién ocupa, y se dibuja con el nombre del rol.
+ */
+export interface TeamLineupRow {
+  team_id: string
+  /** 1 a 5 los titulares, de Top a Soporte; de 6 en adelante el banco. */
+  slot: number
+  /** El rol del lugar, o null si es del banco. */
+  role: string | null
+  /** 1, 2, 3… para los del banco; null para los titulares. */
+  sub_number: number | null
+  is_substitute: boolean
+  player_id: string | null
+  name: string | null
+  games: number
+}
+
 /** Una fila de `tournament_mvp`: el ranking de MVP del recorte. */
 export interface TournamentMvpRow extends StatScopeColumns {
   player_id: string | null

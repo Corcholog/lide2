@@ -169,7 +169,7 @@ describe('replay real anonimizado (parche 16.12)', () => {
       expect(match.players).toHaveLength(10)
       expect(Object.keys(match.players[0].raw).length).toBeGreaterThan(300)
       expect(new Set(match.players.map((p) => p.position))).toEqual(
-        new Set(['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY']),
+        new Set(['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'SUPPORT']),
       )
       expect(match.players.filter((p) => p.win)).toHaveLength(5)
     } finally {

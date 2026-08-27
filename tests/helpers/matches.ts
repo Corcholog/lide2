@@ -127,7 +127,7 @@ export interface ScoreboardOptions {
   minutes?: number
 }
 
-const POSITIONS = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY']
+const POSITIONS = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'SUPPORT']
 
 /**
  * Arma una partida con el scoreboard entero, como la deja la ingesta.
