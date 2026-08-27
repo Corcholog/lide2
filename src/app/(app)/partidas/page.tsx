@@ -3,6 +3,7 @@ import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
 import { formatDate, formatDuration, formatGold, formatKda } from '@/lib/format'
+import { resolveTournamentId } from '@/lib/stats/query'
 import type { MatchSummaryRow } from '@/types/db'
 
 export const metadata = {
@@ -16,17 +17,34 @@ export default async function MatchesPage() {
   // La lista se ve sin sesión; subir replays, no.
   const user = await getUser()
   const supabase = await createClient()
-  // El cartel de error que tenía esta página se fue al error.tsx del sitio:
-  // era el único lugar donde un fallo se veía, y encima mostraba el mensaje
-  // crudo de Postgres a cualquiera que entrara.
-  const matches = rows<MatchSummaryRow>(
-    await supabase
-      .from('match_summaries')
-      .select('*')
-      .order('played_at', { ascending: false, nullsFirst: false })
-      .limit(100),
-    'las partidas',
-  )
+  /*
+   * Sólo las partidas del torneo.
+   *
+   * Sin el filtro esta lista mostraba `match_summaries` entera, o sea todo
+   * .rofl que alguna vez se haya subido: los de prueba, los de otro torneo y
+   * los que están esperando que alguien los asigne a su cruce. Nada de eso es
+   * la LIDE 2, y en una página pública se lee como si lo fuera.
+   *
+   * Las que todavía no tienen cruce se ven en /admin/asignar, que es donde
+   * hace falta verlas.
+   *
+   * El cartel de error que tenía esta página se fue al error.tsx del sitio:
+   * era el único lugar donde un fallo se veía, y encima mostraba el mensaje
+   * crudo de Postgres a cualquiera que entrara.
+   */
+  const tournamentId = await resolveTournamentId(supabase)
+
+  const matches = tournamentId
+    ? rows<MatchSummaryRow>(
+        await supabase
+          .from('match_summaries')
+          .select('*')
+          .eq('tournament_id', tournamentId)
+          .order('played_at', { ascending: false, nullsFirst: false })
+          .limit(100),
+        'las partidas',
+      )
+    : []
 
   return (
     <div className="flex flex-col gap-6">

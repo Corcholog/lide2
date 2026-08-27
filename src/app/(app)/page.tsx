@@ -674,7 +674,13 @@ function GroupTable({ label, rows }: { label: string; rows: GroupStandingRow[] }
             <th className="px-2 py-2 text-left font-medium">Equipo</th>
             <th className="w-14 px-2 py-2 text-right font-medium">G-P</th>
             <th className="w-12 px-2 py-2 text-right font-medium">Dif.</th>
-            <th className="w-24 px-3 py-2 text-right font-medium">Forma</th>
+            {/*
+              En un teléfono de 360px la tabla tiene 312 de ancho útil y las
+              columnas fijas se comen 232. Sacando "Forma" —la más ancha y la
+              menos importante— el nombre del equipo pasa de 76px a 172 y deja
+              de truncarse en "Equip…".
+            */}
+            <th className="hidden w-24 px-3 py-2 text-right font-medium sm:table-cell">Forma</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-line">
@@ -734,7 +740,7 @@ function Row({ row }: { row: GroupStandingRow }) {
         {row.kill_diff > 0 ? '+' : ''}
         {row.kill_diff}
       </td>
-      <td className="px-3 py-2">
+      <td className="hidden px-3 py-2 sm:table-cell">
         <span className="flex justify-end gap-1">
           {(row.form ?? [])
             .slice()
