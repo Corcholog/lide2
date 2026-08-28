@@ -75,7 +75,7 @@ export default async function AdminPage() {
           n={3}
           href="/admin/planteles"
           title="Planteles"
-          detail="Qué cuenta de Riot es cada inscripto. Sólo cambia la tabla de universidades."
+          detail="Quiénes están anotados y qué cuenta de Riot es cada uno. Acá van los cambios de plantel."
           badge={sinEmparejar > 0 ? `${sinEmparejar} sin emparejar` : 'completo'}
         />
         <Step

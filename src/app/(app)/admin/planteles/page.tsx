@@ -4,24 +4,31 @@ import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
 import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { RosterImport } from '@/components/admin/RosterImport'
-import { RosterTeam } from '@/components/admin/RosterTeam'
+import { RosterTeam, type UniversityOption } from '@/components/admin/RosterTeam'
 import type { RosterStatusRow, TeamAccountRow } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * Emparejar los 113 inscriptos con sus cuentas de Riot.
+ * Los planteles: quiénes están anotados en cada equipo y qué cuenta de Riot es
+ * cada uno.
  *
- * Para qué sirve: la universidad. Dieciséis de los 20 equipos son de una sola
- * casa, y ahí el respaldo (la universidad del equipo) ya es exacto. Los cuatro
- * armados con inscripciones individuales —13, 15, 16 y 17— tienen 2 de cada 5
- * mal atribuidos. Y hay dos universidades, UADE y UNCuyo, que tienen un solo
+ * QUIÉNES. La planilla de inscripción es de antes de que empiece el torneo y no
+ * es definitiva: se cae gente, entra un suplente, un nombre vino mal escrito.
+ * Cada fila se edita, se da de baja y se agregan las que hagan falta; el
+ * plantel de un equipo se guarda entero de una vez.
+ *
+ * QUÉ CUENTA. Emparejar a cada inscripto con su cuenta de Riot sirve para una
+ * cosa: la universidad. Dieciséis de los 20 equipos son de una sola casa, y ahí
+ * el respaldo (la universidad del equipo) ya es exacto. Los cuatro armados con
+ * inscripciones individuales —13, 15, 16 y 17— tienen 2 de cada 5 mal
+ * atribuidos. Y hay dos universidades, UADE y UNCuyo, que tienen un solo
  * inscripto cada una y las dos adentro de equipos mezclados: sin este
  * emparejado no aparecen en ninguna tabla.
  *
  * Los nombres de esta pantalla son legales, de un formulario de inscripción. No
  * salen de acá: `team_roster` es la única tabla que se queda detrás del login
- * cuando el sitio se abra al público.
+ * ahora que el sitio está abierto al público.
  */
 export default async function PlantelesPage() {
   await requireUser()
@@ -33,13 +40,23 @@ export default async function PlantelesPage() {
     .eq('slug', TOURNAMENT.slug)
     .maybeSingle()
 
-  const [rosterRes, accountsRes] = await Promise.all([
+  // Los equipos salen de `teams` y no de los inscriptos: un equipo al que se le
+  // dieron de baja los cinco tiene que seguir teniendo su tarjeta, que es el
+  // único lugar desde donde se le puede volver a cargar gente.
+  const [teamsRes, rosterRes, accountsRes, universitiesRes] = await Promise.all([
+    supabase.from('teams').select('id,name,group_label').order('name'),
     supabase.from('roster_status').select('*').order('team_name').order('order_index'),
     supabase.from('team_accounts').select('*'),
+    supabase.from('universities').select('id,tag,name').order('tag'),
   ])
 
+  const teams = rows<{ id: string; name: string; group_label: string | null }>(
+    teamsRes,
+    'los equipos',
+  )
   const roster = rows<RosterStatusRow>(rosterRes, 'los inscriptos')
   const accounts = rows<TeamAccountRow>(accountsRes, 'las cuentas enlazadas')
+  const universities = rows<UniversityOption>(universitiesRes, 'las universidades')
 
   const byTeam = new Map<string, RosterStatusRow[]>()
   for (const row of roster) {
@@ -61,8 +78,8 @@ export default async function PlantelesPage() {
         <div>
           <h1 className="font-display text-3xl uppercase tracking-tight">Planteles</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted">
-            Qué cuenta de Riot es cada inscripto. Sirve para atribuir bien la universidad en los
-            cuatro equipos que mezclan varias; en los otros dieciséis ya sale bien solo.
+            Quiénes están anotados en cada equipo y qué cuenta de Riot es cada uno. Los cambios de
+            plantel de antes del torneo —altas, bajas y correcciones de nombre— se hacen acá.
           </p>
         </div>
         <Link
@@ -80,10 +97,10 @@ export default async function PlantelesPage() {
         <Stat label="Cuentas sin dueño" value={orphans} />
       </dl>
 
-      {roster.length === 0 ? (
+      {teams.length === 0 ? (
         <p className="border-2 border-dashed border-line-strong px-6 py-10 text-center text-sm text-fg-soft">
           {tournament
-            ? 'No hay inscriptos cargados.'
+            ? 'No hay equipos cargados.'
             : 'El torneo no está en la base. Corré `npm run seed:lide2`.'}
         </p>
       ) : (
@@ -94,19 +111,18 @@ export default async function PlantelesPage() {
             El Riot ID se puede cargar antes de que jueguen: cuando aparezca la cuenta en un replay
             se empareja sola. El desplegable sólo muestra cuentas de gente que ya jugó en ese
             equipo, y sirve para los casos en que el nick declarado no coincide con el que usaron.
+            Dar de baja a un inscripto no borra su cuenta ni sus partidas: saca el nombre de la
+            planilla y achica el banco del plantel.
           </p>
 
-          <div className="grid gap-4 xl:grid-cols-2">
-            {[...byTeam.entries()].map(([teamId, rows]) => (
+          <div className="grid gap-4">
+            {teams.map((team) => (
               <RosterTeam
-                key={teamId}
-                team={{
-                  id: teamId,
-                  name: rows[0].team_name,
-                  groupLabel: rows[0].group_label,
-                }}
-                rows={rows}
-                accounts={accountsByTeam.get(teamId) ?? []}
+                key={team.id}
+                team={{ id: team.id, name: team.name, groupLabel: team.group_label }}
+                rows={byTeam.get(team.id) ?? []}
+                accounts={accountsByTeam.get(team.id) ?? []}
+                universities={universities}
               />
             ))}
           </div>

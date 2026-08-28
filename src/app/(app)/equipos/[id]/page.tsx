@@ -135,10 +135,13 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
             <span className="text-xs text-dim">Sólo visible con sesión</span>
           </div>
           <ul className="divide-y divide-line rounded-lg border border-line">
-            {roster.map((entry) => (
+            {roster.map((entry, index) => (
               <li key={entry.id} className="flex items-center gap-4 px-4 py-2 text-sm">
+                {/* La posición en la lista y no `order_index`: ese es el orden
+                    de la planilla y queda con huecos cuando alguien se da de
+                    baja desde el panel. */}
                 <span className="tabular w-5 shrink-0 text-right text-xs text-dim">
-                  {entry.order_index + 1}
+                  {index + 1}
                 </span>
                 <span className="min-w-0 flex-1 truncate">
                   {entry.display_name ?? entry.full_name}

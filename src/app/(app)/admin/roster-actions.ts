@@ -2,23 +2,28 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireUser } from '@/lib/auth'
-import { parseRiotId } from '@/lib/format'
+import { planRosterEdit, readRosterForm, type RosterCurrentRow } from '@/lib/roster/edit'
 import { matchRosterLines, type RosterCandidate, type RosterImportResult } from '@/lib/roster/import'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createClient } from '@/lib/supabase/server'
 import type { RosterStatusRow } from '@/types/db'
 
 /**
- * Emparejar inscriptos con cuentas de Riot.
+ * Los planteles: quiénes están anotados y qué cuenta de Riot es cada uno.
  *
- * Tres caminos, del más cómodo al más manual:
+ * Dos cosas distintas que viven en el mismo formulario porque se hacen en el
+ * mismo momento:
  *
- *   1. Pegar la lista que mande la organización (importRosterAction).
- *   2. Escribir el Riot ID de a uno, por equipo (saveTeamRosterAction).
- *   3. Elegir a mano una de las cuentas que ya jugaron en ese equipo, para los
- *      que no coincidieron por texto (saveTeamRosterAction, mismo formulario).
+ *   - QUIÉNES. Alta, baja y modificación de inscriptos (saveTeamRosterAction).
+ *     La planilla de inscripción no es definitiva: hasta que arranque el torneo
+ *     se cae gente, entran suplentes y se corrigen nombres.
+ *   - QUÉ CUENTA. El emparejado con `players`, por tres caminos del más cómodo
+ *     al más manual: pegar la lista que mande la organización
+ *     (importRosterAction), escribir el Riot ID de a uno, o elegir a mano una de
+ *     las cuentas que ya jugaron en ese equipo (los dos últimos, mismo
+ *     formulario que el alta).
  *
- * En los tres, quien decide qué cuenta es de quién es una persona. Lo único
+ * Quien decide qué cuenta es de quién es siempre una persona. Lo único
  * automático es la coincidencia exacta de Riot ID, que la hace
  * `link_roster_accounts()` en la base.
  */
@@ -32,20 +37,28 @@ function refresh() {
 export interface RosterActionResult {
   ok: boolean
   error?: string
-  /** Filas cuyo Riot ID declarado cambió. */
+  /** Inscriptos que se volvieron a escribir. */
   saved?: number
+  /** Inscriptos dados de alta. */
+  added?: number
+  /** Inscriptos dados de baja. */
+  removed?: number
   /** Inscriptos que quedaron emparejados con una cuenta real. */
   linked?: number
   imported?: RosterImportResult
 }
 
 /**
- * Guarda un equipo entero de una.
+ * Guarda el plantel de un equipo entero de una.
  *
- * El formulario manda `riot-<rosterId>` (el Riot ID escrito a mano) y
- * `player-<rosterId>` (la cuenta elegida del desplegable) por cada inscripto.
- * Un solo botón para las cinco filas: guardar de a una son cinco viajes y cinco
+ * Un solo botón para las cinco o siete filas, y para las tres operaciones a la
+ * vez: guardar de a un campo son cinco viajes al servidor y cinco
  * revalidaciones para completar un plantel.
+ *
+ * El formulario manda el plantel completo —una fila por inscripto, más las que
+ * se hayan agregado en pantalla— y acá se compara contra lo que hay en la base.
+ * `planRosterEdit` decide qué se borra, qué se actualiza y qué se crea, y
+ * rechaza el formulario entero si no coincide con el plantel de hoy.
  */
 export async function saveTeamRosterAction(
   _prev: RosterActionResult | null,
@@ -53,62 +66,71 @@ export async function saveTeamRosterAction(
 ): Promise<RosterActionResult> {
   await requireUser()
 
-  const rows = new Map<string, { riot: string; playerId: string }>()
-
-  for (const [key, value] of formData.entries()) {
-    const [field, rosterId] = [key.slice(0, key.indexOf('-')), key.slice(key.indexOf('-') + 1)]
-    if (field !== 'riot' && field !== 'player') continue
-
-    const current = rows.get(rosterId) ?? { riot: '', playerId: '' }
-    rows.set(rosterId, { ...current, [field === 'riot' ? 'riot' : 'playerId']: String(value) })
-  }
-
-  // Una cuenta es de una sola persona: hay un índice único que lo garantiza,
-  // pero elegir la misma dos veces es un error de dedo, no un error de base, y
-  // conviene decirlo antes de escribir nada.
-  const chosen = [...rows.values()].map((row) => row.playerId).filter(Boolean)
-  if (new Set(chosen).size !== chosen.length) {
-    return { ok: false, error: 'Hay una misma cuenta elegida para dos inscriptos.' }
-  }
+  const teamId = String(formData.get('teamId') ?? '')
+  if (!teamId) return { ok: false, error: 'Falta el equipo.' }
 
   const supabase = createAdminClient()
 
-  // Se limpia antes de asignar: si dos filas se intercambian las cuentas, hacer
-  // los updates de a uno chocaría contra el índice único a mitad de camino.
-  const { error: clearError } = await supabase
+  // Se lee el plantel de hoy en vez de confiar en lo que manda el navegador:
+  // el formulario pudo haberse dibujado antes de otra edición, y el `id` es lo
+  // único que decide a quién se le escribe encima. Sin los nombres: lo que va a
+  // quedar guardado es lo que escribió el usuario, así que no hacen falta.
+  const { data: actual, error: readError } = await supabase
     .from('team_roster')
-    .update({ player_id: null })
-    .in('id', [...rows.keys()])
+    .select('id,order_index')
+    .eq('team_id', teamId)
 
-  if (clearError) return { ok: false, error: clearError.message }
+  if (readError) return { ok: false, error: readError.message }
 
-  let saved = 0
-  let linked = 0
+  const current: RosterCurrentRow[] = (actual ?? []).map((row) => ({
+    id: row.id as string,
+    orderIndex: row.order_index as number,
+  }))
 
-  for (const [rosterId, row] of rows) {
-    const parsed = parseRiotId(row.riot)
+  const plan = planRosterEdit(teamId, readRosterForm(formData), current)
+  if (!plan.ok) return { ok: false, error: plan.error }
 
+  if (plan.remove.length > 0) {
+    const { error } = await supabase.from('team_roster').delete().in('id', plan.remove)
+    if (error) return { ok: false, error: error.message }
+  }
+
+  // Se limpian las cuentas antes de asignarlas: si dos filas se intercambian la
+  // cuenta, escribirlas de a una chocaría contra el índice único de player_id a
+  // mitad de camino.
+  if (plan.update.length > 0) {
     const { error } = await supabase
       .from('team_roster')
-      .update({
-        riot_game_name: parsed?.gameName ?? null,
-        riot_tag_line: parsed?.tagLine ?? null,
-        player_id: row.playerId || null,
-      })
-      .eq('id', rosterId)
+      .update({ player_id: null })
+      .in('id', plan.update.map((row) => row.id))
 
     if (error) return { ok: false, error: error.message }
-    saved++
-    if (row.playerId) linked++
+
+    const { error: saveError } = await supabase
+      .from('team_roster')
+      .upsert(plan.update, { onConflict: 'id' })
+
+    if (saveError) return { ok: false, error: saveError.message }
+  }
+
+  if (plan.create.length > 0) {
+    const { error } = await supabase.from('team_roster').insert(plan.create)
+    if (error) return { ok: false, error: error.message }
   }
 
   // Y se intenta cerrar lo que se acaba de escribir contra las cuentas que ya
   // existan: si la persona ya jugó, queda emparejada en el acto.
-  const teamId = String(formData.get('teamId') ?? '')
-  const { data } = await supabase.rpc('link_roster_accounts', { p_team_id: teamId || null })
+  const { data: linked } = await supabase.rpc('link_roster_accounts', { p_team_id: teamId })
 
   refresh()
-  return { ok: true, saved, linked: linked + Number(data ?? 0) }
+  return {
+    ok: true,
+    saved: plan.update.length,
+    added: plan.create.length,
+    removed: plan.remove.length,
+    linked:
+      [...plan.update, ...plan.create].filter((row) => row.player_id).length + Number(linked ?? 0),
+  }
 }
 
 /**
