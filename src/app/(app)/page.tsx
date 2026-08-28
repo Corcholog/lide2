@@ -1,8 +1,10 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { maybeRow, rows } from '@/lib/supabase/query'
 import {
+  AR_TIME_ZONE,
   CALENDAR,
   SLOGAN_PARTS,
   TOURNAMENT,
@@ -24,7 +26,6 @@ import type {
 export const dynamic = 'force-dynamic'
 
 /** El torneo se juega en horario argentino, se mire desde donde se mire. */
-const AR_TIME_ZONE = 'America/Argentina/Buenos_Aires'
 
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
 
@@ -107,6 +108,7 @@ export default async function Lide2Page() {
   )
 
   const tournamentId = tournament?.id ?? null
+  const user = await getUser()
 
   const [standingsRes, seriesRes, fixtureRes] = tournamentId
     ? await Promise.all([
@@ -168,7 +170,13 @@ export default async function Lide2Page() {
 
       <Universidades universidades={universidades} />
 
-      {!tournamentId && (
+      {/*
+        El cartel rojo de "falta correr el seed" es para quien administra. Un
+        visitante no puede hacer nada con eso: lo unico que le dice es que la
+        pagina esta rota. Sin sesion no se muestra nada y el resto de la portada
+        —el calendario, la sede, la cuenta regresiva— sigue teniendo sentido.
+      */}
+      {!tournamentId && user && (
         <p className="rounded border border-danger/40 bg-danger-dim px-4 py-3 text-sm text-danger">
           El torneo todavía no está cargado en la base. Corré <code>npm run seed:lide2</code>.
         </p>

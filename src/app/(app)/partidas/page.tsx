@@ -3,6 +3,7 @@ import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
 import { formatDate, formatDuration, formatGold, formatKda } from '@/lib/format'
+import { inicioDelTorneo, TOURNAMENT } from '@/lib/lide2/tournament'
 import { resolveTournamentId } from '@/lib/stats/query'
 import type { MatchSummaryRow } from '@/types/db'
 
@@ -69,7 +70,17 @@ export default async function MatchesPage() {
 
       {matches.length === 0 ? (
         <div className="rounded-lg border border-dashed border-line-strong px-6 py-14 text-center">
-          <p className="text-fg-soft">Subí los .rofl de las partidas jugadas para empezar.</p>
+          {/*
+            Dos textos porque son dos personas distintas. Con sesión esto es una
+            pantalla de trabajo y lo que falta es subir los archivos. Sin sesión
+            es alguien que entró a ver el torneo: pedirle que suba un .rofl es
+            pedirle algo que no puede hacer, con una palabra que capaz ni conoce.
+          */}
+          <p className="text-fg-soft">
+            {user
+              ? 'Subí los .rofl de las partidas jugadas para empezar.'
+              : `Todavía no se jugó ninguna partida. La ${TOURNAMENT.name} arranca el ${inicioDelTorneo()}.`}
+          </p>
         </div>
       ) : (
         <ul className="flex flex-col gap-2">

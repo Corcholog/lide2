@@ -1,6 +1,7 @@
+import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { formatDuration, formatNumber } from '@/lib/format'
-import { TOURNAMENT } from '@/lib/lide2/tournament'
+import { inicioDelTorneo, TOURNAMENT } from '@/lib/lide2/tournament'
 import { loadStats, resolveTournamentId } from '@/lib/stats/query'
 import { buildStats } from '@/lib/stats/registry'
 import { StatCard } from '@/components/estadisticas/StatCard'
@@ -19,13 +20,25 @@ export const dynamic = 'force-dynamic'
 
 export default async function StatsPage({ searchParams }: PageProps<'/estadisticas'>) {
   const supabase = await createClient()
-  const tournamentId = await resolveTournamentId(supabase)
+  const [user, tournamentId] = await Promise.all([getUser(), resolveTournamentId(supabase)])
 
   if (!tournamentId) {
-    return (
+    /*
+      Sin torneo en la base no hay nada que mostrar, pero el motivo le importa a
+      una sola persona. A quien administra le sirve el comando exacto; a un
+      visitante, un comando de terminal en pantalla es ruido —y encima delata
+      que algo esta a medio armar—. Para el es simplemente que todavia no se
+      publico.
+    */
+    return user ? (
       <Empty
         title="Todavía no hay torneo cargado"
         detail={`Corré \`npm run seed:lide2\` para crear la ${TOURNAMENT.name} en la base.`}
+      />
+    ) : (
+      <Empty
+        title="Todavía no hay estadísticas"
+        detail={`La ${TOURNAMENT.name} arranca el ${inicioDelTorneo()}. En cuanto se juegue la primera fecha, esta página se llena sola.`}
       />
     )
   }

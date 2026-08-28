@@ -27,6 +27,7 @@ const TAMANOS = {
   sm: 'size-6', //  24px  el fixture, que es la grilla mas apretada
   md: 'size-8', //  32px  la tabla de posiciones
   lg: 'size-9', //  36px  la tira de la portada
+  card: 'size-12', // 48px  la columna de la card en /equipos
   xl: 'size-16', // 64px  el encabezado de la ficha del equipo
   // El unico que cambia con el ancho. En el fixture entran los escudos de las
   // tres universidades de un equipo mixto, pero solo cuando hay dos columnas:

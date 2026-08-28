@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
+import { inicioDelTorneo } from '@/lib/lide2/tournament'
+import { LogosUniversidad } from '@/components/torneo/LogoUniversidad'
 import { createTeamAction, relinkAction } from './actions'
 
 export const metadata = {
@@ -30,18 +32,43 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
   const created = Number(params.creados ?? 0)
 
   const supabase = await createClient()
-  const teams = rows<TeamTotalsRow>(
-    await supabase.from('team_totals').select('*').order('wins', { ascending: false }),
-    'los equipos',
-  )
+  const [totalsRes, unisRes] = await Promise.all([
+    supabase.from('team_totals').select('*').order('wins', { ascending: false }),
+    // Las siglas alcanzan: el archivo del escudo sale del tag. Ver LogoUniversidad.
+    supabase
+      .from('team_universities')
+      .select('team_id,order_index,universities(tag)')
+      .order('order_index'),
+  ])
+
+  const teams = rows<TeamTotalsRow>(totalsRes, 'los equipos')
+
+  const universidades = new Map<string, string[]>()
+  for (const fila of rows<{ team_id: string; universities: { tag: string } | null }>(
+    unisRes as never,
+    'las universidades de los equipos',
+  )) {
+    if (!fila.universities) continue
+    universidades.set(fila.team_id, [
+      ...(universidades.get(fila.team_id) ?? []),
+      fila.universities.tag,
+    ])
+  }
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Equipos</h1>
+          {/*
+            Como se vinculan las partidas con los equipos es una regla de la
+            ingesta: le sirve a quien administra y a nadie mas. Un visitante
+            quiere saber cuantos equipos hay.
+          */}
           <p className="mt-1 text-sm text-muted">
-            Cada partida se vincula sola cuando 3 o más de sus jugadores están en el roster.
+            {user
+              ? 'Cada partida se vincula sola cuando 3 o más de sus jugadores están en el roster.'
+              : `Los ${teams.length} equipos del torneo, ordenados por victorias.`}
           </p>
         </div>
         {user && (
@@ -90,32 +117,83 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
       {teams.length === 0 ? (
         <div className="rounded-lg border border-dashed border-line-strong px-6 py-12 text-center text-fg-soft">
           <p>Todavía no hay equipos.</p>
+          {/* "Detectar desde las partidas" es un boton del panel: sin sesion no
+              existe, asi que nombrarlo manda a buscar algo que no esta. */}
           <p className="mt-1 text-sm text-faint">
-            Probá con &ldquo;Detectar desde las partidas&rdquo;: agrupa a los jugadores por quiénes
-            jugaron juntos.
+            {user
+              ? 'Probá con “Detectar desde las partidas”: agrupa a los jugadores por quiénes jugaron juntos.'
+              : `Los equipos se publican antes del arranque, el ${inicioDelTorneo()}.`}
           </p>
         </div>
       ) : (
-        <ul className="divide-y divide-line rounded-lg border border-line">
-          {teams.map((team) => (
-            <li key={team.team_id}>
-              <Link
-                href={`/equipos/${team.team_id}`}
-                className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-surface"
-              >
-                <span className="flex-1 truncate font-medium">{team.name}</span>
-                <span className="tabular text-sm text-muted">
-                  {team.wins}–{team.games - team.wins}
-                </span>
-                <span className="tabular w-16 text-right text-sm text-faint">
-                  {team.games > 0 ? `${Math.round((team.wins / team.games) * 100)}%` : '—'}
-                </span>
-                <span className="tabular hidden w-24 text-right text-sm text-faint sm:inline">
-                  {team.avg_minutes ? `${team.avg_minutes} min` : '—'}
-                </span>
-              </Link>
-            </li>
-          ))}
+        /*
+          Cards y no una lista de renglones. Con veinte equipos, cuatro numeros
+          y el nombre, la lista dejaba media pantalla vacia a la derecha y no
+          habia donde poner el escudo sin apretarlo contra el texto. En la card
+          el escudo entra grande y arriba, que es lo que hace reconocible al
+          equipo de un vistazo: "Equipo 15" no lo hace.
+
+          Van los escudos de las tres universidades de los equipos mixtos: aca
+          hay lugar, a diferencia del fixture.
+        */
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {teams.map((team) => {
+            const tags = universidades.get(team.team_id) ?? []
+            const derrotas = team.games - team.wins
+
+            return (
+              <li key={team.team_id}>
+                <Link
+                  href={`/equipos/${team.team_id}`}
+                  className="flex h-full gap-3 border-2 border-line bg-surface p-4 transition-colors hover:border-accent"
+                >
+                  {/*
+                    Los escudos en columna propia y no en una fila arriba. En
+                    tres columnas la card tiene 328px de contenido y el texto
+                    —nombre, siglas y los tres numeros— necesita unos 200: el
+                    ancho que sobraba estaba vacio mientras los escudos se
+                    apretaban a 32px arriba de todo. Al costado entran a 48 y de
+                    paso la card queda mas baja.
+                  */}
+                  <LogosUniversidad tags={tags} size="card" max={3} className="flex-col" />
+
+                  <div className="flex min-w-0 flex-1 flex-col gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{team.name}</p>
+                      {tags.length > 0 && (
+                        <p className="truncate text-xs text-faint">{tags.join(' / ')}</p>
+                      )}
+                    </div>
+
+                    {/* mt-auto: las cards de una fila miden lo mismo, asi que
+                        los numeros quedan abajo aunque un nombre ocupe dos. */}
+                    <dl className="mt-auto flex items-end justify-between gap-2 border-t border-line pt-3">
+                      <div>
+                        <dt className="text-[10px] uppercase tracking-[0.15em] text-dim">Récord</dt>
+                        <dd className="tabular text-sm">
+                          <span className="text-win">{team.wins}</span>
+                          <span className="text-dim">–</span>
+                          <span className="text-loss">{derrotas}</span>
+                        </dd>
+                      </div>
+                      <div className="text-right">
+                        <dt className="text-[10px] uppercase tracking-[0.15em] text-dim">Victorias</dt>
+                        <dd className="tabular text-sm text-muted">
+                          {team.games > 0 ? `${Math.round((team.wins / team.games) * 100)}%` : '—'}
+                        </dd>
+                      </div>
+                      <div className="text-right">
+                        <dt className="text-[10px] uppercase tracking-[0.15em] text-dim">Duración</dt>
+                        <dd className="tabular text-sm text-muted">
+                          {team.avg_minutes ? `${team.avg_minutes} min` : '—'}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                </Link>
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>
