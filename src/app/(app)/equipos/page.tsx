@@ -145,51 +145,53 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
               <li key={team.team_id}>
                 <Link
                   href={`/equipos/${team.team_id}`}
-                  className="flex h-full gap-3 border-2 border-line bg-surface p-4 transition-colors hover:border-accent"
+                  className="flex h-full flex-col gap-3 border-2 border-line bg-surface p-4 transition-colors hover:border-accent"
                 >
                   {/*
-                    Los escudos en columna propia y no en una fila arriba. En
-                    tres columnas la card tiene 328px de contenido y el texto
-                    —nombre, siglas y los tres numeros— necesita unos 200: el
-                    ancho que sobraba estaba vacio mientras los escudos se
-                    apretaban a 32px arriba de todo. Al costado entran a 48 y de
-                    paso la card queda mas baja.
-                  */}
-                  <LogosUniversidad tags={tags} size="card" max={3} className="flex-col" />
+                    Arriba, el equipo a la izquierda y sus escudos a la derecha;
+                    abajo, los numeros cruzando la card entera.
 
-                  <div className="flex min-w-0 flex-1 flex-col gap-3">
+                    Los escudos van a 48px porque a ese tamano los tres de un
+                    equipo mixto ocupan 152 y entran hasta en la card mas angosta
+                    —un telefono a una columna, 280px de contenido—, donde le
+                    quedan 116 al nombre y "Equipo 15" necesita 63. La linea de
+                    siglas se trunca ahi, pero es justo el caso en que los tres
+                    escudos ya dicen lo mismo.
+                  */}
+                  <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate font-semibold">{team.name}</p>
                       {tags.length > 0 && (
                         <p className="truncate text-xs text-faint">{tags.join(' / ')}</p>
                       )}
                     </div>
-
-                    {/* mt-auto: las cards de una fila miden lo mismo, asi que
-                        los numeros quedan abajo aunque un nombre ocupe dos. */}
-                    <dl className="mt-auto flex items-end justify-between gap-2 border-t border-line pt-3">
-                      <div>
-                        <dt className="text-[10px] uppercase tracking-[0.15em] text-dim">Récord</dt>
-                        <dd className="tabular text-sm">
-                          <span className="text-win">{team.wins}</span>
-                          <span className="text-dim">–</span>
-                          <span className="text-loss">{derrotas}</span>
-                        </dd>
-                      </div>
-                      <div className="text-right">
-                        <dt className="text-[10px] uppercase tracking-[0.15em] text-dim">Victorias</dt>
-                        <dd className="tabular text-sm text-muted">
-                          {team.games > 0 ? `${Math.round((team.wins / team.games) * 100)}%` : '—'}
-                        </dd>
-                      </div>
-                      <div className="text-right">
-                        <dt className="text-[10px] uppercase tracking-[0.15em] text-dim">Duración</dt>
-                        <dd className="tabular text-sm text-muted">
-                          {team.avg_minutes ? `${team.avg_minutes} min` : '—'}
-                        </dd>
-                      </div>
-                    </dl>
+                    <LogosUniversidad tags={tags} size="card" max={3} />
                   </div>
+
+                  {/* mt-auto: las cards de una fila miden lo mismo, asi que
+                      los numeros quedan abajo aunque un nombre ocupe dos. */}
+                  <dl className="mt-auto flex items-end justify-between gap-2 border-t border-line pt-3">
+                    <div>
+                      <dt className="text-[10px] uppercase tracking-[0.15em] text-dim">Récord</dt>
+                      <dd className="tabular text-sm">
+                        <span className="text-win">{team.wins}</span>
+                        <span className="text-dim">–</span>
+                        <span className="text-loss">{derrotas}</span>
+                      </dd>
+                    </div>
+                    <div className="text-right">
+                      <dt className="text-[10px] uppercase tracking-[0.15em] text-dim">Victorias</dt>
+                      <dd className="tabular text-sm text-muted">
+                        {team.games > 0 ? `${Math.round((team.wins / team.games) * 100)}%` : '—'}
+                      </dd>
+                    </div>
+                    <div className="text-right">
+                      <dt className="text-[10px] uppercase tracking-[0.15em] text-dim">Duración</dt>
+                      <dd className="tabular text-sm text-muted">
+                        {team.avg_minutes ? `${team.avg_minutes} min` : '—'}
+                      </dd>
+                    </div>
+                  </dl>
                 </Link>
               </li>
             )
