@@ -153,7 +153,7 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
 
       {!totals ? (
         <div className="rounded-lg border border-dashed border-line-strong px-6 py-14 text-center">
-          <p className="text-fg-soft">Este jugador todavía no aparece en ninguna partida cargada.</p>
+          <p className="text-fg-soft">Este jugador todavía no jugó ninguna partida del torneo.</p>
         </div>
       ) : (
         <>

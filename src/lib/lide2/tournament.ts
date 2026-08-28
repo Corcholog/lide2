@@ -402,3 +402,21 @@ export function roundLabel(round: ScheduleRound): string {
 export function teamsOfGroup(group: GroupName): TeamSeed[] {
   return TEAMS.filter((entry) => entry.group === group)
 }
+
+/** El torneo se juega en horario de Argentina. */
+export const AR_TIME_ZONE = 'America/Argentina/Buenos_Aires'
+
+/**
+ * "5 de septiembre": cuando arranca todo.
+ *
+ * Se usa en los carteles de "todavia no hay nada" que ve un visitante. Sale de
+ * CALENDAR y no escrito a mano para que no haya dos fechas distintas dando
+ * vueltas si el torneo se corre.
+ */
+export function inicioDelTorneo(): string {
+  return new Date(CALENDAR[0].date).toLocaleDateString('es-AR', {
+    day: 'numeric',
+    month: 'long',
+    timeZone: AR_TIME_ZONE,
+  })
+}
