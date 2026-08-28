@@ -13,7 +13,7 @@ import { ThemeToggle } from '@/components/theme/ThemeToggle'
  * 360. Y como <html> lleva `overflow-x-clip` —que está para que la portada
  * pueda salirse del contenedor sin generar scroll horizontal— lo que sobraba no
  * se podía scrollear: se cortaba y desaparecía. O sea que desde un teléfono no
- * había manera de llegar a /jugadores, al cambio de tema ni al login.
+ * había manera de llegar a /jugadores ni al cambio de tema.
  *
  * Desde `md` se ve la barra de siempre; abajo, los links se guardan detrás del
  * botón de menú y el panel se despliega bajo la barra.
@@ -114,9 +114,11 @@ export function SiteHeader({
         <div className="flex flex-1 items-center justify-end gap-4 md:flex-none">
           <ThemeToggle />
 
-          <div className="hidden items-center gap-4 md:flex">
-            <Session email={email} signOut={signOut} />
-          </div>
+          {email && (
+            <div className="hidden items-center gap-4 md:flex">
+              <Session email={email} signOut={signOut} />
+            </div>
+          )}
 
           <button
             type="button"
@@ -154,9 +156,11 @@ export function SiteHeader({
             ))}
           </nav>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t-2 border-line px-6 py-3">
-            <Session email={email} signOut={signOut} inMenu />
-          </div>
+          {email && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t-2 border-line px-6 py-3">
+              <Session email={email} signOut={signOut} inMenu />
+            </div>
+          )}
         </div>
       )}
     </header>
@@ -164,7 +168,7 @@ export function SiteHeader({
 }
 
 /**
- * Quién está adentro y cómo salir, o cómo entrar.
+ * Quién está adentro y cómo salir. Entrar no: eso es /login, a mano.
  *
  * El mail es lo único que cambia entre los dos lugares: en el menú tiene una
  * fila entera y se muestra siempre, y en la barra compite con los links, así
@@ -179,13 +183,18 @@ function Session({
   signOut: () => Promise<void>
   inMenu?: boolean
 }) {
-  if (!email) {
-    return (
-      <Link href="/login" className="text-xs text-muted transition-colors hover:text-accent">
-        Entrar
-      </Link>
-    )
-  }
+  /*
+   * Sin sesion no se dibuja nada, ni siquiera un "Entrar".
+   *
+   * El sitio es para ver el torneo y la unica persona que necesita entrar sabe
+   * que existe /login y va sola. Un boton de acceso en la barra le sugiere al
+   * resto que hay algo mas atras y que se estan perdiendo de algo, cuando lo
+   * unico que hay atras es el panel de carga.
+   *
+   * /login sigue existiendo y andando; lo que se saca es el cartel, no la
+   * puerta. robots.ts ya la tenia en disallow.
+   */
+  if (!email) return null
 
   return (
     <>
