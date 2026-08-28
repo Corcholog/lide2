@@ -26,6 +26,8 @@ const HERO = 'public/lide2-hero.jpg'
 const SALIDA = 'src/app/opengraph-image.jpg'
 
 const ROJO = '#ff4353'
+/** El mismo --fg del tema oscuro, que es el que usa el titulo. */
+const CLARO = '#e9e9ee'
 const FONDO = '#0a0a0b'
 
 /** `&` y `<` rompen el SVG, y los nombres salen de un archivo de datos. */
@@ -33,7 +35,22 @@ function xml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-const slogan = SLOGAN_PARTS.map(({ article, noun }) => `${article} ${noun}.`).join(' ')
+/*
+ * El slogan en dos colores, igual que la portada: el articulo en claro y el
+ * sustantivo en rojo, que es donde esta el peso de la frase (ver el Hero en
+ * src/app/(app)/page.tsx). Antes salia entero en rojo, asi que la miniatura que
+ * se ve al pegar el link no coincidia con lo primero que se ve al entrar.
+ *
+ * Va armado como tspans y con xml:space="preserve" en una sola linea: sin eso
+ * el SVG colapsa los saltos de linea y la indentacion, y las palabras salen
+ * pegadas o con aire de mas. Por eso este string ya trae marcado y no se lo
+ * puede volver a pasar por xml() al interpolarlo.
+ */
+const slogan = SLOGAN_PARTS.map(
+  ({ article, noun }) =>
+    `<tspan fill="${CLARO}">${xml(article.toUpperCase())} </tspan>` +
+    `<tspan fill="${ROJO}">${xml(noun.toUpperCase())}.</tspan>`,
+).join(' ')
 
 /*
  * Las capas, de abajo hacia arriba: la foto recortada, un degradado que la
@@ -68,9 +85,7 @@ const capaTexto = Buffer.from(`
       ${xml(TOURNAMENT.name.toUpperCase())}
     </text>
 
-    <text x="72" y="372" font-size="40" letter-spacing="-1" fill="${ROJO}">
-      ${xml(slogan.toUpperCase())}
-    </text>
+    <text x="72" y="372" font-size="40" letter-spacing="-1" xml:space="preserve">${slogan}</text>
   </g>
 
   <g font-family="Arial, Helvetica, sans-serif">
