@@ -229,7 +229,7 @@ export default async function Lide2Page() {
 
       <GrandFinal />
 
-      <Footer />
+      <DondeSeSigue />
     </TeamFocus>
   )
 }
@@ -1124,7 +1124,18 @@ function GrandFinal() {
             hasta que el mapa entra en pantalla, que en esta página es al final
             de todo.
           */}
-          <div className="relative overflow-hidden border-2 border-line bg-raised">
+          {/*
+            Marco fuerte y no el borde fino de antes. El mapa es lo unico de la
+            pagina que trae su propia imagen, clara y llena de detalle, y metido
+            en la tarjeta de la final —que tiene borde de acento y un degradado
+            con resplandor— un `border-line` de un pixel no lo contenia: parecia
+            un recorte pegado encima y cortado al ras.
+
+            Con `border-line-strong` y `shadow-hard` queda como los demas
+            bloques del sitio (las tablas de grupo usan lo mismo), asi que el
+            recorte del mapa se lee como un cuadro y no como algo mal cortado.
+          */}
+          <div className="relative overflow-hidden border-2 border-line-strong bg-raised shadow-hard">
             <iframe
               src={VENUE_EMBED}
               title={`Mapa de la ubicación del ${VENUE.fullName}, en La Plata`}
@@ -1140,7 +1151,7 @@ function GrandFinal() {
   )
 }
 
-function Footer() {
+function DondeSeSigue() {
   return (
     <section className="flex flex-col gap-3 border-t border-line pt-6">
       <h2 className="text-sm font-medium text-muted">Dónde se sigue</h2>
