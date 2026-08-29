@@ -9,7 +9,7 @@ import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { maybeRow, rows } from '@/lib/supabase/query'
 import { TOURNAMENT } from '@/lib/lide2/tournament'
-import { formatNumber, formatPosition, playerName } from '@/lib/format'
+import { formatNumber, formatPosition, playerName, riotTag } from '@/lib/format'
 import type { PlayerTotalsRow, TeamLineupRow } from '@/types/db'
 import { addPlayerAction, deleteTeamAction, removePlayerAction } from '../actions'
 
@@ -179,18 +179,24 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
         <ul className="divide-y divide-line rounded-lg border border-line">
           {lineup.map((slot) => {
             const stats = slot.player_id ? statsByPlayer.get(slot.player_id) : null
+            const tag = riotTag(slot.game_name, slot.tag_line, slot.name)
             return (
               <li key={slot.slot} className="flex items-center gap-4 px-4 py-2.5 text-sm">
                 <span className="w-20 shrink-0 text-xs text-faint">
                   {slot.role ? formatPosition(slot.role) : `Suplente ${slot.sub_number}`}
                 </span>
                 {slot.player_id ? (
-                  <Link
-                    href={`/jugadores/${slot.player_id}`}
-                    className="min-w-0 flex-1 truncate font-medium transition-colors hover:text-accent"
-                  >
-                    {playerName(slot.name)}
-                  </Link>
+                  /* El nick y, al lado, el #TAG: dos "Bruno" en el mismo
+                     plantel son dos líneas iguales sin él. */
+                  <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
+                    <Link
+                      href={`/jugadores/${slot.player_id}`}
+                      className="truncate font-medium transition-colors hover:text-accent"
+                    >
+                      {playerName(slot.name)}
+                    </Link>
+                    {tag && <span className="shrink-0 text-xs text-faint">{tag}</span>}
+                  </span>
                 ) : (
                   <span className="min-w-0 flex-1 truncate text-dim">Por confirmar</span>
                 )}
@@ -237,27 +243,33 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
             que ya jugaron y no están en ningún equipo.
           </p>
           <ul className="max-h-96 divide-y divide-line overflow-y-auto rounded-lg border border-line">
-            {available.map((player) => (
-              <li key={player.player_id} className="flex items-center gap-4 px-4 py-2 text-sm">
-                <span className="flex-1 truncate">
-                  {playerName(player.riot_game_name, player.display_name)}
-                </span>
-                <span className="tabular w-20 text-right text-faint">{player.games} partidas</span>
-                <span className="tabular hidden w-24 text-right text-faint sm:inline">
-                  {formatNumber(player.avg_damage)} daño
-                </span>
-                <form action={addPlayerAction}>
-                  <input type="hidden" name="teamId" value={team.id} />
-                  <input type="hidden" name="playerId" value={player.player_id} />
-                  <button
-                    type="submit"
-                    className="text-xs text-accent transition-colors hover:text-accent-soft"
-                  >
-                    Agregar
-                  </button>
-                </form>
-              </li>
-            ))}
+            {available.map((player) => {
+              const tag = riotTag(player.riot_game_name, player.riot_tag_line, player.display_name)
+              return (
+                <li key={player.player_id} className="flex items-center gap-4 px-4 py-2 text-sm">
+                  <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
+                    <span className="truncate">
+                      {playerName(player.riot_game_name, player.display_name)}
+                    </span>
+                    {tag && <span className="shrink-0 text-xs text-faint">{tag}</span>}
+                  </span>
+                  <span className="tabular w-20 text-right text-faint">{player.games} partidas</span>
+                  <span className="tabular hidden w-24 text-right text-faint sm:inline">
+                    {formatNumber(player.avg_damage)} daño
+                  </span>
+                  <form action={addPlayerAction}>
+                    <input type="hidden" name="teamId" value={team.id} />
+                    <input type="hidden" name="playerId" value={player.player_id} />
+                    <button
+                      type="submit"
+                      className="text-xs text-accent transition-colors hover:text-accent-soft"
+                    >
+                      Agregar
+                    </button>
+                  </form>
+                </li>
+              )
+            })}
           </ul>
         </section>
       )}

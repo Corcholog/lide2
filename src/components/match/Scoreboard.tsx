@@ -1,6 +1,13 @@
 import { GameIcon } from './GameIcon'
 import { championIcon, itemIcon, spellIcon } from '@/lib/ddragon'
-import { formatGold, formatKda, formatNumber, formatPosition, playerName } from '@/lib/format'
+import {
+  formatGold,
+  formatKda,
+  formatNumber,
+  formatPosition,
+  playerName,
+  riotTag,
+} from '@/lib/format'
 import type { MatchTeamStatsRow } from '@/types/db'
 
 export interface ScoreboardPlayer {
@@ -127,6 +134,11 @@ export function Scoreboard({
                           </span>
                         )}
                         {playerName(player.riotGameName)}
+                        {riotTag(player.riotGameName, player.riotTagLine) && (
+                          <span className="shrink-0 text-xs font-normal text-faint">
+                            {riotTag(player.riotGameName, player.riotTagLine)}
+                          </span>
+                        )}
                       </p>
                       <p className="truncate text-xs text-faint">
                         {player.champion} · {formatPosition(player.position)}

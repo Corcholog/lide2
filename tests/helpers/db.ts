@@ -53,6 +53,7 @@ export const MIGRATIONS = [
   '0015_logos.sql',
   '0016_borrar_partida.sql',
   '0017_alta_de_cuenta.sql',
+  '0018_tag_a_la_vista.sql',
 ]
 
 /**

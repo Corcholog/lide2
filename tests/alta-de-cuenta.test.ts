@@ -92,11 +92,12 @@ describe('cargar un nick a mano', () => {
     expect(player.rows[0].riot_game_name).toBe('DenisChang')
 
     // El nick tiene que verse en la ficha del equipo: es para lo que se carga.
-    const lineup = await db.query<{ name: string | null }>(
-      'select name from public.team_lineup where team_id = $1 and name is not null',
+    // Con su #TAG al lado, que es lo que distingue dos cuentas del mismo nick.
+    const lineup = await db.query<{ name: string | null; tag_line: string | null }>(
+      'select name, tag_line from public.team_lineup where team_id = $1 and name is not null',
       [equipo01],
     )
-    expect(lineup.rows.map((row) => row.name)).toEqual(['DenisChang'])
+    expect(lineup.rows).toEqual([{ name: 'DenisChang', tag_line: 'LAN' }])
   })
 
   it('el mismo nick dos veces no crea dos cuentas', async () => {
