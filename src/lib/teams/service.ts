@@ -112,6 +112,51 @@ export async function addPlayerToTeam(teamId: string, playerId: string): Promise
   await supabase.rpc('relink_all_matches')
 }
 
+export interface AddAccountResult {
+  ok: boolean
+  error?: string
+  /** La cuenta no existía y se creó sin PUUID, hasta que aparezca en un replay. */
+  created?: boolean
+  /** Partidas que la cuenta ya tenía encima. */
+  games?: number
+}
+
+/**
+ * Sumar un nick al plantel aunque esa persona todavía no haya jugado.
+ *
+ * `players` se llena sola desde los replays, así que hasta la primera partida
+ * un equipo no tiene a nadie a quien agregar: la lista de "agregar jugador" de
+ * la ficha son las cuentas que ya jugaron y no tienen equipo, y antes de la
+ * fecha 1 está vacía. Esto es la otra puerta, la de escribir el nick a mano.
+ *
+ * Todo lo que decide está en `add_team_account()`: si la cuenta ya existe la
+ * reusa, si no la crea con una marca en lugar del PUUID (que sólo existe dentro
+ * del .rofl), y no muda a nadie de equipo por su cuenta. Ver
+ * `supabase/migrations/0017_alta_de_cuenta.sql`.
+ */
+export async function addAccountToTeam(
+  teamId: string,
+  gameName: string,
+  tagLine: string | null,
+): Promise<AddAccountResult> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase.rpc('add_team_account', {
+    p_team_id: teamId,
+    p_game_name: gameName,
+    p_tag_line: tagLine,
+  })
+
+  if (error) return { ok: false, error: error.message }
+
+  const result = data as AddAccountResult
+
+  // Revincular sólo si la cuenta traía partidas: son las que pasan a mostrar el
+  // nombre del equipo. Una cuenta recién cargada no cambia ninguna.
+  if (result.ok && (result.games ?? 0) > 0) await supabase.rpc('relink_all_matches')
+
+  return result
+}
+
 export async function removePlayerFromTeam(teamId: string, playerId: string): Promise<void> {
   const supabase = createAdminClient()
   await supabase.from('team_members').delete().eq('team_id', teamId).eq('player_id', playerId)
