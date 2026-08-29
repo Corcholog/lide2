@@ -1,7 +1,12 @@
 'use client'
 
 import { useActionState, useState } from 'react'
-import { assignMatchAction, type AssignResult } from '@/app/(app)/admin/actions'
+import {
+  assignMatchAction,
+  deleteMatchAction,
+  type AssignResult,
+  type DeleteResult,
+} from '@/app/(app)/admin/actions'
 import { formatDuration, formatKda, formatPosition } from '@/lib/format'
 
 export interface SidePlayer {
@@ -84,6 +89,7 @@ export function AssignMatch({
           {formatDuration(match.gameLengthMs)}
           {match.patch && ` · parche ${match.patch}`}
         </span>
+        <Borrar matchId={match.matchId} />
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -178,6 +184,64 @@ export function AssignMatch({
         )}
       </form>
     </li>
+  )
+}
+
+/**
+ * Borrar la partida entera.
+ *
+ * Es para lo que se subió por error: un replay de otro torneo, una prueba del
+ * flujo, el .rofl equivocado. Hasta ahora la única salida era el SQL editor,
+ * porque una partida sin asignar igual se ve en /partidas y sus diez cuentas
+ * quedan dadas de alta en /jugadores.
+ *
+ * Va con confirmación en dos clics y no con un `confirm()`: es irreversible —se
+ * borra también el .rofl del bucket, que no se puede regenerar— y el botón está
+ * al lado del de asignar. Va en el encabezado y no adentro del formulario
+ * porque un form no puede vivir adentro de otro.
+ */
+function Borrar({ matchId }: { matchId: string }) {
+  const [state, formAction, pending] = useActionState<DeleteResult | null, FormData>(
+    deleteMatchAction,
+    null,
+  )
+  const [confirmando, setConfirmando] = useState(false)
+
+  if (!confirmando) {
+    return (
+      <button
+        type="button"
+        onClick={() => setConfirmando(true)}
+        className="text-muted underline decoration-dotted underline-offset-4 transition-colors hover:text-danger"
+      >
+        Borrar
+      </button>
+    )
+  }
+
+  // El error reemplaza a la advertencia y deja los botones donde estaban: si el
+  // bucket falló, lo que hace falta es volver a intentar, no empezar de nuevo.
+  return (
+    <form action={formAction} className="flex flex-wrap items-center gap-2">
+      <input type="hidden" name="matchId" value={matchId} />
+      <span className="text-danger" role={state?.error ? 'alert' : undefined}>
+        {state?.error ?? 'Se borra el replay y todo lo que trajo.'}
+      </span>
+      <button
+        type="submit"
+        disabled={pending}
+        className="border-2 border-danger/60 px-2 py-0.5 text-danger transition-colors hover:border-danger disabled:opacity-60"
+      >
+        {pending ? 'Borrando…' : 'Sí, borrar'}
+      </button>
+      <button
+        type="button"
+        onClick={() => setConfirmando(false)}
+        className="text-muted transition-colors hover:text-fg"
+      >
+        No
+      </button>
+    </form>
   )
 }
 

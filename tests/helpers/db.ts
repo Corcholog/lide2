@@ -50,6 +50,8 @@ export const MIGRATIONS = [
   '0012_planteles.sql',
   '0013_publico.sql',
   '0014_plantel.sql',
+  '0015_logos.sql',
+  '0016_borrar_partida.sql',
 ]
 
 /**

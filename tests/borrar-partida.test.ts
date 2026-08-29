@@ -1,0 +1,171 @@
+import type { PGlite } from '@electric-sql/pglite'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { createTestDb } from './helpers/db'
+import { playScoreboard } from './helpers/matches'
+
+/**
+ * Borrar una partida subida por error.
+ *
+ * Lo que hay que verificar no es que se vaya la fila —eso es un delete— sino
+ * que se lleve exactamente lo que existía por ella y nada más: las cuentas que
+ * aparecieron en ese replay y en ningún otro, sin tocar el cruce del fixture ni
+ * lo que confirmó una persona.
+ */
+
+interface DeleteResult {
+  ok: boolean
+  error?: string
+  files?: number
+  players?: string[]
+}
+
+const A = ['a1', 'a2', 'a3', 'a4', 'a5']
+const B = ['b1', 'b2', 'b3', 'b4', 'b5']
+
+const alineacion = (puuids: string[]) => puuids.map((puuid) => ({ puuid }))
+
+describe('borrar una partida', () => {
+  let db: PGlite
+
+  // Las migraciones enteras por test: Postgres en WASM tarda, y el default de
+  // vitest para un hook son 10 segundos.
+  beforeEach(async () => {
+    db = await createTestDb()
+  }, 60_000)
+
+  afterEach(async () => {
+    await db?.close()
+  })
+
+  async function borrar(matchId: string): Promise<DeleteResult> {
+    const { rows } = await db.query<{ delete_match: DeleteResult }>(
+      'select public.delete_match($1)',
+      [matchId],
+    )
+    return rows[0].delete_match
+  }
+
+  async function contar(tabla: string): Promise<number> {
+    const { rows } = await db.query<{ n: string }>(`select count(*) as n from public.${tabla}`)
+    return Number(rows[0].n)
+  }
+
+  it('se lleva la partida, su archivo y las cuentas que sólo existían por ella', async () => {
+    const matchId = await playScoreboard(db, {
+      winner: 'blue',
+      blue: alineacion(A),
+      red: alineacion(B),
+    })
+
+    await db.query(
+      `insert into public.match_files (match_id, storage_path, file_name, file_size, sha256)
+       values ($1, '2026-09/uno.rofl', 'Fecha 1.rofl', 15000000, 'sha-uno')`,
+      [matchId],
+    )
+
+    const result = await borrar(matchId)
+
+    expect(result.ok).toBe(true)
+    expect(result.files).toBe(1)
+    expect(result.players).toHaveLength(10)
+
+    expect(await contar('matches')).toBe(0)
+    expect(await contar('match_players')).toBe(0)
+    expect(await contar('match_files')).toBe(0)
+    expect(await contar('players')).toBe(0)
+  })
+
+  it('no toca a los que jugaron alguna otra', async () => {
+    await playScoreboard(db, { winner: 'blue', blue: alineacion(A), red: alineacion(B) })
+    const segunda = await playScoreboard(db, {
+      winner: 'red',
+      blue: alineacion(A),
+      red: alineacion(['c1', 'c2', 'c3', 'c4', 'c5']),
+      playedAt: '2026-09-12T17:00:00Z',
+    })
+
+    const result = await borrar(segunda)
+
+    // Los cinco de A siguen jugando la primera; los de C no jugaron nada más.
+    expect(result.players).toEqual(['c1', 'c2', 'c3', 'c4', 'c5'])
+    expect(await contar('players')).toBe(10)
+  })
+
+  it('no borra a quien está en un plantel ni al emparejado con un inscripto', async () => {
+    const matchId = await playScoreboard(db, {
+      winner: 'blue',
+      blue: alineacion(A),
+      red: alineacion(B),
+    })
+
+    const team = await db.query<{ id: string }>(
+      `insert into public.teams (name) values ('Equipo 01') returning id`,
+    )
+    const teamId = team.rows[0].id
+
+    await db.query(
+      `insert into public.team_members (team_id, player_id)
+       select $1, id from public.players where puuid = 'a1'`,
+      [teamId],
+    )
+    await db.query(
+      `insert into public.team_roster (team_id, full_name, order_index, player_id)
+       select $1, 'Alguien de la planilla', 0, id from public.players where puuid = 'b1'`,
+      [teamId],
+    )
+
+    const result = await borrar(matchId)
+
+    expect(result.players).toHaveLength(8)
+    // Las dos que quedan son cuentas sin partidas: el plantel y el emparejado
+    // los puso una persona, y la partida borrada no los desdice.
+    expect(await contar('players')).toBe(2)
+    expect(await contar('team_members')).toBe(1)
+
+    const inscripto = await db.query<{ player_id: string | null }>(
+      'select player_id from public.team_roster',
+    )
+    expect(inscripto.rows[0].player_id).not.toBeNull()
+  })
+
+  it('el cruce del fixture queda libre, no borrado', async () => {
+    const tournament = await db.query<{ id: string }>(
+      `insert into public.tournaments (name, slug) values ('LIDE 2', 'lide-2') returning id`,
+    )
+    const teams = await db.query<{ id: string }>(
+      `insert into public.teams (tournament_id, name)
+       values ($1, 'Equipo 01'), ($1, 'Equipo 15') returning id`,
+      [tournament.rows[0].id],
+    )
+
+    const matchId = await playScoreboard(db, {
+      winner: 'blue',
+      blue: alineacion(A),
+      red: alineacion(B),
+    })
+
+    const fixture = await db.query<{ id: string }>(
+      `insert into public.fixtures
+         (tournament_id, group_label, matchday, slot, kickoff, team_a_id, team_b_id, match_id)
+       values ($1, 'Grupo A', 1, 1, '2026-09-05T17:00:00Z', $2, $3, $4)
+       returning id`,
+      [tournament.rows[0].id, teams.rows[0].id, teams.rows[1].id, matchId],
+    )
+
+    expect((await borrar(matchId)).ok).toBe(true)
+
+    const { rows } = await db.query<{ match_id: string | null }>(
+      'select match_id from public.fixtures where id = $1',
+      [fixture.rows[0].id],
+    )
+    expect(rows).toHaveLength(1)
+    expect(rows[0].match_id).toBeNull()
+  })
+
+  it('una partida que no existe se avisa, no se rompe', async () => {
+    const result = await borrar('00000000-0000-0000-0000-000000000000')
+
+    expect(result.ok).toBe(false)
+    expect(result.error).toMatch(/no existe/i)
+  })
+})
