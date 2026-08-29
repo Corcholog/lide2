@@ -195,6 +195,9 @@ describe('plantel', () => {
     )
 
     expect(rows.map((r) => r.column_name).sort()).toEqual([
+      // `game_name` y `tag_line` son la cuenta de Riot, que es pública desde
+      // siempre (`player_profiles`). El nombre de la planilla no está.
+      'game_name',
       'games',
       'is_substitute',
       'name',
@@ -202,6 +205,7 @@ describe('plantel', () => {
       'role',
       'slot',
       'sub_number',
+      'tag_line',
       'team_id',
     ])
 

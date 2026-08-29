@@ -56,10 +56,8 @@ export function formatPosition(position: string | null): string {
  * Cómo se nombra a un jugador en el sitio: el alias que haya cargado el panel,
  * o su nombre de Riot **sin el `#TAG`**.
  *
- * Sin el tag a propósito. El tag no aporta nada para reconocer a alguien —lo
- * que se ve en la partida es el nombre— y este es el nombre que sale en páginas
- * públicas, así que la versión segura tiene que ser la que se escribe sin
- * pensar. Para el `#TAG` está `riotId`, que se usa sólo en el panel.
+ * Sin el tag porque es el nombre grande, el que se lee de un vistazo: el tag va
+ * al lado, en chico, y de eso se encarga `riotTag`.
  */
 export function playerName(gameName: string | null, displayName?: string | null): string {
   return displayName ?? gameName ?? 'Desconocido'
@@ -68,12 +66,31 @@ export function playerName(gameName: string | null, displayName?: string | null)
 /**
  * El Riot ID completo, con `#TAG`.
  *
- * Sólo para el panel: es lo que hace falta para emparejar una cuenta con un
- * inscripto, porque el nombre solo puede repetirse y el Riot ID completo no.
+ * Es lo que hace falta para distinguir dos cuentas, porque el nombre solo puede
+ * repetirse y el Riot ID entero no: por eso el panel lo usa para emparejar una
+ * cuenta con un inscripto, y `riotTag` para mostrarlo en las páginas públicas.
  */
 export function riotId(gameName: string | null, tagLine: string | null): string {
   if (!gameName) return 'Desconocido'
   return tagLine ? `${gameName}#${tagLine}` : gameName
+}
+
+/**
+ * El `#TAG` que se dibuja apagado al lado del nombre, para terminar de decir de
+ * qué cuenta se trata. Se ve siempre: sin sesión también, porque los que más
+ * miran el plantel son los propios jugadores y ninguno tiene usuario.
+ *
+ * Cuando el nombre grande es un alias del panel, el tag solo no alcanza —el
+ * alias no es el nick al que se le pega— y devuelve el Riot ID entero. Da null
+ * cuando no hay nada que agregar: una cuenta sin tag, de un .rofl viejo.
+ */
+export function riotTag(
+  gameName: string | null,
+  tagLine: string | null,
+  displayName?: string | null,
+): string | null {
+  if (displayName && gameName && displayName !== gameName) return riotId(gameName, tagLine)
+  return tagLine ? `#${tagLine}` : null
 }
 
 /**

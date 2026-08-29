@@ -510,6 +510,10 @@ export interface TeamLineupRow {
   player_id: string | null
   name: string | null
   games: number
+  /** El nick de Riot pelado; `name` puede ser un alias del panel. */
+  game_name: string | null
+  /** El `#TAG`, sin el `#`. Null en cuentas viejas que entraron sin tag. */
+  tag_line: string | null
 }
 
 /** Una fila de `tournament_mvp`: el ranking de MVP del recorte. */

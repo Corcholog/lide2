@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { maybeRow, rows } from '@/lib/supabase/query'
 import { assetVersion, championIcon } from '@/lib/ddragon'
-import { formatDate, formatNumber, formatPosition, playerName } from '@/lib/format'
+import { formatDate, formatNumber, formatPosition, playerName, riotTag } from '@/lib/format'
 import { GameIcon } from '@/components/match/GameIcon'
 import type {
   MatchPlayerScoreRow,
@@ -113,6 +113,8 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
 
   const version = await assetVersion(games[0]?.summary?.patch ?? null)
   const name = playerName(player.riot_game_name, player.display_name)
+  // El Riot ID que va debajo del nombre. Ver el comentario en el header.
+  const handle = riotTag(player.riot_game_name, player.riot_tag_line, player.display_name)
   const teamId = totals?.team_id ?? null
   const position = mainPosition(scores)
   const losses = (totals?.games ?? 0) - (totals?.wins ?? 0)
@@ -127,9 +129,12 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{name}</h1>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted">
-            {player.display_name && player.riot_game_name && (
-              <span className="text-faint">{player.riot_game_name}</span>
-            )}
+            {/*
+              El Riot ID de la cuenta. Cuando el nombre de arriba es un alias
+              del panel va entero —el tag no se le pega a un alias— y si no,
+              sólo el `#TAG`, que es lo que le falta al nick para ser único.
+            */}
+            {handle && <span className="text-faint">{handle}</span>}
             {teamId ? (
               <Link href={`/equipos/${teamId}`} className="transition-colors hover:text-accent">
                 {teamNames.get(teamId) ?? 'Equipo'}

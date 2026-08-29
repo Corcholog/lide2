@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
-import { formatNumber, playerName } from '@/lib/format'
+import { formatNumber, playerName, riotTag } from '@/lib/format'
 import type { PlayerTotalsRow } from '@/types/db'
 
 export const metadata = {
@@ -73,54 +73,59 @@ export default async function PlayersPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {players.map((player) => (
-              <tr key={player.player_id} className="hover:bg-surface/60">
-                <td className="px-4 py-2 font-medium">
-                  <Link
-                    href={`/jugadores/${player.player_id}`}
-                    className="transition-colors hover:text-accent"
-                  >
-                    {playerName(player.riot_game_name, player.display_name)}
-                  </Link>
-                </td>
-                <td className="px-3 py-2 text-muted">
-                  {player.team_id ? (
+            {players.map((player) => {
+              const tag = riotTag(player.riot_game_name, player.riot_tag_line, player.display_name)
+              return (
+                <tr key={player.player_id} className="hover:bg-surface/60">
+                  <td className="px-4 py-2 font-medium">
                     <Link
-                      href={`/equipos/${player.team_id}`}
+                      href={`/jugadores/${player.player_id}`}
                       className="transition-colors hover:text-accent"
                     >
-                      {teamNames.get(player.team_id) ?? 'Equipo'}
+                      {playerName(player.riot_game_name, player.display_name)}
                     </Link>
-                  ) : (
-                    <span className="text-dim">sin equipo</span>
-                  )}
-                </td>
-                <td className="tabular px-3 py-2 text-right">{player.games}</td>
-                <td className="tabular px-3 py-2 text-right text-muted">
-                  {player.wins}
-                  <span className="ml-1 text-xs text-dim">
-                    {player.games > 0 ? `${Math.round((player.wins / player.games) * 100)}%` : ''}
-                  </span>
-                </td>
-                <td className="tabular px-3 py-2 text-right">{player.kda}</td>
-                <td className="tabular px-3 py-2 text-right text-muted">
-                  {player.avg_kills}/{player.avg_deaths}/{player.avg_assists}
-                </td>
-                <td className="tabular px-3 py-2 text-right text-muted">
-                  {formatNumber(player.avg_damage)}
-                </td>
-                <td className="tabular px-3 py-2 text-right text-muted">{player.avg_vision}</td>
-                <td className="tabular px-4 py-2 text-right">
-                  {player.mvp_count > 0 ? (
-                    <span className="rounded bg-accent-strong px-1.5 py-0.5 text-xs font-bold text-white">
-                      {player.mvp_count}
+                    {/* El #TAG al lado: el nick solo se repite entre cuentas. */}
+                    {tag && <span className="ml-1.5 text-xs font-normal text-faint">{tag}</span>}
+                  </td>
+                  <td className="px-3 py-2 text-muted">
+                    {player.team_id ? (
+                      <Link
+                        href={`/equipos/${player.team_id}`}
+                        className="transition-colors hover:text-accent"
+                      >
+                        {teamNames.get(player.team_id) ?? 'Equipo'}
+                      </Link>
+                    ) : (
+                      <span className="text-dim">sin equipo</span>
+                    )}
+                  </td>
+                  <td className="tabular px-3 py-2 text-right">{player.games}</td>
+                  <td className="tabular px-3 py-2 text-right text-muted">
+                    {player.wins}
+                    <span className="ml-1 text-xs text-dim">
+                      {player.games > 0 ? `${Math.round((player.wins / player.games) * 100)}%` : ''}
                     </span>
-                  ) : (
-                    <span className="text-dim">—</span>
-                  )}
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className="tabular px-3 py-2 text-right">{player.kda}</td>
+                  <td className="tabular px-3 py-2 text-right text-muted">
+                    {player.avg_kills}/{player.avg_deaths}/{player.avg_assists}
+                  </td>
+                  <td className="tabular px-3 py-2 text-right text-muted">
+                    {formatNumber(player.avg_damage)}
+                  </td>
+                  <td className="tabular px-3 py-2 text-right text-muted">{player.avg_vision}</td>
+                  <td className="tabular px-4 py-2 text-right">
+                    {player.mvp_count > 0 ? (
+                      <span className="rounded bg-accent-strong px-1.5 py-0.5 text-xs font-bold text-white">
+                        {player.mvp_count}
+                      </span>
+                    ) : (
+                      <span className="text-dim">—</span>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
