@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { AddAccount } from '@/components/admin/AddAccount'
 import {
   LogoUniversidad,
   LogosUniversidad,
@@ -224,6 +225,17 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
           <h2 className="text-sm font-medium text-muted">
             Agregar jugador ({available.length} sin equipo)
           </h2>
+          {/*
+            Dos puertas, y la de arriba es la única que funciona antes de que se
+            juegue algo: la lista de abajo son cuentas detectadas en los
+            replays, así que en la fecha 0 está vacía para todos los equipos.
+          */}
+          <AddAccount teamId={team.id} />
+          <p className="text-xs text-dim">
+            Si esa persona todavía no jugó, escribí su nick igual: la cuenta queda cargada sin
+            partidas y se engancha sola con su primer replay. La lista de abajo son las cuentas
+            que ya jugaron y no están en ningún equipo.
+          </p>
           <ul className="max-h-96 divide-y divide-line overflow-y-auto rounded-lg border border-line">
             {available.map((player) => (
               <li key={player.player_id} className="flex items-center gap-4 px-4 py-2 text-sm">
