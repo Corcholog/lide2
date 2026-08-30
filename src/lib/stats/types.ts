@@ -44,6 +44,15 @@ export interface StatsData {
   champions: ChampionStatRow[]
   records: MatchRecordRow[]
   mvp: TournamentMvpRow[]
+  /**
+   * Lo único que no sale de la base: cómo se llama cada campeón, de ddragon.
+   *
+   * La base guarda la clave interna del .rofl ("MonkeyKing"), que como nombre
+   * de un ranking no va. Es opcional porque ddragon puede no contestar, y
+   * entonces se muestra la clave: un ranking con nombres feos sigue siendo el
+   * ranking correcto.
+   */
+  championNames?: Record<string, string>
 }
 
 /** Una posición de un ranking. */

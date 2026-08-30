@@ -1,5 +1,5 @@
 import { GameIcon } from './GameIcon'
-import { championIcon, itemIcon, spellIcon } from '@/lib/ddragon'
+import { championIcon, championName, itemIcon, spellIcon } from '@/lib/ddragon'
 import {
   formatGold,
   formatKda,
@@ -41,6 +41,7 @@ export function Scoreboard({
   stats,
   version,
   spellNames,
+  championNames,
   maxDamage,
 }: {
   side: 100 | 200
@@ -49,6 +50,7 @@ export function Scoreboard({
   stats: MatchTeamStatsRow | undefined
   version: string
   spellNames: Record<string, string>
+  championNames: Record<string, string>
   maxDamage: number
 }) {
   const isBlue = side === 100
@@ -110,7 +112,11 @@ export function Scoreboard({
               <tr key={player.matchPlayerId} className="hover:bg-surface/60">
                 <td className="px-4 py-2">
                   <div className="flex items-center gap-2">
-                    <GameIcon src={championIcon(version, player.champion)} alt={player.champion} size={34} />
+                    <GameIcon
+                      src={championIcon(version, player.champion)}
+                      alt={championName(championNames, player.champion)}
+                      size={34}
+                    />
                     <div className="flex shrink-0 flex-col gap-0.5">
                       <GameIcon
                         src={spellIcon(version, spellNames[player.summonerSpell1 ?? ''])}
@@ -141,7 +147,8 @@ export function Scoreboard({
                         )}
                       </p>
                       <p className="truncate text-xs text-faint">
-                        {player.champion} · {formatPosition(player.position)}
+                        {championName(championNames, player.champion)} ·{' '}
+                        {formatPosition(player.position)}
                       </p>
                     </div>
                   </div>

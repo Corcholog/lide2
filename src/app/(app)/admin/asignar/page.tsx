@@ -2,9 +2,15 @@ import Link from 'next/link'
 import { requireUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
+import { assetVersion, championName, championNames } from '@/lib/ddragon'
 import { formatDate } from '@/lib/format'
 import { TOURNAMENT } from '@/lib/lide2/tournament'
-import { AssignMatch, type FixtureOption, type UnassignedMatch } from '@/components/admin/AssignMatch'
+import {
+  AssignMatch,
+  type FixtureOption,
+  type SidePlayer,
+  type UnassignedMatch,
+} from '@/components/admin/AssignMatch'
 import type { FixtureResultRow } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
@@ -56,6 +62,14 @@ export default async function AsignarPage() {
       : Promise.resolve({ data: [], error: null }),
   ])
 
+  // Los replays sin asignar pueden ser de parches distintos, pero los nombres de
+  // los campeones no cambian entre uno y otro: alcanza con el catálogo del
+  // último. Acá se reconoce un equipo mirando el scoreboard, así que conviene
+  // que diga lo mismo que el resto del sitio y no la clave interna del .rofl.
+  const champNames = await championNames(await assetVersion(null))
+  const named = (players: SidePlayer[]): SidePlayer[] =>
+    players.map((player) => ({ ...player, champion: championName(champNames, player.champion) }))
+
   const matches = rows<UnassignedRow>(pendingRes, 'las partidas sin asignar').map(
     (row): UnassignedMatch => ({
       matchId: row.match_id,
@@ -63,8 +77,8 @@ export default async function AsignarPage() {
       gameLengthMs: row.game_length_ms,
       patch: row.patch,
       winningSide: row.winning_side,
-      bluePlayers: row.blue_players ?? [],
-      redPlayers: row.red_players ?? [],
+      bluePlayers: named(row.blue_players ?? []),
+      redPlayers: named(row.red_players ?? []),
       blueGuess: row.blue_guess,
       redGuess: row.red_guess,
     }),
