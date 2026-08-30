@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { maybeRow, rows } from '@/lib/supabase/query'
-import { assetVersion, summonerSpellNames } from '@/lib/ddragon'
+import { assetVersion, championNames, summonerSpellNames } from '@/lib/ddragon'
 import { formatDate, formatDuration, ROLES } from '@/lib/format'
 import { Scoreboard, type ScoreboardPlayer } from '@/components/match/Scoreboard'
 import type { MatchPlayerScoreRow, MatchSummaryRow, MatchTeamStatsRow } from '@/types/db'
@@ -51,7 +51,10 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
   const scores = rows<MatchPlayerScoreRow>(scoresRes, 'el scoreboard')
 
   const version = await assetVersion(summary.patch)
-  const spellNames = await summonerSpellNames(version)
+  const [spellNames, champNames] = await Promise.all([
+    summonerSpellNames(version),
+    championNames(version),
+  ])
 
   const players: ScoreboardPlayer[] = scores.map((score) => {
     return {
@@ -160,6 +163,7 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
         stats={teamStats.find((t) => t.side === 100)}
         version={version}
         spellNames={spellNames}
+        championNames={champNames}
         maxDamage={maxDamage}
       />
 
@@ -170,6 +174,7 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
         stats={teamStats.find((t) => t.side === 200)}
         version={version}
         spellNames={spellNames}
+        championNames={champNames}
         maxDamage={maxDamage}
       />
     </div>
