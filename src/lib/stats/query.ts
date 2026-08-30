@@ -9,6 +9,7 @@
  */
 
 import type { createClient } from '@/lib/supabase/server'
+import { assetVersion, championNames } from '@/lib/ddragon'
 import { TOURNAMENT } from '@/lib/lide2/tournament'
 import type {
   ChampionStatRow,
@@ -57,13 +58,17 @@ function matchFilter(scope: StatScope): Record<string, unknown> {
 export async function loadStats(supabase: Supabase, scope: StatScope): Promise<StatsData> {
   const filter = scopeFilter(scope)
 
-  const [players, teams, universities, champions, records, mvp] = await Promise.all([
+  const [players, teams, universities, champions, records, mvp, names] = await Promise.all([
     supabase.from('player_phase_totals').select('*').match(filter),
     supabase.from('team_phase_totals').select('*').match(filter),
     supabase.from('university_totals').select('*').match(filter),
     supabase.from('champion_stats').select('*').match(filter),
     supabase.from('match_records').select('*').match(matchFilter(scope)),
     supabase.from('tournament_mvp').select('*').match(filter),
+    // Un recorte cruza parches, y los nombres son los mismos en todos: el
+    // último alcanza. Es el único pedido que no va a la base, y el único que
+    // puede fallar sin arrastrar al resto.
+    championNames(await assetVersion(null)),
   ])
 
   /*
@@ -81,5 +86,6 @@ export async function loadStats(supabase: Supabase, scope: StatScope): Promise<S
     champions: rows<ChampionStatRow>(champions, 'las estadísticas de campeones'),
     records: rows<MatchRecordRow>(records, 'los récords de partida'),
     mvp: rows<TournamentMvpRow>(mvp, 'el MVP del torneo'),
+    championNames: names,
   }
 }

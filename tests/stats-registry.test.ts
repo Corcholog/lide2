@@ -206,6 +206,32 @@ describe('presentacion de estadisticas', () => {
     expect(mostBanned(data({ champions: rows }))).toBeNull()
   })
 
+  it('el ranking muestra el nombre de ddragon y no la clave del .rofl', () => {
+    const rows = [
+      champion({ champion: 'MonkeyKing', picks: 5 }),
+      // El .rofl escribe la S grande y ddragon no: la busqueda no distingue.
+      champion({ champion: 'FiddleSticks', picks: 4 }),
+      // Un campeon que ddragon todavia no conoce se muestra como venga.
+      champion({ champion: 'Recien', picks: 3 }),
+    ]
+
+    const block = mostPicked(
+      data({
+        champions: rows,
+        championNames: { monkeyking: 'Wukong', fiddlesticks: 'Fiddlesticks' },
+      }),
+    )
+
+    expect(block!.rows.map((row) => row.name)).toEqual(['Wukong', 'Fiddlesticks', 'Recien'])
+    // El id sigue siendo la clave: es con lo que se dibuja el icono.
+    expect(block!.rows.map((row) => row.id)).toEqual(['MonkeyKing', 'FiddleSticks', 'Recien'])
+  })
+
+  it('sin ddragon, el ranking de campeones igual sale, con la clave interna', () => {
+    const block = mostPicked(data({ champions: [champion({ champion: 'MonkeyKing', picks: 5 })] }))
+    expect(block!.rows.map((row) => row.name)).toEqual(['MonkeyKing'])
+  })
+
   it('el ranking de universidades pide un minimo de apariciones', () => {
     const block = universityStandings(
       data({

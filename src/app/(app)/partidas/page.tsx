@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
+import { assetVersion, championName, championNames } from '@/lib/ddragon'
 import { formatDate, formatDuration, formatGold, formatKda } from '@/lib/format'
 import { inicioDelTorneo, TOURNAMENT } from '@/lib/lide2/tournament'
 import { resolveTournamentId } from '@/lib/stats/query'
@@ -46,6 +47,10 @@ export default async function MatchesPage() {
         'las partidas',
       )
     : []
+
+  // El listado cruza parches, pero los nombres de los campeones no cambian de
+  // uno a otro: alcanza con el catálogo del último.
+  const champNames = await championNames(await assetVersion(null))
 
   return (
     <div className="flex flex-col gap-6">
@@ -132,10 +137,10 @@ export default async function MatchesPage() {
                     <>
                       <p className="text-fg-soft">
                         <span className="text-faint">MVP </span>
-                        {match.mvp_name ?? match.mvp_champion}
+                        {match.mvp_name ?? championName(champNames, match.mvp_champion)}
                       </p>
                       <p className="tabular text-faint">
-                        {match.mvp_champion} ·{' '}
+                        {championName(champNames, match.mvp_champion)} ·{' '}
                         {formatKda(match.mvp_kills ?? 0, match.mvp_deaths ?? 0, match.mvp_assists ?? 0)}
                       </p>
                     </>
