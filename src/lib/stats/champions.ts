@@ -10,6 +10,7 @@
  * calculada sobre 3 de 40 partidas no es una estadística del torneo.
  */
 
+import { championName } from '@/lib/ddragon'
 import { formatNumber, formatPosition } from '@/lib/format'
 import { block, rankRows } from './rank'
 import type { StatBlock, StatsData } from './types'
@@ -27,9 +28,13 @@ function championRanking(
     detail?: (row: ChampionStatRow) => string | null
   },
 ) {
+  // El id sigue siendo la clave interna —es lo único único— pero el nombre que
+  // se lee es el de ddragon: en la base Wukong es "MonkeyKing".
+  const names = data.championNames ?? {}
+
   return rankRows(data.champions, {
     id: (row) => row.champion,
-    name: (row) => row.champion,
+    name: (row) => championName(names, row.champion),
     subtitle: (row) => formatPosition(row.position),
     detail: options.detail ?? ((row) => `${row.picks} ${row.picks === 1 ? 'pick' : 'picks'} · KDA ${row.kda.toFixed(2)}`),
     value: options.value,

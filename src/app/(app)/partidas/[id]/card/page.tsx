@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { maybeRow, rows } from '@/lib/supabase/query'
-import { assetVersion, championIcon } from '@/lib/ddragon'
+import { assetVersion, championIcon, championName, championNames } from '@/lib/ddragon'
 import { formatGold, formatNumber, playerName } from '@/lib/format'
 import { MatchCard, type CardHighlight, type MatchCardData } from '@/components/card/MatchCard'
 import type { MatchPlayerScoreRow, MatchSummaryRow } from '@/types/db'
@@ -23,6 +23,7 @@ export default async function MatchCardPage({ params }: PageProps<'/partidas/[id
 
   const scores = rows<MatchPlayerScoreRow>(scoresRes, 'el scoreboard')
   const version = await assetVersion(summary.patch)
+  const champNames = await championNames(version)
 
   const best = (pick: (row: MatchPlayerScoreRow) => number) =>
     scores.reduce<MatchPlayerScoreRow | null>(
@@ -40,7 +41,7 @@ export default async function MatchCardPage({ params }: PageProps<'/partidas/[id
           label,
           value: value(row),
           player: playerName(row.riot_game_name),
-          champion: row.champion,
+          champion: championName(champNames, row.champion),
           championIcon: championIcon(version, row.champion),
         }
       : null
@@ -71,7 +72,7 @@ export default async function MatchCardPage({ params }: PageProps<'/partidas/[id
     mvp: mvpRow
       ? {
           name: playerName(mvpRow.riot_game_name),
-          champion: mvpRow.champion,
+          champion: championName(champNames, mvpRow.champion),
           championIcon: championIcon(version, mvpRow.champion),
           kills: mvpRow.kills,
           deaths: mvpRow.deaths,

@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { maybeRow, rows } from '@/lib/supabase/query'
-import { assetVersion, championIcon } from '@/lib/ddragon'
+import { assetVersion, championIcon, championName, championNames } from '@/lib/ddragon'
 import { formatDate, formatNumber, formatPosition, playerName, riotTag } from '@/lib/format'
 import { GameIcon } from '@/components/match/GameIcon'
 import type {
@@ -112,6 +112,7 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
     })
 
   const version = await assetVersion(games[0]?.summary?.patch ?? null)
+  const champNames = await championNames(version)
   const name = playerName(player.riot_game_name, player.display_name)
   // El Riot ID que va debajo del nombre. Ver el comentario en el header.
   const handle = riotTag(player.riot_game_name, player.riot_tag_line, player.display_name)
@@ -192,11 +193,13 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
                 >
                   <GameIcon
                     src={championIcon(version, champion.champion)}
-                    alt={champion.champion}
+                    alt={championName(champNames, champion.champion)}
                     size={36}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{champion.champion}</p>
+                    <p className="truncate text-sm font-medium">
+                      {championName(champNames, champion.champion)}
+                    </p>
                     <p className="tabular text-xs text-faint">
                       {champion.games} {champion.games === 1 ? 'partida' : 'partidas'} ·{' '}
                       {champion.wins}V {champion.games - champion.wins}D
@@ -232,12 +235,14 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
 
                     <GameIcon
                       src={championIcon(version, score.champion)}
-                      alt={score.champion}
+                      alt={championName(champNames, score.champion)}
                       size={32}
                     />
 
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{score.champion}</p>
+                      <p className="truncate text-sm font-medium">
+                        {championName(champNames, score.champion)}
+                      </p>
                       <p className="truncate text-xs text-faint">
                         {opponent ? `vs ${opponent}` : formatPosition(score.position)}
                       </p>
