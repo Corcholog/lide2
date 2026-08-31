@@ -22,7 +22,17 @@ export interface IngestFile {
 }
 
 export interface IngestOptions {
-  file: IngestFile
+  /**
+   * El .rofl que la originó, si está guardado en algún lado.
+   *
+   * Opcional porque `ingest_match` siempre lo trató así (`if v_file is not
+   * null`): se puede guardar una partida sin su archivo. Lo usa el backfill
+   * local, que parsea desde el disco para no subir cientos de MB al bucket por
+   * datos de prueba. Sin archivo no hay fila en `match_files`, o sea que la
+   * partida no se puede descargar ni deduplicar por sha256 —para eso queda el
+   * `fingerprint`, que es la identidad de verdad—.
+   */
+  file?: IngestFile
   tournamentId?: string | null
   /** Formato suizo: etapa ("Suizo", "Playoffs") y ronda ("Ronda 3"). */
   stageLabel?: string | null
@@ -130,13 +140,23 @@ export function buildIngestPayload(match: NormalizedMatch, options: IngestOption
     raw_metadata: match.rawMetadata,
     created_by: options.createdBy ?? null,
 
-    file: {
-      storage_provider: 'supabase',
-      sha256: null,
-      client_puuid: null,
-      uploaded_by: options.createdBy ?? null,
-      ...options.file,
-    },
+    /*
+      Sin archivo la clave NO va, en vez de ir en null: `ingest_match` hace
+      `payload->'file'` y pregunta `is not null`, y un null de JSON pasa esa
+      prueba —es un jsonb 'null', no un NULL de SQL— con lo que termina
+      intentando insertar una fila de `match_files` con storage_path vacío.
+    */
+    ...(options.file
+      ? {
+          file: {
+            storage_provider: 'supabase',
+            sha256: null,
+            client_puuid: null,
+            uploaded_by: options.createdBy ?? null,
+            ...options.file,
+          },
+        }
+      : {}),
 
     players: match.players.map(playerRow),
   }
