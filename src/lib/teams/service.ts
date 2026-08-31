@@ -157,6 +157,81 @@ export async function addAccountToTeam(
   return result
 }
 
+export interface AssignAccountResult {
+  ok: boolean
+  error?: string
+  /** El inscripto que se acaba de tocar. */
+  name?: string
+  /** El Riot ID que quedó emparejado. */
+  nick?: string
+  /** Se le sacó la cuenta que tenía, en vez de darle una. */
+  cleared?: boolean
+}
+
+/**
+ * Decir de quién es una cuenta.
+ *
+ * Lo automático —`link_roster_accounts()`— empareja sólo cuando el Riot ID de
+ * la planilla coincide con el de la cuenta, y ante la duda no hace nada. Esto
+ * es la puerta manual: la usa la ficha del equipo, que es la pantalla donde se
+ * cargan los nicks y donde quien los carga sabe de quién es cada uno.
+ *
+ * Las validaciones están todas en `assign_roster_account()`: que la cuenta sea
+ * del plantel de ese equipo y que no sea ya de otro inscripto. Ver
+ * `supabase/migrations/0019_asignar_cuenta.sql`.
+ *
+ * No hace falta revincular partidas: este vínculo no cambia qué equipo jugó
+ * qué, sólo con qué universidad cuenta cada cuenta en las estadísticas.
+ */
+export async function assignRosterAccount(
+  rosterId: string,
+  playerId: string | null,
+): Promise<AssignAccountResult> {
+  const { data, error } = await createAdminClient().rpc('assign_roster_account', {
+    p_roster_id: rosterId,
+    p_player_id: playerId,
+  })
+
+  if (error) return { ok: false, error: error.message }
+  return data as AssignAccountResult
+}
+
+export interface AssignRoleResult {
+  ok: boolean
+  error?: string
+  /** El inscripto que se acaba de tocar. */
+  name?: string
+  /** La línea que quedó asignada, o null si se limpió. */
+  role?: string | null
+}
+
+/**
+ * Decir a mano en qué línea juega una cuenta.
+ *
+ * `team_lineup` deduce la línea del historial de partidas, y antes de que se
+ * juegue algo no tiene de dónde sacarla. Esto es la puerta manual: la usa la
+ * ficha del equipo, al lado de cada nick del plantel, para los casos en que
+ * quien carga los nicks ya sabe qué línea juega cada uno.
+ *
+ * Le gana a lo deducido —ver `assign_team_member_role()` y el comentario de
+ * `supabase/migrations/0020_asignar_posicion.sql`— y se puede limpiar pasando
+ * `null`, que es como se deshace una asignación equivocada.
+ */
+export async function assignTeamMemberRole(
+  teamId: string,
+  playerId: string,
+  role: string | null,
+): Promise<AssignRoleResult> {
+  const { data, error } = await createAdminClient().rpc('assign_team_member_role', {
+    p_team_id: teamId,
+    p_player_id: playerId,
+    p_role: role,
+  })
+
+  if (error) return { ok: false, error: error.message }
+  return data as AssignRoleResult
+}
+
 export async function removePlayerFromTeam(teamId: string, playerId: string): Promise<void> {
   const supabase = createAdminClient()
   await supabase.from('team_members').delete().eq('team_id', teamId).eq('player_id', playerId)

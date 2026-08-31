@@ -195,6 +195,9 @@ describe('plantel', () => {
     )
 
     expect(rows.map((r) => r.column_name).sort()).toEqual([
+      // `assigned_role` es la asignación a mano tal cual se guardó (0020); la
+      // efectiva -que puede venir de las partidas- sigue siendo `role`.
+      'assigned_role',
       // `game_name` y `tag_line` son la cuenta de Riot, que es pública desde
       // siempre (`player_profiles`). El nombre de la planilla no está.
       'game_name',

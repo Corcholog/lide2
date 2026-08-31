@@ -109,10 +109,11 @@ export default async function PlantelesPage() {
 
           <p className="text-xs text-faint">
             El Riot ID se puede cargar antes de que jueguen: cuando aparezca la cuenta en un replay
-            se empareja sola. El desplegable sólo muestra cuentas de gente que ya jugó en ese
-            equipo, y sirve para los casos en que el nick declarado no coincide con el que usaron.
-            Dar de baja a un inscripto no borra su cuenta ni sus partidas: saca el nombre de la
-            planilla y achica el banco del plantel.
+            se empareja sola. El desplegable muestra los nicks del plantel de ese equipo, hayan
+            jugado o no —los que se cargan a mano desde la ficha del equipo también están—, y sirve
+            para los casos en que el nick declarado no coincide con el que usaron. Lo mismo se
+            puede hacer de a uno desde la ficha de cada equipo. Dar de baja a un inscripto no borra
+            su cuenta ni sus partidas: saca el nombre de la planilla y achica el banco del plantel.
           </p>
 
           <div className="grid gap-4">

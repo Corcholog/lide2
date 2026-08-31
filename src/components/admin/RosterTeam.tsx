@@ -120,6 +120,15 @@ function resumen(state: RosterActionResult): string {
   return partes.length > 0 ? `Guardado · ${partes.join(' · ')}` : 'Guardado'
 }
 
+/**
+ * Qué decir debajo del desplegable. Una cuenta emparejada con 0 partidas no es
+ * un error: es un nick cargado a mano que todavía no jugó (ver 0017).
+ */
+function nota(row: RosterStatusRow): string | null {
+  if (!row.player_id) return null
+  return row.games > 0 ? `${row.games} partidas` : 'todavía no jugó'
+}
+
 /** Las filas del plantel, con lo que se agregó y lo que se quitó todavía sin guardar. */
 function Filas({
   rows,
@@ -147,7 +156,7 @@ function Filas({
         <span>Nombre</span>
         <span>Universidad</span>
         <span>Riot ID de la planilla</span>
-        <span>Cuenta que jugó</span>
+        <span>Nick del plantel</span>
         <span className="w-14" />
       </div>
 
@@ -162,7 +171,7 @@ function Filas({
               row.declared_game_name ? riotId(row.declared_game_name, row.declared_tag_line) : ''
             }
             playerId={row.player_id}
-            nota={row.player_id ? `${row.games} partidas` : null}
+            nota={nota(row)}
             accounts={accounts}
             universities={universities}
             baja={dadosDeBaja.has(row.roster_id)}
@@ -290,7 +299,7 @@ function Fila({
 
       <label className="flex flex-col gap-1">
         <span className="text-[11px] uppercase tracking-wide text-faint sm:sr-only">
-          Cuenta que jugó
+          Nick del plantel
         </span>
         <select
           name={`player-${clave}`}
@@ -298,7 +307,7 @@ function Fila({
           className={`${CAMPO} ${baja ? 'opacity-60' : ''}`}
         >
           <option value="">
-            {accounts.length === 0 ? 'todavía no jugó nadie' : 'sin emparejar'}
+            {accounts.length === 0 ? 'no hay nicks cargados' : 'sin emparejar'}
           </option>
           {accounts.map((account) => (
             <option key={account.player_id} value={account.player_id}>

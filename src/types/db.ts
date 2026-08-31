@@ -514,6 +514,12 @@ export interface TeamLineupRow {
   game_name: string | null
   /** El `#TAG`, sin el `#`. Null en cuentas viejas que entraron sin tag. */
   tag_line: string | null
+  /**
+   * La línea asignada a mano, tal cual se guardó. Distinta de `role`: esa es
+   * la línea EFECTIVA del casillero (puede venir de las partidas); esta es la
+   * que se precarga en el desplegable de edición. Null si nadie la tocó.
+   */
+  assigned_role: string | null
 }
 
 /** Una fila de `tournament_mvp`: el ranking de MVP del recorte. */
