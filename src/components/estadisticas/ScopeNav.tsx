@@ -1,40 +1,42 @@
-import Link from 'next/link'
+import { Chip } from '@/components/nav/Chip'
 import { MATCHDAYS } from '@/lib/stats/scope'
+import { conQuery } from '@/lib/url'
 
 /**
- * El selector de fecha, compartido por /estadisticas y /admin/cards.
+ * El selector de fecha, compartido por /estadisticas, /estadisticas/tablas,
+ * /partidas y /admin/cards.
  *
  * `base` es la ruta de cada una; el resto —qué fechas hay y cómo se llaman—
  * sale del calendario, igual que el recorte.
+ *
+ * `query` son los OTROS filtros de la página, que hay que arrastrar en cada
+ * link: sin eso, elegir la fecha 2 en /partidas borra el equipo que estaba
+ * filtrado, y en las tablas borra el grupo.
  */
-export function ScopeNav({ base, matchday }: { base: string; matchday: number | null }) {
+export function ScopeNav({
+  base,
+  matchday,
+  query = {},
+}: {
+  base: string
+  matchday: number | null
+  query?: Record<string, string | number | null | undefined>
+}) {
   return (
     <nav aria-label="Recorte" className="flex flex-wrap gap-1">
-      <ScopeLink label="Toda la fase" href={base} active={matchday === null} />
+      <Chip
+        label="Toda la fase"
+        href={conQuery(base, { ...query, fecha: null })}
+        active={matchday === null}
+      />
       {MATCHDAYS.map((entry) => (
-        <ScopeLink
+        <Chip
           key={entry.matchday}
           label={entry.label}
-          href={`${base}?fecha=${entry.matchday}`}
+          href={conQuery(base, { ...query, fecha: entry.matchday })}
           active={matchday === entry.matchday}
         />
       ))}
     </nav>
-  )
-}
-
-function ScopeLink({ label, href, active }: { label: string; href: string; active: boolean }) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? 'true' : undefined}
-      className={`border-2 px-3 py-1 text-xs font-bold uppercase tracking-wide transition-colors ${
-        active
-          ? 'border-accent bg-accent-dim text-accent'
-          : 'border-line text-muted hover:border-line-strong hover:text-accent'
-      }`}
-    >
-      {label}
-    </Link>
   )
 }

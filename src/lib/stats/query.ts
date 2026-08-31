@@ -20,6 +20,7 @@ import type {
   UniversityTotalsRow,
 } from '@/types/db'
 import { maybeRow, rows } from '@/lib/supabase/query'
+import { matchFilter, scopeFilter } from './filtros'
 import type { StatScope, StatsData } from './types'
 
 type Supabase = Awaited<ReturnType<typeof createClient>>
@@ -33,30 +34,12 @@ export async function resolveTournamentId(supabase: Supabase): Promise<string | 
   return torneo?.id ?? null
 }
 
-/**
- * El recorte, como filtro de igualdad.
- *
- * `is_total` es el filtro importante y no se puede reemplazar por
- * `matchday is null`: en las vistas de acumulados conviven la fila de toda la
- * fase (matchday null a propósito) y la de una partida a la que no se le pudo
- * resolver la fecha (matchday null por accidente).
- */
-function scopeFilter(scope: StatScope): Record<string, unknown> {
-  const base = { tournament_id: scope.tournamentId, phase: scope.phase }
-
-  return scope.matchday === null
-    ? { ...base, is_total: true }
-    : { ...base, is_total: false, matchday: scope.matchday }
-}
-
-/** Igual, para `match_records`, que es una fila por partida y no tiene acumulado. */
-function matchFilter(scope: StatScope): Record<string, unknown> {
-  const base = { tournament_id: scope.tournamentId, phase: scope.phase }
-  return scope.matchday === null ? base : { ...base, matchday: scope.matchday }
-}
-
 export async function loadStats(supabase: Supabase, scope: StatScope): Promise<StatsData> {
   const filter = scopeFilter(scope)
+
+  // La versión de assets se resuelve antes que el resto: la necesitan tanto los
+  // nombres de los campeones como las URLs de sus íconos.
+  const version = await assetVersion(null)
 
   const [players, teams, universities, champions, records, mvp, names] = await Promise.all([
     supabase.from('player_phase_totals').select('*').match(filter),
@@ -68,7 +51,7 @@ export async function loadStats(supabase: Supabase, scope: StatScope): Promise<S
     // Un recorte cruza parches, y los nombres son los mismos en todos: el
     // último alcanza. Es el único pedido que no va a la base, y el único que
     // puede fallar sin arrastrar al resto.
-    championNames(await assetVersion(null)),
+    championNames(version),
   ])
 
   /*
@@ -87,5 +70,6 @@ export async function loadStats(supabase: Supabase, scope: StatScope): Promise<S
     records: rows<MatchRecordRow>(records, 'los récords de partida'),
     mvp: rows<TournamentMvpRow>(mvp, 'el MVP del torneo'),
     championNames: names,
+    assetVersion: version,
   }
 }
