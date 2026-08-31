@@ -30,6 +30,32 @@ export interface MatchSummaryRow {
   mvp_assists: number | null
   mvp_score: number | null
   file_count: number
+  tournament_id: string | null
+  series_id: string | null
+  game_number: number | null
+  blue_team_logo: string | null
+  red_team_logo: string | null
+
+  // El recorte del torneo al que pertenece la partida, resuelto por
+  // `match_context` (0021_meta_y_bans.sql). Sale de acá y no de una consulta
+  // aparte para que los filtros de /partidas sean un `.eq()` sobre esta vista.
+  /** Fecha del torneo, 1 a 3. Null en playoffs o si todavía no se resolvió. */
+  matchday: number | null
+  group_label: string | null
+  phase: StatPhase | null
+  slot: number | null
+  /** Cuántos bans tiene cargados a mano. 0 = sin draft; el .rofl no lo trae. */
+  ban_count: number
+}
+
+/** Una fila de `match_bans`: un baneo del draft, cargado a mano en el panel. */
+export interface MatchBanRow {
+  id: string
+  match_id: string
+  side: 100 | 200
+  champion: string
+  /** 1 a 5 dentro de su lado. */
+  order_index: number
 }
 
 export interface MatchPlayerScoreRow {
@@ -415,6 +441,51 @@ export interface ChampionStatRow extends StatScopeColumns {
   bans: number
   matches: number
   matches_with_bans: number
+  presence: number | null
+}
+
+/**
+ * Una fila de `champion_meta` (0021_meta_y_bans.sql).
+ *
+ * El mismo meta que `champion_stats` pero con la dimensión de grupo, y con las
+ * tres tasas ya calculadas. Cuatro recortes conviven en la vista —acumulado,
+ * por fecha, por grupo, y grupo+fecha— y las dos banderas dicen cuál es cada
+ * fila. No se pueden reemplazar por `group_label is null`: ese null puede
+ * significar "todos los grupos" o "esta partida no tiene grupo resuelto", que
+ * es el mismo problema que resuelve `is_total` en las otras vistas.
+ *
+ * `pick_rate`, `ban_rate` y `presence` son null cuando su denominador es cero:
+ * un campeón que nadie jugó no tiene 0% de winrate, no tiene winrate.
+ */
+export interface ChampionMetaRow {
+  tournament_id: string | null
+  phase: StatPhase | null
+  group_label: string | null
+  matchday: number | null
+  round_label: string | null
+  /** true = la fila de todos los grupos juntos. */
+  all_groups: boolean
+  /** true = la fila de toda la fase; false = la de una fecha. */
+  all_matchdays: boolean
+
+  champion: string
+  position: string | null
+  picks: number
+  wins: number
+  losses: number
+  win_pct: number | null
+  kills: number
+  deaths: number
+  assists: number
+  kda: number
+  avg_damage: number
+  avg_score: number
+  bans: number
+  matches: number
+  /** Sobre cuántas partidas del recorte se midieron los bans. */
+  matches_with_bans: number
+  pick_rate: number | null
+  ban_rate: number | null
   presence: number | null
 }
 

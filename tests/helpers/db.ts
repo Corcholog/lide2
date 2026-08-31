@@ -56,6 +56,7 @@ export const MIGRATIONS = [
   '0018_tag_a_la_vista.sql',
   '0019_asignar_cuenta.sql',
   '0020_asignar_posicion.sql',
+  '0021_meta_y_bans.sql',
 ]
 
 /**
@@ -70,12 +71,28 @@ export const MIGRATIONS = [
 const SUPABASE_GRANTS = `
 grant usage on schema public to anon, authenticated;
 grant select on all tables in schema public to anon, authenticated;
-grant execute on all functions in schema public to anon, authenticated;
+`
+
+/**
+ * Lo mismo para las funciones, pero ANTES de las migraciones y como privilegio
+ * por defecto.
+ *
+ * Supabase se lo da a cada funcion en el momento en que se crea, que es por lo
+ * que las migraciones que crean funciones de escritura terminan con un `revoke
+ * execute ... from anon, authenticated`. Un `grant execute on all functions`
+ * corrido despues pisaria todos esos revoke, y los tests dirian que cualquiera
+ * puede llamar a `set_match_bans` o `assign_team_member_role` —o peor, dirian
+ * que nadie puede y en produccion si—. Con el privilegio por defecto el orden
+ * es el de verdad: primero el grant, despues el revoke de cada migracion.
+ */
+const SUPABASE_DEFAULT_GRANTS = `
+alter default privileges in schema public grant execute on functions to anon, authenticated;
 `
 
 export async function createTestDb(): Promise<PGlite> {
   const db = new PGlite()
   await db.exec(SUPABASE_STUBS)
+  await db.exec(SUPABASE_DEFAULT_GRANTS)
 
   for (const file of MIGRATIONS) {
     await db.exec(readFileSync(`supabase/migrations/${file}`, 'utf8'))

@@ -137,6 +137,22 @@ describe('acceso publico', () => {
       expect(await asAnon(db, 'select * from public.match_summaries')).toHaveLength(1)
       expect(await asAnon(db, 'select * from public.university_totals')).not.toHaveLength(0)
       expect(await asAnon(db, 'select * from public.match_records')).toHaveLength(1)
+
+      // El meta de la pestaña Tablas. Es la unica forma de detectar un
+      // `security_invoker` mal puesto: el sintoma seria cero filas sin ningun
+      // error, y solo para quien no tiene sesion —o sea, invisible en
+      // desarrollo, donde uno siempre esta logueado—.
+      expect(await asAnon(db, 'select * from public.champion_meta')).not.toHaveLength(0)
+    })
+
+    it('las columnas nuevas de match_summaries', async () => {
+      // El recorte y el estado del draft (0021): de aca salen los filtros de
+      // /partidas y el badge de "sin draft" del panel.
+      const rows = await asAnon<{ matchday: number | null; ban_count: number }>(
+        db,
+        'select matchday, group_label, ban_count from public.match_summaries',
+      )
+      expect(rows[0].ban_count).toBe(0)
     })
 
     it('la ficha de un jugador y el plantel de un equipo', async () => {
