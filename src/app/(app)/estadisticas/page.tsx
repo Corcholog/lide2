@@ -6,6 +6,8 @@ import { loadStats, resolveTournamentId } from '@/lib/stats/query'
 import { buildStats } from '@/lib/stats/registry'
 import { StatCard } from '@/components/estadisticas/StatCard'
 import { ScopeNav } from '@/components/estadisticas/ScopeNav'
+import { VistaNav } from '@/components/estadisticas/VistaNav'
+import { SectionNav } from '@/components/torneo/SectionNav'
 import { Empty } from '@/components/estadisticas/Empty'
 import { parseScope } from '@/lib/stats/scope'
 
@@ -62,7 +64,10 @@ export default async function StatsPage({ searchParams }: PageProps<'/estadistic
         </p>
       </header>
 
-      <ScopeNav base="/estadisticas" matchday={scope.matchday} />
+      <div className="flex flex-col gap-2">
+        <VistaNav activa="rankings" query={{ fecha: scope.matchday }} />
+        <ScopeNav base="/estadisticas" matchday={scope.matchday} />
+      </div>
 
       {played === 0 ? (
         <Empty
@@ -82,8 +87,19 @@ export default async function StatsPage({ searchParams }: PageProps<'/estadistic
             <Summary label="Promedio" value={formatDuration(Math.round(totalMs / played))} />
           </dl>
 
+          {/*
+            La barra de secciones, la misma de la portada.
+
+            Son treinta y tres rankings en cinco bloques: sin esto, llegar al
+            meta es scrollear a ciegas por todos los individuales. La barra se
+            ancla arriba al scrollear y marca en cuál estás, y las secciones que
+            se quedaron sin datos no aparecen porque salen de `sections`, que ya
+            viene filtrado.
+          */}
+          <SectionNav sections={sections.map(({ id, label }) => ({ id, label }))} />
+
           {sections.map((section) => (
-            <section key={section.id} className="flex flex-col gap-3">
+            <section key={section.id} id={section.id} className="flex scroll-mt-16 flex-col gap-3">
               <div className="flex items-baseline gap-3 border-b-2 border-line-strong pb-2">
                 <h2 className="font-display text-lg uppercase tracking-wide">{section.label}</h2>
                 <p className="text-xs text-muted">{section.description}</p>

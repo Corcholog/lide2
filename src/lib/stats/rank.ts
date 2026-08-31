@@ -34,6 +34,8 @@ export interface RankOptions<T> {
   name: (row: T) => string
   subtitle?: (row: T) => string | null
   logo?: (row: T) => string | null
+  /** A dónde lleva la fila. Sin esto no es un link. */
+  href?: (row: T) => string | null
   detail?: (row: T) => string | null
   /** Filas que no califican. Por defecto entran todas. */
   eligible?: (row: T) => boolean
@@ -52,6 +54,7 @@ export function rankRows<T>(rows: T[], options: RankOptions<T>): StatRow[] {
     name,
     subtitle,
     logo,
+    href,
     detail,
     eligible,
     order = 'desc',
@@ -72,6 +75,7 @@ export function rankRows<T>(rows: T[], options: RankOptions<T>): StatRow[] {
       name: name(row),
       subtitle: subtitle?.(row) ?? null,
       logo: logo?.(row) ?? null,
+      href: href?.(row) ?? null,
       detail: detail?.(row) ?? null,
       value: value(row),
       display: display(value(row), row),

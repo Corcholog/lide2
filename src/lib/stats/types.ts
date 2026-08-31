@@ -53,6 +53,15 @@ export interface StatsData {
    * ranking correcto.
    */
   championNames?: Record<string, string>
+  /**
+   * La versión de ddragon con la que se arman las URLs de los íconos.
+   *
+   * Va acá y no se resuelve en cada builder porque es un pedido a la red: se
+   * hace una vez en `loadStats` y viaja con el resto de los datos. Opcional por
+   * el mismo motivo que los nombres —ddragon se puede caer— y sin ella los
+   * rankings de campeones salen sin ícono, que se ve peor pero se lee igual.
+   */
+  assetVersion?: string
 }
 
 /** Una posición de un ranking. */
@@ -69,6 +78,15 @@ export interface StatRow {
   display: string
   /** Contexto corto: "17/4/9", "4 partidas". */
   detail?: string | null
+  /**
+   * A dónde lleva la fila, si lleva a algún lado.
+   *
+   * Un ranking de partidas o de jugadores es un índice: el nombre que se lee ya
+   * es el de una página que existe, y no poder hacerle clic obliga a ir a
+   * buscarla por otro lado. Los rankings de universidades y de campeones no
+   * tienen ficha propia, así que sus filas no son links.
+   */
+  href?: string | null
 }
 
 /** Una estadística resuelta: título, filas y, si hace falta, una advertencia. */
@@ -85,7 +103,7 @@ export interface StatBlock {
   rows: StatRow[]
 }
 
-export type StatSection = 'individuales' | 'equipos' | 'universidades' | 'meta' | 'records'
+export type StatSection = 'jugadores' | 'equipos' | 'universidades' | 'meta' | 'records'
 
 /** Una estadística en el registro: cómo se llama y cómo se calcula. */
 export interface StatDefinition {
