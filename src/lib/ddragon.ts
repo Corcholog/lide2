@@ -39,6 +39,23 @@ export function championKey(champion: string): string {
 }
 
 /**
+ * El camino inverso: de la clave de ddragon a la que escribe el .rofl.
+ *
+ * Hace falta al cargar los bans a mano. El campeón se elige de una lista que
+ * viene de ddragon, pero lo que se guarda tiene que ser la grafía del .rofl:
+ * `champion_meta` une picks y bans por igualdad exacta de texto, así que un
+ * "Fiddlesticks" baneado y un "FiddleSticks" jugado serían dos campeones
+ * distintos, cada uno con la mitad de los números.
+ *
+ * Se deriva del mismo objeto que `championKey` para que la lista de
+ * excepciones siga viviendo en un solo lugar.
+ */
+export function roflKey(ddragonId: string): string {
+  const entrada = Object.entries(CHAMPION_ALIASES).find(([, alias]) => alias === ddragonId)
+  return entrada?.[0] ?? ddragonId
+}
+
+/**
  * Un GET a ddragon que degrada en vez de tirar.
  *
  * Nada de lo que se pide acá es imprescindible: sin versión hay una de
@@ -119,6 +136,27 @@ export const championNames = cache(async (version: string): Promise<Record<strin
   for (const champ of Object.values(json?.data ?? {})) byKey[champ.id.toLowerCase()] = champ.name
   return byKey
 })
+
+/**
+ * El catálogo entero, con la clave tal cual la escribe ddragon.
+ *
+ * `championNames` indexa en minúsculas y con eso pierde el casing original,
+ * que es justo lo que hace falta para armar la URL de un ícono y para guardar
+ * un ban. Devuelve las dos puntas —clave y nombre— ordenadas por nombre, que
+ * es como se lee un desplegable de 170 campeones.
+ */
+export const championCatalog = cache(
+  async (version: string): Promise<{ key: string; name: string }[]> => {
+    const json = await get<{ data: Record<string, { id: string; name: string }> }>(
+      `cdn/${version}/data/es_AR/champion.json`,
+      'el catálogo de campeones',
+    )
+
+    return Object.values(json?.data ?? {})
+      .map((champ) => ({ key: champ.id, name: champ.name }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+  },
+)
 
 /**
  * El nombre para mostrar de un campeón.
