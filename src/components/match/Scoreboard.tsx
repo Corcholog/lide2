@@ -1,13 +1,7 @@
+import { BarraDeDano } from './BarraDeDano'
 import { GameIcon } from './GameIcon'
 import { championIcon, championName, itemIcon, spellIcon } from '@/lib/ddragon'
-import {
-  formatGold,
-  formatKda,
-  formatNumber,
-  formatPosition,
-  playerName,
-  riotTag,
-} from '@/lib/format'
+import { formatGold, formatKda, formatPosition, playerName, riotTag } from '@/lib/format'
 import type { MatchTeamStatsRow } from '@/types/db'
 
 export interface ScoreboardPlayer {
@@ -56,7 +50,6 @@ export function Scoreboard({
   const isBlue = side === 100
   const won = stats?.win ?? false
   const accent = isBlue ? 'text-side-blue' : 'text-side-red'
-  const bar = isBlue ? 'bg-side-blue-fill' : 'bg-side-red-fill'
   const edge = isBlue ? 'border-l-side-blue' : 'border-l-side-red'
   const badge = isBlue ? 'bg-side-blue-dim text-side-blue' : 'bg-side-red-dim text-side-red'
 
@@ -173,19 +166,11 @@ export function Scoreboard({
                 </td>
 
                 <td className="px-2 py-2">
-                  <div className="flex items-center gap-2">
-                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-raised">
-                      <div
-                        className={`h-full rounded-r-[4px] ${bar}`}
-                        style={{
-                          width: `${maxDamage > 0 ? (player.damageToChampions / maxDamage) * 100 : 0}%`,
-                        }}
-                      />
-                    </div>
-                    <span className="tabular text-xs text-muted">
-                      {formatNumber(player.damageToChampions)}
-                    </span>
-                  </div>
+                  <BarraDeDano
+                    damage={player.damageToChampions}
+                    max={maxDamage}
+                    side={player.side}
+                  />
                 </td>
 
                 <td className="tabular px-2 py-2 text-right text-fg-soft">{player.visionScore}</td>
