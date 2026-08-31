@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
 import { inicioDelTorneo } from '@/lib/lide2/tournament'
 import { LogosUniversidad } from '@/components/torneo/LogoUniversidad'
+import { OrdenEquipos } from '@/components/torneo/OrdenEquipos'
+import { parseTeamOrder, sortTeams } from '@/lib/teams/order'
 import { createTeamAction, relinkAction } from './actions'
 
 export const metadata = {
@@ -30,10 +32,13 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
   const user = await getUser()
   const params = await searchParams
   const created = Number(params.creados ?? 0)
+  const order = parseTeamOrder(params.orden)
 
   const supabase = await createClient()
   const [totalsRes, unisRes] = await Promise.all([
-    supabase.from('team_totals').select('*').order('wins', { ascending: false }),
+    // El orden lo pone `sortTeams`: el winrate no es una columna de esta vista
+    // y ordenar por victorias deja a un 3–3 arriba de un 2–0.
+    supabase.from('team_totals').select('*'),
     // Las siglas alcanzan: el archivo del escudo sale del tag. Ver LogoUniversidad.
     supabase
       .from('team_universities')
@@ -41,7 +46,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
       .order('order_index'),
   ])
 
-  const teams = rows<TeamTotalsRow>(totalsRes, 'los equipos')
+  const teams = sortTeams(rows<TeamTotalsRow>(totalsRes, 'los equipos'), order)
 
   const universidades = new Map<string, string[]>()
   for (const fila of rows<{ team_id: string; universities: { tag: string } | null }>(
@@ -68,7 +73,9 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
           <p className="mt-1 text-sm text-muted">
             {user
               ? 'Cada partida se vincula sola cuando 3 o más de sus jugadores están en el roster.'
-              : `Los ${teams.length} equipos del torneo, ordenados por victorias.`}
+              : `Los ${teams.length} equipos del torneo, ${
+                  order === 'winrate' ? 'del que más gana al que menos' : 'por orden alfabético'
+                }.`}
           </p>
         </div>
         {user && (
@@ -113,6 +120,11 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
           </button>
         </form>
       )}
+
+      {/* Arriba de las cards y no en el encabezado: al lado de lo que ordena, y
+          sin pelearle el lugar a los botones del panel. Con la lista vacía no
+          hay nada que ordenar. */}
+      {teams.length > 0 && <OrdenEquipos order={order} />}
 
       {teams.length === 0 ? (
         <div className="rounded-lg border border-dashed border-line-strong px-6 py-12 text-center text-fg-soft">
