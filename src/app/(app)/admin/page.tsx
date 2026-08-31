@@ -27,7 +27,7 @@ export default async function AdminPage() {
 
   const tournamentId = (tournament?.id as string) ?? null
 
-  const [pendingRes, fixtureRes, rosterRes] = await Promise.all([
+  const [pendingRes, fixtureRes, rosterRes, draftRes] = await Promise.all([
     supabase.from('unassigned_matches').select('*', { count: 'exact', head: true }),
     tournamentId
       ? supabase
@@ -37,21 +37,31 @@ export default async function AdminPage() {
           .is('match_id', null)
       : Promise.resolve({ count: 0 }),
     supabase.from('roster_status').select('player_id'),
+    // Partidas sin ningún ban cargado. `ban_count` viene de match_summaries
+    // (0021) justamente para que esto sea un count y no traer toda la tabla.
+    tournamentId
+      ? supabase
+          .from('match_summaries')
+          .select('*', { count: 'exact', head: true })
+          .eq('tournament_id', tournamentId)
+          .eq('ban_count', 0)
+      : Promise.resolve({ count: 0 }),
   ])
 
   const roster = rows<{ player_id: string | null }>(rosterRes, 'los inscriptos')
   const sinEmparejar = roster.filter((row) => row.player_id === null).length
+  const sinDraft = draftRes.count ?? 0
 
   return (
     <div className="flex flex-col gap-8">
       <header>
         <h1 className="font-display text-3xl uppercase tracking-tight">Panel</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted">
-          Un día de partido son cuatro pasos, y sólo los dos primeros son obligatorios.
+          Un día de partido son cinco pasos, y sólo los dos primeros son obligatorios.
         </p>
       </header>
 
-      <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <ol className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Step
           n={1}
           href="/admin/upload"
@@ -73,13 +83,21 @@ export default async function AdminPage() {
         />
         <Step
           n={3}
+          href="/admin/bans"
+          title="Bans"
+          detail="Los diez baneos de cada partida, a mano: el .rofl no guarda el draft."
+          badge={sinDraft > 0 ? `${sinDraft} sin draft` : 'todos cargados'}
+          alert={sinDraft > 0}
+        />
+        <Step
+          n={4}
           href="/admin/planteles"
           title="Planteles"
           detail="Quiénes están anotados y qué cuenta de Riot es cada uno. Acá van los cambios de plantel."
           badge={sinEmparejar > 0 ? `${sinEmparejar} sin emparejar` : 'completo'}
         />
         <Step
-          n={4}
+          n={5}
           href="/admin/cards"
           title="Cards"
           detail="El lote de la fecha para redes. El PNG, o los números para pasárselos a alguien."

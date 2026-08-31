@@ -2,6 +2,9 @@
 
 import { revalidatePath } from 'next/cache'
 import { requireUser } from '@/lib/auth'
+import { setMatchBans, type BanInput, type SaveBansResult } from '@/lib/bans/service'
+import { championIndex, resolveChampion } from '@/lib/champions/catalogo'
+import { assetVersion, championCatalog, roflKey } from '@/lib/ddragon'
 import { getStorage } from '@/lib/storage'
 import { createAdminClient } from '@/lib/supabase/admin'
 
@@ -19,12 +22,13 @@ import { createAdminClient } from '@/lib/supabase/admin'
  */
 
 function refresh() {
+  revalidatePath('/admin')
   revalidatePath('/admin/asignar')
   revalidatePath('/admin/planteles')
   revalidatePath('/partidas')
   revalidatePath('/equipos')
-  revalidatePath('/jugadores')
   revalidatePath('/estadisticas')
+  revalidatePath('/estadisticas/tablas')
   revalidatePath('/')
 }
 
@@ -78,6 +82,52 @@ export async function unassignMatchAction(
 
   refresh()
   return { ok: true }
+}
+
+/**
+ * Cargar el draft de una partida a mano.
+ *
+ * Los diez campos llegan como `ban-<lado>-<orden>`; los vacíos se saltean, que
+ * es como se carga una partida donde un equipo pasó un ban.
+ *
+ * LA TRADUCCIÓN ES ACÁ. En el formulario se escribe el nombre que se ve
+ * ("Wukong"), y lo que se guarda es la clave que usa el .rofl ("MonkeyKing"),
+ * porque es contra eso que `champion_meta` cruza los picks. Un campeón que no
+ * se puede resolver corta el guardado nombrando el texto: guardarlo tal cual
+ * dejaría una fila fantasma en el meta que nadie va a poder explicar después.
+ */
+export async function guardarBansAction(
+  _prev: SaveBansResult | null,
+  formData: FormData,
+): Promise<SaveBansResult> {
+  const user = await requireUser()
+
+  const matchId = String(formData.get('matchId') ?? '')
+  if (!matchId) return { ok: false, error: 'Falta la partida.' }
+
+  const index = championIndex(await championCatalog(await assetVersion(null)))
+  const bans: BanInput[] = []
+
+  for (const side of [100, 200] as const) {
+    for (let orden = 1; orden <= 5; orden++) {
+      const texto = String(formData.get(`ban-${side}-${orden}`) ?? '').trim()
+      if (!texto) continue
+
+      const champion = resolveChampion(index, texto)
+      if (!champion) return { ok: false, error: `"${texto}" no es ningún campeón.` }
+
+      bans.push({ side, orderIndex: orden, champion: roflKey(champion) })
+    }
+  }
+
+  const result = await setMatchBans(matchId, bans, user.id)
+
+  if (result.ok) {
+    refresh()
+    revalidatePath('/admin/bans')
+  }
+
+  return result
 }
 
 export interface DeleteResult {
