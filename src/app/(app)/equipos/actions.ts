@@ -21,7 +21,8 @@ import {
 
 function refresh() {
   revalidatePath('/equipos')
-  revalidatePath('/jugadores')
+  // El listado de jugadores ya no existe; su tabla vive en las estadísticas.
+  revalidatePath('/estadisticas/tablas')
   revalidatePath('/')
 }
 

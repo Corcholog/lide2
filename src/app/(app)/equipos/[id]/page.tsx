@@ -14,6 +14,7 @@ import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { formatNumber, formatPosition, playerName, riotTag } from '@/lib/format'
 import type { PlayerTotalsRow, TeamAccountRow, TeamLineupRow } from '@/types/db'
 import { addPlayerAction, deleteTeamAction, removePlayerAction } from '../actions'
+import { rutaJugador } from '@/lib/rutas'
 
 export const dynamic = 'force-dynamic'
 
@@ -218,7 +219,7 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
                      plantel son dos líneas iguales sin él. */
                   <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
                     <Link
-                      href={`/jugadores/${slot.player_id}`}
+                      href={rutaJugador(slot.player_id)}
                       className="truncate font-medium transition-colors hover:text-accent"
                     >
                       {playerName(slot.name)}
