@@ -54,6 +54,8 @@ export const MIGRATIONS = [
   '0016_borrar_partida.sql',
   '0017_alta_de_cuenta.sql',
   '0018_tag_a_la_vista.sql',
+  '0019_asignar_cuenta.sql',
+  '0020_asignar_posicion.sql',
 ]
 
 /**

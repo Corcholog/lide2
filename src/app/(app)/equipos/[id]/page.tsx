@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { AddAccount } from '@/components/admin/AddAccount'
+import { AssignAccount } from '@/components/admin/AssignAccount'
+import { AssignRole } from '@/components/admin/AssignRole'
 import {
   LogoUniversidad,
   LogosUniversidad,
@@ -10,7 +12,7 @@ import { createClient } from '@/lib/supabase/server'
 import { maybeRow, rows } from '@/lib/supabase/query'
 import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { formatNumber, formatPosition, playerName, riotTag } from '@/lib/format'
-import type { PlayerTotalsRow, TeamLineupRow } from '@/types/db'
+import type { PlayerTotalsRow, TeamAccountRow, TeamLineupRow } from '@/types/db'
 import { addPlayerAction, deleteTeamAction, removePlayerAction } from '../actions'
 
 export const dynamic = 'force-dynamic'
@@ -51,7 +53,7 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
   const { id } = await params
 
   const supabase = await createClient()
-  const [teamRes, lineupRes, totalsRes, rosterRes, unisRes] = await Promise.all([
+  const [teamRes, lineupRes, totalsRes, rosterRes, unisRes, accountsRes] = await Promise.all([
     supabase.from('teams').select('id,name,tag').eq('id', id).maybeSingle(),
     // El plantel son casilleros y no cuentas: los cinco roles están siempre, el
     // banco sale de cuántos anotó el equipo y el nick aparece cuando la persona
@@ -72,6 +74,12 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
       .select('order_index,universities(tag,name)')
       .eq('team_id', id)
       .order('order_index'),
+    // Los nicks del equipo, para decir de quién es cada uno. Sólo con sesión:
+    // es lo único de esta página que se usa al lado de los nombres legales de
+    // la planilla, y la lista de acá abajo ya no se dibuja sin usuario.
+    user
+      ? supabase.from('team_accounts').select('*').eq('team_id', id)
+      : Promise.resolve({ data: [], error: null }),
   ])
 
   const team = maybeRow<{ id: string; name: string; tag: string | null }>(teamRes, 'el equipo')
@@ -84,6 +92,7 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
 
   const lineup = rows<TeamLineupRow>(lineupRes, 'el plantel')
   const roster = rows<RosterRow>(rosterRes as never, 'los inscriptos')
+  const accounts = rows<TeamAccountRow>(accountsRes as never, 'las cuentas del equipo')
   const totals = rows<PlayerTotalsRow>(totalsRes, 'los totales por jugador')
   const memberIds = new Set(lineup.flatMap((slot) => (slot.player_id ? [slot.player_id] : [])))
   const confirmados = memberIds.size
@@ -127,7 +136,10 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
       {user && roster.length > 0 && (
         <section className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between gap-4">
-            <h2 className="text-sm font-medium text-muted">Inscriptos ({roster.length})</h2>
+            <h2 className="text-sm font-medium text-muted">
+              Inscriptos ({roster.filter((entry) => entry.player_id).length}/{roster.length} con
+              nick)
+            </h2>
             {/*
               Estos nombres no salen a la web publica: son nombres legales de una
               planilla de inscripcion, no apodos elegidos. La policy de
@@ -137,7 +149,7 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
           </div>
           <ul className="divide-y divide-line rounded-lg border border-line">
             {roster.map((entry, index) => (
-              <li key={entry.id} className="flex items-center gap-4 px-4 py-2 text-sm">
+              <li key={entry.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 text-sm">
                 {/* La posición en la lista y no `order_index`: ese es el orden
                     de la planilla y queda con huecos cuando alguien se da de
                     baja desde el panel. */}
@@ -153,12 +165,23 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
                     <span className="text-xs text-faint">{entry.universities.tag}</span>
                   </span>
                 )}
-                <span className="w-24 shrink-0 text-right text-xs text-dim">
-                  {entry.player_id ? 'cuenta enlazada' : 'sin enlazar'}
-                </span>
+                {/* De quién es cada nick. Los que se cargan más abajo quedan
+                    emparejados solos cuando coinciden con el Riot ID que
+                    declaró la planilla; cuando no, se dice acá. */}
+                <AssignAccount
+                  teamId={team.id}
+                  rosterId={entry.id}
+                  playerId={entry.player_id}
+                  accounts={accounts}
+                />
               </li>
             ))}
           </ul>
+          <p className="text-xs text-dim">
+            El desplegable son los nicks del plantel, hayan jugado o no. Emparejarlos sirve para las
+            estadísticas por universidad: sin eso, las partidas de cada cuenta cuentan para la
+            universidad del equipo y no para la que declaró su dueño.
+          </p>
         </section>
       )}
 
@@ -175,15 +198,20 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
           Un lugar vacío se muestra igual, con el nombre del rol. El plantel de
           un equipo del que todavía no se subió ningún replay son cinco líneas
           en gris, y se van llenando solas a medida que entran las partidas.
+          Del banco para abajo no hay números: son cuentas sin línea asignada,
+          no un orden que alguien haya elegido.
         */}
         <ul className="divide-y divide-line rounded-lg border border-line">
           {lineup.map((slot) => {
             const stats = slot.player_id ? statsByPlayer.get(slot.player_id) : null
             const tag = riotTag(slot.game_name, slot.tag_line, slot.name)
             return (
-              <li key={slot.slot} className="flex items-center gap-4 px-4 py-2.5 text-sm">
-                <span className="w-20 shrink-0 text-xs text-faint">
-                  {slot.role ? formatPosition(slot.role) : `Suplente ${slot.sub_number}`}
+              <li
+                key={slot.slot}
+                className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2.5 text-sm"
+              >
+                <span className="w-24 shrink-0 text-xs text-faint">
+                  {slot.role ? formatPosition(slot.role) : 'Sin posición'}
                 </span>
                 {slot.player_id ? (
                   /* El nick y, al lado, el #TAG: dos "Bruno" en el mismo
@@ -209,16 +237,21 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
                   </>
                 )}
                 {user && slot.player_id && (
-                  <form action={removePlayerAction}>
-                    <input type="hidden" name="teamId" value={team.id} />
-                    <input type="hidden" name="playerId" value={slot.player_id} />
-                    <button
-                      type="submit"
-                      className="text-xs text-faint transition-colors hover:text-accent"
-                    >
-                      Quitar
-                    </button>
-                  </form>
+                  <>
+                    {/* La línea efectiva del casillero puede venir de las
+                        partidas; esto es la asignación a mano, que le gana. */}
+                    <AssignRole teamId={team.id} playerId={slot.player_id} role={slot.assigned_role} />
+                    <form action={removePlayerAction}>
+                      <input type="hidden" name="teamId" value={team.id} />
+                      <input type="hidden" name="playerId" value={slot.player_id} />
+                      <button
+                        type="submit"
+                        className="text-xs text-faint transition-colors hover:text-accent"
+                      >
+                        Quitar
+                      </button>
+                    </form>
+                  </>
                 )}
               </li>
             )
