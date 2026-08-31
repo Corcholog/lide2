@@ -58,7 +58,14 @@ export function goldDiff(data: StatsData): StatBlock | null {
 export function topObjectives(data: StatsData): StatBlock | null {
   const rows = teamRanking(data, {
     value: (row) => row.objectives,
-    display: (_value, row) => `${row.dragons} 🐉 · ${row.barons} 🟣 · ${row.heralds} 👁`,
+    /*
+      La inicial de cada objetivo y no un emoji: el dragón y el heraldo se
+      dibujan distinto en cada sistema —y en Windows el ojo sale celeste, que
+      no es un heraldo—, se pierden en 12px y un lector de pantalla los lee
+      como "dragón" en el medio de una cifra. El subtítulo dice qué es cada
+      letra.
+    */
+    display: (_value, row) => `${row.dragons}D · ${row.barons}B · ${row.heralds}H`,
     eligible: (row) => row.objectives > 0,
   })
   return block('objetivos', 'Más objetivos', rows, { subtitle: 'Dragones, barones y heraldos' })

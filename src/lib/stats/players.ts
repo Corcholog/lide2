@@ -7,6 +7,7 @@
  */
 
 import { formatKda, formatNumber, formatPosition, ROLES } from '@/lib/format'
+import { rutaJugador } from '@/lib/rutas'
 import { block, minGamesForAverages, rankRows } from './rank'
 import type { StatBlock, StatsData } from './types'
 import type { PlayerPhaseTotalsRow } from '@/types/db'
@@ -39,6 +40,9 @@ function playerRanking(
     id: key,
     name: (row) => row.player_name ?? 'Desconocido',
     subtitle: who,
+    // Sólo los que tienen ficha: una cuenta sin `player_id` es una que la
+    // ingesta no pudo resolver, y no hay página a la que mandar.
+    href: (row) => (row.player_id ? rutaJugador(row.player_id) : null),
     detail: options.detail ?? record,
     value: options.value,
     display: options.display,
@@ -58,6 +62,7 @@ export function mvp(data: StatsData): StatBlock | null {
     {
       id: (row) => row.player_id ?? `${row.player_name}`,
       name: (row) => row.player_name ?? 'Desconocido',
+      href: (row) => (row.player_id ? rutaJugador(row.player_id) : null),
       subtitle: (row) => [row.team_name, row.university_tag].filter(Boolean).join(' · ') || null,
       detail: (row) =>
         `${formatKda(row.kills, row.deaths, row.assists)} · ${Math.round(row.kill_participation * 100)}% de participación`,
@@ -93,6 +98,7 @@ export function bestFive(data: StatsData): StatBlock | null {
         name: best.player_name ?? 'Desconocido',
         subtitle: who(best),
         logo: null,
+        href: best.player_id ? rutaJugador(best.player_id) : null,
         detail: record(best),
         value: best.avg_score,
         display: formatPosition(role),
@@ -143,12 +149,18 @@ export function fewestDeaths(data: StatsData): StatBlock | null {
 export function longestKillingSpree(data: StatsData): StatBlock | null {
   const rows = playerRanking(data, {
     value: (row) => row.best_killing_spree,
-    display: (value) => `${value} seguidas`,
+    display: (value) => `${value} kills`,
     eligible: (row) => row.best_killing_spree > 0,
   })
   // Reemplaza a los first bloods: el .rofl no guarda quién hizo la primera
   // sangre, pero sí la racha más larga sin morir de cada jugador.
-  return block('racha', 'Imparable', rows, { subtitle: 'La racha más larga sin morir' })
+  //
+  // El número solo ("16 seguidas") no dice de qué: seguidas puede ser partidas
+  // ganadas, kills o cualquier otra cosa. Va con la unidad puesta y el
+  // subtítulo lo termina de explicar.
+  return block('racha', 'Imparable', rows, {
+    subtitle: 'La racha de kills más larga sin morir',
+  })
 }
 
 export function topDamage(data: StatsData): StatBlock | null {
@@ -167,15 +179,6 @@ export function topDpm(data: StatsData): StatBlock | null {
     eligible: (row) => row.games >= min,
   })
   return block('dpm', 'Daño por minuto', rows)
-}
-
-export function topDamageMitigated(data: StatsData): StatBlock | null {
-  const rows = playerRanking(data, {
-    value: (row) => row.damage_mitigated,
-    display: (value) => formatNumber(value),
-    eligible: (row) => row.damage_mitigated > 0,
-  })
-  return block('mitigado', 'Muralla', rows, { subtitle: 'Más daño mitigado' })
 }
 
 export function topCsPerMin(data: StatsData): StatBlock | null {
@@ -205,7 +208,7 @@ export function topVision(data: StatsData): StatBlock | null {
     display: (value) => `${value.toFixed(1)} por partida`,
     eligible: (row) => row.games >= min,
   })
-  return block('vision', 'Ojo del torneo', rows, { subtitle: 'Mejor puntaje de visión' })
+  return block('vision', 'Ojo de águila', rows, { subtitle: 'Mejor puntaje de visión' })
 }
 
 export function topWardsKilled(data: StatsData): StatBlock | null {

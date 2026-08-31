@@ -10,7 +10,7 @@
  * calculada sobre 3 de 40 partidas no es una estadística del torneo.
  */
 
-import { championName } from '@/lib/ddragon'
+import { championIcon, championName } from '@/lib/ddragon'
 import { formatNumber, formatPosition } from '@/lib/format'
 import { block, rankRows } from './rank'
 import type { StatBlock, StatsData } from './types'
@@ -31,11 +31,16 @@ function championRanking(
   // El id sigue siendo la clave interna —es lo único único— pero el nombre que
   // se lee es el de ddragon: en la base Wukong es "MonkeyKing".
   const names = data.championNames ?? {}
+  const version = data.assetVersion
 
   return rankRows(data.champions, {
     id: (row) => row.champion,
     name: (row) => championName(names, row.champion),
     subtitle: (row) => formatPosition(row.position),
+    // El retrato del campeón. Sin la versión de ddragon no hay URL que armar y
+    // el ranking sale sin íconos, que es exactamente lo que pasa cuando Riot
+    // no contesta: se lee igual.
+    logo: (row) => (version ? championIcon(version, row.champion) : null),
     detail: options.detail ?? ((row) => `${row.picks} ${row.picks === 1 ? 'pick' : 'picks'} · KDA ${row.kda.toFixed(2)}`),
     value: options.value,
     display: options.display,

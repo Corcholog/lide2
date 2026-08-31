@@ -7,6 +7,7 @@
  */
 
 import { formatDuration, formatNumber } from '@/lib/format'
+import { rutaPartida } from '@/lib/rutas'
 import { block, rankRows } from './rank'
 import type { StatBlock, StatsData } from './types'
 import type { MatchRecordRow } from '@/types/db'
@@ -28,6 +29,7 @@ function matchRanking(
   return rankRows(data.records, {
     id: (row) => row.match_id,
     name: versus,
+    href: (row) => rutaPartida(row.match_id),
     subtitle: (row) => [row.round_label, row.group_label].filter(Boolean).join(' · ') || null,
     detail:
       options.detail ??
