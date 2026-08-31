@@ -10,7 +10,6 @@ const LINKS: NavLink[] = [
   { href: '/estadisticas', label: 'Estadísticas' },
   { href: '/partidas', label: 'Partidas' },
   { href: '/equipos', label: 'Equipos' },
-  { href: '/jugadores', label: 'Jugadores' },
 ]
 
 export default async function AppLayout({ children }: LayoutProps<'/'>) {

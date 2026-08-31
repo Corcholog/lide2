@@ -122,8 +122,16 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href="/jugadores" className="text-sm text-muted transition-colors hover:text-fg">
-        ← Jugadores
+      {/*
+        Vuelve a las tablas y no a un listado de jugadores, que ya no existe:
+        esa tabla es de donde se sale a mirar una ficha, y es la que además
+        recuerda el recorte de fecha y grupo que se estaba mirando.
+      */}
+      <Link
+        href="/estadisticas/tablas"
+        className="text-sm text-muted transition-colors hover:text-fg"
+      >
+        ← Estadísticas
       </Link>
 
       <header className="flex flex-wrap items-end justify-between gap-4">
