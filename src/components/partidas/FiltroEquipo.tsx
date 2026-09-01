@@ -33,7 +33,7 @@ export function FiltroEquipo({
         id="filtro-equipo"
         name="equipo"
         defaultValue={equipo ?? ''}
-        className="border-2 border-line-strong bg-raised px-3 py-1.5 text-sm outline-none focus:border-accent"
+        className="border-2 border-line-strong bg-raised px-3 py-1.5 text-sm focus:border-accent"
       >
         <option value="">Todos</option>
         {/*

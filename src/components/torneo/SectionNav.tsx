@@ -219,7 +219,10 @@ export function SectionNav({ sections }: { sections: NavSection[] }) {
  * cada paso y la barra bailaría.
  */
 function Step({ section, direction }: { section: NavSection | undefined; direction: 'prev' | 'next' }) {
-  const shared = 'shrink-0 border-2 border-transparent p-1 text-accent'
+  // p-2.5 y no p-1: sobre un ícono de 16px, el blanco quedaba en 24px, que es
+  // el piso justo de WCAG 2.5.8. Con esto son 36 y siguen entrando al lado del
+  // nombre de la sección en 390px.
+  const shared = 'shrink-0 border-2 border-transparent p-2.5 text-accent'
 
   if (!section) {
     return (

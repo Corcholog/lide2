@@ -43,7 +43,7 @@ export function LoginForm({ next }: { next: string }) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="username"
-          className="rounded border border-line-strong bg-surface px-3 py-2 outline-none focus:border-accent"
+          className="rounded border border-line-strong bg-surface px-3 py-2 focus:border-accent"
         />
       </label>
 
@@ -55,12 +55,20 @@ export function LoginForm({ next }: { next: string }) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoComplete="current-password"
-          className="rounded border border-line-strong bg-surface px-3 py-2 outline-none focus:border-accent"
+          className="rounded border border-line-strong bg-surface px-3 py-2 focus:border-accent"
         />
       </label>
 
+      {/*
+        role="alert" porque el formulario no recarga la página: sin esto, un
+        lector de pantalla no se entera de que apareció el mensaje y la persona
+        se queda esperando sin saber que la contraseña estaba mal.
+      */}
       {error && (
-        <p className="rounded border border-danger/40 bg-danger-dim px-3 py-2 text-sm text-danger">
+        <p
+          role="alert"
+          className="rounded border border-danger/40 bg-danger-dim px-3 py-2 text-sm text-danger"
+        >
           {error}
         </p>
       )}

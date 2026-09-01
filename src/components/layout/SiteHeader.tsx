@@ -13,7 +13,7 @@ import { ThemeToggle } from '@/components/theme/ThemeToggle'
  * 360. Y como <html> lleva `overflow-x-clip` —que está para que la portada
  * pueda salirse del contenedor sin generar scroll horizontal— lo que sobraba no
  * se podía scrollear: se cortaba y desaparecía. O sea que desde un teléfono no
- * había manera de llegar a /jugadores ni al cambio de tema.
+ * había manera de llegar a Estadísticas ni al cambio de tema.
  *
  * Desde `md` se ve la barra de siempre; abajo, los links se guardan detrás del
  * botón de menú y el panel se despliega bajo la barra.

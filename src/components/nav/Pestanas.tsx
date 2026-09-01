@@ -3,18 +3,20 @@
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 
 /**
- * El fixture en pestañas, una por fecha.
+ * Un bloque de contenido en pestañas.
  *
- * Antes se veían las tres fechas seguidas, una abajo de la otra. Con los grupos
- * en dos columnas eso son seis filas de grupos y la portada se volvía un
- * scroll interminable donde el fixture tapaba todo lo que venía después. Se ve
- * una fecha por vez y las otras están a un botón.
+ * Nació como el fixture por fecha y ahora lo comparten el fixture y los
+ * playoffs, que son los dos bloques largos de la portada. Antes se veía todo
+ * seguido: las tres fechas eran seis filas de grupos y el bracket eran tres
+ * columnas de 768px que en un teléfono había que scrollear de costado. En los
+ * dos casos la respuesta es la misma —una parte por vez, el resto a un botón—
+ * y no tiene sentido tener dos componentes que hagan eso.
  *
- * LOS PANELES NO SE DESMONTAN. Los tres están siempre en el DOM: el que se ve
- * va en el flujo normal y los otros quedan en `absolute`, transparentes y con
+ * LOS PANELES NO SE DESMONTAN. Todos están siempre en el DOM: el que se ve va
+ * en el flujo normal y los otros quedan en `absolute`, transparentes y con
  * `inert`. Es a propósito y por dos razones.
  *
- * La primera es que el árbol del fixture lo dibuja el servidor y viaja hasta acá
+ * La primera es que el árbol de adentro lo dibuja el servidor y viaja hasta acá
  * como `children`; si se montara y desmontara con cada clic, React tendría que
  * rehacer las dieciséis filas de cada fecha. Es la misma decisión que ya toma
  * TeamFocus, que resalta equipos con CSS justamente para no re-renderizar esto.
@@ -39,38 +41,44 @@ import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 const ENTRA_IZQ = 'motion-safe:animate-[entra-izq_.28s_ease-out]'
 const ENTRA_DER = 'motion-safe:animate-[entra-der_.28s_ease-out]'
 
-export interface Fecha {
-  /** El número que se ve en el botón. */
-  matchday: number
-  /** "sábado 5 de septiembre", debajo del número. */
-  cuando: string
-  /** "8 jugados de 16", o null si todavía no se jugó ninguno. */
+export interface Pestana {
+  /**
+   * Identificador único en toda la página, no sólo dentro del grupo: la portada
+   * monta dos juegos de pestañas y los ids de ARIA no se pueden repetir.
+   */
+  id: string
+  /** Lo que se lee grande en el botón: "Fecha 1", "Cuartos". */
+  titulo: string
+  /** La línea chica de abajo: la fecha, o cuántos se jugaron. */
   detalle: string | null
 }
 
-export function FixtureFechas({
-  fechas,
+export function Pestanas({
+  pestanas,
+  etiqueta,
   children,
 }: {
-  fechas: Fecha[]
-  /** Un panel por fecha, en el mismo orden. */
+  pestanas: Pestana[]
+  /** Qué grupo de pestañas es, para quien navega con lector de pantalla. */
+  etiqueta: string
+  /** Un panel por pestaña, en el mismo orden. */
   children: ReactNode[]
 }) {
   const [actual, setActual] = useState(0)
   // Hacia dónde entra el panel nuevo: a la izquierda si vamos hacia adelante.
   const [haciaAdelante, setHaciaAdelante] = useState(true)
   /*
-   * La animación recién existe después del primer clic. Si no, la fecha 1
-   * entraría animada al cargar la página: un movimiento que nadie pidió, en lo
-   * único que se mueve de la portada, y que además sale en el HTML del
-   * servidor. Es una transición entre fechas, no una entrada.
+   * La animación recién existe después del primer clic. Si no, la primera
+   * pestaña entraría animada al cargar la página: un movimiento que nadie pidió,
+   * en lo único que se mueve de la portada, y que además sale en el HTML del
+   * servidor. Es una transición entre paneles, no una entrada.
    */
   const [movido, setMovido] = useState(false)
   const tabs = useRef<HTMLDivElement>(null)
   const toque = useRef<{ x: number; y: number } | null>(null)
 
   function ir(destino: number, foco = false) {
-    const i = Math.max(0, Math.min(fechas.length - 1, destino))
+    const i = Math.max(0, Math.min(pestanas.length - 1, destino))
     if (i === actual) return
     setHaciaAdelante(i > actual)
     setActual(i)
@@ -86,7 +94,7 @@ export function FixtureFechas({
     if (event.key === 'ArrowRight') ir(actual + 1, true)
     else if (event.key === 'ArrowLeft') ir(actual - 1, true)
     else if (event.key === 'Home') ir(0, true)
-    else if (event.key === 'End') ir(fechas.length - 1, true)
+    else if (event.key === 'End') ir(pestanas.length - 1, true)
     else return
     event.preventDefault()
   }
@@ -95,7 +103,7 @@ export function FixtureFechas({
    * Arrastrar con el dedo. El umbral de 50px y la comparación contra el
    * movimiento vertical son para no robarle el gesto al scroll: si el dedo bajó
    * más de lo que se movió al costado, la persona está scrolleando la página y
-   * no cambiando de fecha.
+   * no cambiando de panel.
    */
   function fin(x: number, y: number) {
     const inicio = toque.current
@@ -111,36 +119,44 @@ export function FixtureFechas({
       <div
         ref={tabs}
         role="tablist"
-        aria-label="Fechas del fixture"
+        aria-label={etiqueta}
         onKeyDown={teclas}
-        className="flex flex-wrap gap-0.5 bg-line p-0.5"
+        /*
+          Grilla y no `flex flex-wrap`. Con flex, los tres botones `flex-1` en
+          390px entraban dos arriba y el tercero solo abajo ocupando todo el
+          ancho, así que el último parecía más importante que los otros.
+          `auto-fit` mantiene el reparto parejo si algún día son más de tres.
+        */
+        className="grid gap-0.5 bg-line p-0.5 [grid-template-columns:repeat(auto-fit,minmax(6rem,1fr))]"
       >
-        {fechas.map((fecha, i) => {
+        {pestanas.map((pestana, i) => {
           const activa = i === actual
           return (
             <button
-              key={fecha.matchday}
+              key={pestana.id}
               type="button"
               role="tab"
-              id={`fecha-tab-${fecha.matchday}`}
+              id={`${pestana.id}-tab`}
               aria-selected={activa}
-              aria-controls={`fecha-panel-${fecha.matchday}`}
+              aria-controls={`${pestana.id}-panel`}
               // Un solo tab stop en toda la barra: se entra con Tab y se
               // recorre con las flechas.
               tabIndex={activa ? 0 : -1}
               onClick={() => ir(i)}
-              className={`flex-1 cursor-pointer px-4 py-2 text-left transition-colors ${
+              className={`cursor-pointer px-4 py-2 text-left transition-colors ${
                 activa ? 'bg-accent-strong text-white' : 'bg-surface text-muted hover:text-fg'
               }`}
             >
               <span className="block text-sm font-bold uppercase tracking-tight">
-                Fecha {fecha.matchday}
+                {pestana.titulo}
               </span>
-              <span
-                className={`block truncate text-[11px] ${activa ? 'text-white/75' : 'text-faint'}`}
-              >
-                {fecha.detalle ?? fecha.cuando}
-              </span>
+              {pestana.detalle && (
+                <span
+                  className={`block truncate text-[11px] ${activa ? 'text-white/75' : 'text-faint'}`}
+                >
+                  {pestana.detalle}
+                </span>
+              )}
             </button>
           )
         })}
@@ -155,12 +171,13 @@ export function FixtureFechas({
       >
         {children.map((panel, i) => {
           const activa = i === actual
+          const id = pestanas[i]?.id ?? i
           return (
             <div
-              key={fechas[i]?.matchday ?? i}
+              key={id}
               role="tabpanel"
-              id={`fecha-panel-${fechas[i]?.matchday ?? i}`}
-              aria-labelledby={`fecha-tab-${fechas[i]?.matchday ?? i}`}
+              id={`${id}-panel`}
+              aria-labelledby={`${id}-tab`}
               inert={!activa}
               className={
                 activa
