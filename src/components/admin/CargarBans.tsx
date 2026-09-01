@@ -73,7 +73,7 @@ export function CargarBans({
                   autoComplete="off"
                   placeholder={`Ban ${orden}`}
                   aria-label={`Ban ${orden} de ${equipos[side]}`}
-                  className="border-2 border-line-strong bg-raised px-3 py-2 text-sm outline-none focus:border-accent disabled:opacity-50"
+                  className="border-2 border-line-strong bg-raised px-3 py-2 text-sm focus:border-accent disabled:opacity-50"
                 />
               )
             })}

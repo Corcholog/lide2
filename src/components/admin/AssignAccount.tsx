@@ -54,7 +54,7 @@ export function AssignAccount({
         defaultValue={playerId ?? ''}
         aria-label="Cuenta de este inscripto"
         disabled={pending}
-        className="w-40 rounded border border-line-strong bg-raised px-2 py-1 text-xs outline-none focus:border-accent disabled:opacity-50"
+        className="w-40 rounded border border-line-strong bg-raised px-2 py-1 text-xs focus:border-accent disabled:opacity-50"
       >
         <option value="">{accounts.length === 0 ? 'no hay nicks' : 'sin emparejar'}</option>
         {accounts.map((account) => (

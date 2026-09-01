@@ -37,7 +37,7 @@ export function AddAccount({ teamId }: { teamId: string }) {
         aria-label="Nick de la cuenta"
         spellCheck={false}
         autoComplete="off"
-        className="w-full rounded border border-line-strong bg-raised px-3 py-1.5 text-sm outline-none focus:border-accent sm:w-56"
+        className="w-full rounded border border-line-strong bg-raised px-3 py-1.5 text-sm focus:border-accent sm:w-56"
       />
 
       <button

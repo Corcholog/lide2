@@ -36,7 +36,7 @@ export function RosterImport() {
         rows={6}
         spellCheck={false}
         placeholder={'Equipo 15, Denis Chang, DenisChang#LAN\nGabriel Pareja; ElGabo#ARG1'}
-        className="border-2 border-line-strong bg-raised px-3 py-2 font-mono text-xs outline-none focus:border-accent"
+        className="border-2 border-line-strong bg-raised px-3 py-2 font-mono text-xs focus:border-accent"
       />
 
       <div className="flex flex-wrap items-center gap-3">

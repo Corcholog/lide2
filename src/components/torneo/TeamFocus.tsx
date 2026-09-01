@@ -55,7 +55,17 @@ function styleFor(id: string): string {
     `outline-offset:2px}` +
     // Y los cruces donde no juega se apagan. Es lo que hace que los suyos
     // salten a la vista en una grilla de cuarenta partidos.
-    `[data-team-scope="${id}"] [data-fixture]:not(:has(${team})){opacity:.3}`
+    `[data-team-scope="${id}"] [data-fixture]:not(:has(${team})){opacity:.3}` +
+    /*
+     * Los escudos, un poco más apagados que el resto de la fila.
+     *
+     * Los PNG están normalizados con el fondo blanco adentro del archivo, así
+     * que un cuadrado blanco al 30% sigue siendo más luminoso que el nombre del
+     * equipo encendido: el ojo se iba al logo apagado antes que al dato. Con el
+     * gris y el brillo abajo, la fila apagada se lee como una sola cosa.
+     */
+    `[data-team-scope="${id}"] [data-fixture]:not(:has(${team})) img{` +
+    `filter:grayscale(1) brightness(.55)}`
   )
 }
 
@@ -106,7 +116,15 @@ export function TeamFocus({
   }
 
   return (
-    <div ref={scope} data-team-scope={active ?? ''} onClick={pick} className={className}>
+    // El cartel es `fixed` y se apoya sobre la última fila visible. Mientras
+    // haya uno fijado, el contenido reserva su alto abajo; sin esto tapaba el
+    // último cruce del fixture, que en un teléfono es donde más molesta.
+    <div
+      ref={scope}
+      data-team-scope={active ?? ''}
+      onClick={pick}
+      className={`${className} ${current ? 'pb-24 sm:pb-16' : ''}`}
+    >
       {/*
         dangerouslySetInnerHTML y no {rules}: React escapa el texto de cualquier
         elemento, incluido <style>, y las comillas de [data-team="..."] saldrían
@@ -125,8 +143,16 @@ export function TeamFocus({
           role="status"
           className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-4"
         >
-          <div className="pointer-events-auto flex max-w-full items-center gap-3 border-2 border-accent bg-surface px-3 py-2 text-sm shadow-hard">
-            <span className="min-w-0 truncate">
+          {/*
+            En 390px "Resaltando a " + el nombre + la cuenta + "Ver equipo" + la
+            cruz no entran en una línea, y como el que truncaba era el nombre,
+            lo que se cortaba era justo el único dato que el cartel viene a dar:
+            quedaba "Resaltando a Equipo…". Envolviendo, el nombre se lleva su
+            propio renglón completo en el teléfono y vuelve a la línea única
+            desde `sm`, donde siempre hubo lugar.
+          */}
+          <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 border-2 border-accent bg-surface px-3 py-2 text-sm shadow-hard">
+            <span className="min-w-0 basis-full text-center sm:basis-auto sm:text-left">
               <span className="text-muted">Resaltando a </span>
               <span className="font-semibold">{current.name}</span>
             </span>

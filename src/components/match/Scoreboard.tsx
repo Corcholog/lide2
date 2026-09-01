@@ -86,18 +86,41 @@ export function Scoreboard({
         </div>
       </header>
 
-      <div className="overflow-x-auto">
+      {/* `tabla-scroll` marca el borde derecho mientras quede tabla para ese
+          lado: son 52rem de ancho mínimo y en un teléfono no hay barra de
+          scroll que lo diga. La misma clase que usa TablaOrdenable. */}
+      <div className="tabla-scroll overflow-x-auto">
         <table className="w-full min-w-[52rem] text-sm">
+          {/* El `scope` y el `caption` los tenía TablaOrdenable y no esta:
+              sin ellos un lector de pantalla lee ocho números sueltos sin poder
+              decir a qué columna pertenece cada uno. */}
+          <caption className="sr-only">Estadísticas por jugador</caption>
           <thead>
             <tr className="border-y border-line text-left text-xs text-faint">
-              <th className="px-4 py-2 font-medium">Jugador</th>
-              <th className="px-2 py-2 text-right font-medium">KDA</th>
-              <th className="px-2 py-2 text-right font-medium">KP</th>
-              <th className="px-2 py-2 text-right font-medium">CS</th>
-              <th className="px-2 py-2 text-right font-medium">Oro</th>
-              <th className="px-2 py-2 font-medium">Daño</th>
-              <th className="px-2 py-2 text-right font-medium">Visión</th>
-              <th className="px-4 py-2 font-medium">Objetos</th>
+              <th scope="col" className="px-4 py-2 font-medium">
+                Jugador
+              </th>
+              <th scope="col" className="px-2 py-2 text-right font-medium">
+                KDA
+              </th>
+              <th scope="col" className="px-2 py-2 text-right font-medium">
+                KP
+              </th>
+              <th scope="col" className="px-2 py-2 text-right font-medium">
+                CS
+              </th>
+              <th scope="col" className="px-2 py-2 text-right font-medium">
+                Oro
+              </th>
+              <th scope="col" className="px-2 py-2 font-medium">
+                Daño
+              </th>
+              <th scope="col" className="px-2 py-2 text-right font-medium">
+                Visión
+              </th>
+              <th scope="col" className="px-4 py-2 font-medium">
+                Objetos
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">

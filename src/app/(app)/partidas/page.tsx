@@ -204,7 +204,9 @@ export default async function MatchesPage({ searchParams }: PageProps<'/partidas
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Partidas</h1>
+          {/* Mismo tratamiento que estadísticas, tablas y admin: al cambiar de
+              sección el título no tiene que cambiar de tamaño ni de caja. */}
+          <h1 className="font-display text-3xl uppercase tracking-tight">Partidas</h1>
           <p className="mt-1 text-sm text-muted">
             {matches.length === 0
               ? 'Todavía no hay partidas cargadas.'

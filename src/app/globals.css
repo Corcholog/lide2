@@ -111,11 +111,19 @@
   --line: #d5d0cb;
   --line-strong: #b8b1aa;
 
+  /*
+   * Los tres ultimos escalones se oscurecieron para llegar a AA (4.5:1) sobre
+   * las tres superficies del tema, y no solo sobre `surface`. Antes `faint`
+   * daba 4.35 sobre canvas y 3.98 sobre raised, y `dim` andaba en 2.6-3.2, o
+   * sea que el descargo legal del pie y los rotulos de las fichas no llegaban.
+   * El precio es que `faint` y `dim` quedaron cerca: abajo de `muted` ya no
+   * hay lugar para tres escalones que pasen. Ver el anexo de la auditoria.
+   */
   --fg: #17171b;
   --fg-soft: #3d3d46;
-  --muted: #5f5c62;
-  --faint: #6f6b71;
-  --dim: #8e8a89;
+  --muted: #57535d;
+  --faint: #615d67;
+  --dim: #66626b;
 
   /*
    * El rojo de marca (#e11d2f) sobre fondo claro queda en 3.9:1, por debajo del
@@ -155,16 +163,23 @@
   --line: #1e1e23;
   --line-strong: #2b2b32;
 
+  /* Mismo reacomodo que en el tema claro, por el mismo motivo. */
   --fg: #e9e9ee;
   --fg-soft: #b4b4bf;
-  --muted: #8f8f9c;
-  --faint: #7c7c88;
-  --dim: #5a5a66;
+  --muted: #9c9ca8;
+  --faint: #8a8a96;
+  --dim: #85858f;
 
   --accent: #ff4353;
   --accent-soft: #ff7a86;
   --accent-strong: #e11d2f;
-  --accent-dim: #4a1119;
+  /*
+   * Un punto mas oscuro que el #4a1119 de antes: el chip activo pinta `accent`
+   * sobre esto y quedaba en 4.46:1, apenas abajo del piso. Asi da 4.96. Lo
+   * comparten el fondo de las filas que clasifican y el degradado de la
+   * tarjeta de campeon, los dos con opacidad, donde el cambio no se nota.
+   */
+  --accent-dim: #3a0d13;
 
   --win: #ff4353;
   --loss: #8f8f9c;
@@ -257,6 +272,51 @@ body {
 }
 
 /*
+ * EL FOCO, UNA VEZ Y PARA TODO
+ *
+ * Los campos del sitio traian `outline-none` y como unico reemplazo un
+ * `focus:border-accent`, o sea un borde de 1px que cambia de color: sobre el
+ * fondo casi negro se ve apenas y no llega al 3:1 que pide WCAG para el area
+ * de foco. Con teclado no habia forma de saber donde estabas parado, y el
+ * formulario de login —la unica puerta al panel— era uno de los afectados.
+ *
+ * Va en `:where()` a proposito: la especificidad queda en cero, asi que
+ * cualquier componente que necesite otra cosa la pisa con una clase suelta,
+ * sin pelear con !important.
+ *
+ * Es `:focus-visible` y no `:focus` para que no aparezca al hacer clic con el
+ * mouse, que es lo que hace que un contorno permanente moleste.
+ */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/*
+ * LO QUE SOLO SE DESCUBRE CON EL MOUSE
+ *
+ * Dos afordancias del sitio viven en un `:hover`, y en un telefono el hover no
+ * existe: la flecha de orden de las tablas —que es lo unico que dice que las
+ * columnas se pueden ordenar— y el resaltado del fixture, donde el nombre del
+ * equipo se ve igual que un texto muerto.
+ *
+ * `hover: none` es el puntero grueso sin hover, o sea el dedo. En un escritorio
+ * con pantalla tactil pero mouse presente no aplica, que es lo correcto: ahi el
+ * hover sigue estando.
+ */
+@media (hover: none) {
+  .flecha-orden {
+    opacity: 0.45;
+  }
+
+  [data-fixture] button[data-team] .nombre-equipo {
+    text-decoration: underline dotted;
+    text-decoration-color: var(--line-strong);
+    text-underline-offset: 3px;
+  }
+}
+
+/*
  * Titulares en la condensada, sin tener que acordarse de ponerla en cada uno.
  * Las excepciones se marcan con font-sans en el elemento.
  */
@@ -270,6 +330,40 @@ h3 {
 /* Números de estadísticas: tabular para que las columnas no bailen. */
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/*
+ * "SIGUE PARA ALLÁ": la sombra del borde derecho de las tablas anchas.
+ *
+ * La tabla de jugadores declara 64rem de ancho mínimo, o sea 1024px dentro de
+ * los 390 de un teléfono. Como en mobile no se dibuja barra de scroll, no
+ * quedaba ninguna señal de que hubiera catorce columnas y no tres.
+ *
+ * Son dos capas superpuestas sobre el mismo borde:
+ *   - la TAPA va en `local`, así que viaja con el contenido; parada en el
+ *     final del scroll queda justo encima de la sombra y la borra.
+ *   - la SOMBRA va en `scroll`, o sea clavada al borde de la caja.
+ * Mientras quede tabla para la derecha, la tapa está más allá y la sombra se
+ * ve; al llegar al final, la tapa la alcanza y la sombra desaparece sola. Sin
+ * una línea de JavaScript ni un listener de scroll.
+ *
+ * El borde izquierdo no lleva nada porque ahí está la primera columna, que es
+ * `sticky` y siempre se ve: no hay nada escondido de ese lado.
+ */
+.tabla-scroll {
+  background-image:
+    linear-gradient(to left, var(--canvas), transparent 3rem),
+    linear-gradient(
+      to left,
+      color-mix(in srgb, var(--fg) 20%, transparent),
+      transparent 1.25rem
+    );
+  background-position: right center;
+  background-repeat: no-repeat;
+  background-size:
+    3rem 100%,
+    1.25rem 100%;
+  background-attachment: local, scroll;
 }
 
 /*

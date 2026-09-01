@@ -16,7 +16,14 @@ export function Chip({ label, href, active }: { label: string; href: string; act
     <Link
       href={href}
       aria-current={active ? 'true' : undefined}
-      className={`border-2 px-3 py-1 text-xs font-bold uppercase tracking-wide transition-colors ${
+      // py-2 y no py-1: con `text-xs` el chip medía 26px de alto y es el
+      // control que más se toca del sitio —fecha, grupo, vista y orden, en
+      // cuatro páginas—. WCAG 2.5.8 pide 24 y la guía de iOS y Android 44;
+      // así queda en 38, que entra en el renglón sin desarmar la fila.
+      // shrink-0 y whitespace-nowrap: abajo de `sm` la barra que los contiene
+      // scrollea en horizontal en vez de envolver, y sin esto los chips se
+      // achican para entrar todos y el texto se parte en dos renglones.
+      className={`shrink-0 whitespace-nowrap border-2 px-3 py-2 text-xs font-bold uppercase tracking-wide transition-colors ${
         active
           ? 'border-accent bg-accent-dim text-accent'
           : 'border-line text-muted hover:border-line-strong hover:text-accent'

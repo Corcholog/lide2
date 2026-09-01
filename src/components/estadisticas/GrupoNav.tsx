@@ -20,7 +20,7 @@ export function GrupoNav({
   query?: Record<string, string | number | null | undefined>
 }) {
   return (
-    <nav aria-label="Grupo" className="flex flex-wrap gap-1">
+    <nav aria-label="Grupo" className="flex gap-1 overflow-x-auto pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible sm:pb-0">
       <Chip
         label="Todos"
         href={conQuery(base, { ...query, grupo: null })}
