@@ -16,6 +16,7 @@ import {
 import { SectionNav, type NavSection } from '@/components/torneo/SectionNav'
 import { TeamFocus, type FocusTeam } from '@/components/torneo/TeamFocus'
 import { LogoUniversidad } from '@/components/torneo/LogoUniversidad'
+import { IconoDiscord, IconoTwitch } from '@/components/iconos/Marcas'
 import { Pestanas } from '@/components/nav/Pestanas'
 import type {
   FixtureResultRow,
@@ -427,21 +428,29 @@ function Hero({ next, sections }: { next: Milestone | undefined; sections: NavSe
             </div>
           )}
 
+          {/*
+            Con el ícono de cada marca adelante. Los dos botones se veían igual
+            —mismo borde, mismo fondo, texto del mismo largo— y a qué lugar
+            llevaba cada uno había que leerlo. El logo se reconoce antes que la
+            palabra, que es justamente para lo que sirve un logo.
+          */}
           <div className="flex flex-wrap gap-2">
             <a
               href={TOURNAMENT.broadcast.url}
               target="_blank"
               rel="noreferrer"
-              className="rounded border border-white/20 bg-black/30 px-4 py-2 text-sm font-medium backdrop-blur transition-colors hover:border-accent hover:text-accent"
+              className="inline-flex items-center gap-2 rounded border border-white/20 bg-black/30 px-4 py-2 text-sm font-medium backdrop-blur transition-colors hover:border-accent hover:text-accent"
             >
+              <IconoTwitch />
               Ver la transmisión
             </a>
             <a
               href={TOURNAMENT.discord}
               target="_blank"
               rel="noreferrer"
-              className="rounded border border-white/20 bg-black/30 px-4 py-2 text-sm font-medium backdrop-blur transition-colors hover:border-accent hover:text-accent"
+              className="inline-flex items-center gap-2 rounded border border-white/20 bg-black/30 px-4 py-2 text-sm font-medium backdrop-blur transition-colors hover:border-accent hover:text-accent"
             >
+              <IconoDiscord />
               Discord
             </a>
           </div>
@@ -1274,13 +1283,18 @@ function DondeSeSigue() {
     <section className="flex flex-col gap-3 border-t border-line pt-6">
       <h2 className="text-sm font-medium text-muted">Dónde se sigue</h2>
       <div className="grid gap-3 sm:grid-cols-3">
+        {/* El ícono al lado del título y no arriba: la tarjeta tiene tres
+            renglones y una fila más la haría crecer sin decir nada nuevo. */}
         <a
           href={TOURNAMENT.broadcast.url}
           target="_blank"
           rel="noreferrer"
-          className="border-2 border-line bg-surface px-4 py-3 transition-colors hover:border-accent"
+          className="group border-2 border-line bg-surface px-4 py-3 transition-colors hover:border-accent"
         >
-          <p className="text-sm font-medium">Transmisión</p>
+          <p className="flex items-center gap-2 text-sm font-medium">
+            <IconoTwitch className="size-4 text-muted transition-colors group-hover:text-accent" />
+            Transmisión
+          </p>
           <p className="text-xs text-faint">{TOURNAMENT.broadcast.channel}</p>
           <p className="text-xs text-dim">{TOURNAMENT.broadcast.schedule}</p>
         </a>
@@ -1289,9 +1303,12 @@ function DondeSeSigue() {
           href={TOURNAMENT.discord}
           target="_blank"
           rel="noreferrer"
-          className="border-2 border-line bg-surface px-4 py-3 transition-colors hover:border-accent"
+          className="group border-2 border-line bg-surface px-4 py-3 transition-colors hover:border-accent"
         >
-          <p className="text-sm font-medium">Discord</p>
+          <p className="flex items-center gap-2 text-sm font-medium">
+            <IconoDiscord className="size-4 text-muted transition-colors group-hover:text-accent" />
+            Discord
+          </p>
           <p className="text-xs text-faint">Esports UNLP</p>
           <p className="text-xs text-dim">canal #busco-rival-lide2</p>
         </a>
