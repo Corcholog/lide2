@@ -117,7 +117,7 @@ export function AssignMatch({
             name="fixtureId"
             value={fixtureId}
             onChange={(event) => pickFixture(event.target.value)}
-            className="border-2 border-line-strong bg-raised px-3 py-2 text-sm outline-none focus:border-accent"
+            className="border-2 border-line-strong bg-raised px-3 py-2 text-sm focus:border-accent"
           >
             <option value="">Elegir…</option>
             {fixtures.map((entry) => (
@@ -193,7 +193,7 @@ export function AssignMatch({
  * Es para lo que se subió por error: un replay de otro torneo, una prueba del
  * flujo, el .rofl equivocado. Hasta ahora la única salida era el SQL editor,
  * porque una partida sin asignar igual se ve en /partidas y sus diez cuentas
- * quedan dadas de alta en /jugadores.
+ * quedan dadas de alta con ficha propia en /jugadores/[id].
  *
  * Va con confirmación en dos clics y no con un `confirm()`: es irreversible —se
  * borra también el .rofl del bucket, que no se puede regenerar— y el botón está

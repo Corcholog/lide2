@@ -119,7 +119,10 @@ export function TablaOrdenable<T>({
   }
 
   return (
-    <div className="overflow-x-auto border-2 border-line">
+    // `tabla-scroll` pinta un degradado en los bordes que sólo se ve cuando
+    // queda tabla para ese lado: en un teléfono no se dibuja barra de scroll y
+    // sin esto no hay nada que diga que la tabla sigue. Ver globals.css.
+    <div className="tabla-scroll overflow-x-auto border-2 border-line">
       <table className={`w-full text-sm ${minWidth}`}>
         <caption className="sr-only">{caption}</caption>
         <thead>
@@ -136,14 +139,27 @@ export function TablaOrdenable<T>({
                   aria-sort={
                     activa ? (orden.dir === 'asc' ? 'ascending' : 'descending') : undefined
                   }
-                  className={`px-2 py-2 font-medium first:pl-3 last:pr-3 ${alineacion}`}
+                  /*
+                    La primera columna queda fija al scrollear de costado. Sin
+                    esto, en un teléfono te corrés para ver DPM y la columna del
+                    jugador ya se fue de pantalla: quedás leyendo números sin
+                    saber de quién son. Necesita fondo propio —el de la fila no
+                    la tapa— y por eso va `bg-surface` explícito.
+                  */
+                  className={`px-2 py-2 font-medium first:sticky first:left-0 first:z-10 first:bg-surface first:pl-3 last:pr-3 ${alineacion}`}
                 >
                   {columna.sort ? (
                     <button
                       type="button"
                       onClick={() => ordenarPor(columna)}
                       aria-label={`Ordenar por ${columna.label}`}
-                      className={`group inline-flex items-center gap-1 uppercase tracking-wide transition-colors hover:text-accent ${
+                      /*
+                        El `-m-2 p-2` mueve el padding del th al botón sin
+                        correr nada de lugar: el blanco para tocar pasa de los
+                        16px que mide el texto a 32, que es lo que pide
+                        WCAG 2.5.8. El th se sigue viendo igual.
+                      */
+                      className={`group -m-2 inline-flex items-center gap-1 p-2 uppercase tracking-wide transition-colors hover:text-accent ${
                         activa ? 'text-accent' : ''
                       } ${columna.align === 'left' ? 'flex-row' : 'flex-row-reverse'}`}
                     >
@@ -161,13 +177,21 @@ export function TablaOrdenable<T>({
 
         <tbody className="divide-y divide-line">
           {ordenadas.map((fila) => (
-            <tr key={clave(fila)} className="hover:bg-surface/60">
+            // `hover:bg-raised` y no `bg-surface/60`: sobre el canvas oscuro,
+            // surface al 60% daba una diferencia de cuatro puntos de
+            // luminancia, o sea nada. En una tabla de catorce columnas seguir
+            // la fila con la vista es justamente lo que más cuesta. `raised`
+            // existe para esto y es el mismo hover que usa StatCard.
+            //
+            // `group` es para que la celda fija de la izquierda —que lleva
+            // fondo propio— acompañe el hover en vez de quedarse clavada.
+            <tr key={clave(fila)} className="group hover:bg-raised">
               {columnas.map((columna) => (
                 <td
                   key={columna.id}
-                  className={`px-2 py-2 first:pl-3 last:pr-3 ${ALIGN[columna.align ?? 'right']} ${
-                    columna.align === 'left' ? '' : 'tabular'
-                  }`}
+                  className={`px-2 py-2 first:sticky first:left-0 first:z-10 first:bg-canvas group-hover:first:bg-raised first:pl-3 last:pr-3 ${
+                    ALIGN[columna.align ?? 'right']
+                  } ${columna.align === 'left' ? '' : 'tabular'}`}
                 >
                   {columna.cell(fila)}
                 </td>
@@ -187,6 +211,12 @@ export function TablaOrdenable<T>({
  * el foco pasan por encima: si se vieran las diez a la vez el encabezado sería
  * una hilera de flechas y ninguna diría nada, pero si no estuvieran nunca no
  * habría forma de darse cuenta de que la tabla se puede ordenar.
+ *
+ * SALVO DONDE NO HAY MOUSE. En un teléfono ese hover no llega nunca, así que
+ * la única señal de que la tabla se ordena no existía: la función principal de
+ * la vista quedaba invisible justo en el dispositivo donde más se la abre. La
+ * clase `flecha-orden` es lo que engancha la regla de `@media (hover: none)`
+ * de globals.css, que ahí las deja a media opacidad de entrada.
  */
 function Flecha({ activa, dir }: { activa: boolean; dir: Direccion }) {
   return (
@@ -194,7 +224,9 @@ function Flecha({ activa, dir }: { activa: boolean; dir: Direccion }) {
       viewBox="0 0 12 12"
       aria-hidden="true"
       className={`h-2.5 w-2.5 shrink-0 transition-opacity ${
-        activa ? 'opacity-100' : 'opacity-0 group-hover:opacity-50 group-focus-visible:opacity-50'
+        activa
+          ? 'opacity-100'
+          : 'flecha-orden opacity-0 group-hover:opacity-50 group-focus-visible:opacity-50'
       } ${activa && dir === 'asc' ? 'rotate-180' : ''}`}
     >
       <path d="M6 9L1.5 3.75h9L6 9z" fill="currentColor" />

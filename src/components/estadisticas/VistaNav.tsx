@@ -25,7 +25,7 @@ export function VistaNav({
   query?: Record<string, string | number | null | undefined>
 }) {
   return (
-    <nav aria-label="Vista" className="flex flex-wrap gap-1">
+    <nav aria-label="Vista" className="flex gap-1 overflow-x-auto pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible sm:pb-0">
       <Chip
         label="Rankings"
         href={conQuery('/estadisticas', query)}
