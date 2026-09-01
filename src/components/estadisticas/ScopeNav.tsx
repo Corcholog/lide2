@@ -23,7 +23,7 @@ export function ScopeNav({
   query?: Record<string, string | number | null | undefined>
 }) {
   return (
-    <nav aria-label="Recorte" className="flex flex-wrap gap-1">
+    <nav aria-label="Recorte" className="flex gap-1 overflow-x-auto pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible sm:pb-0">
       <Chip
         label="Toda la fase"
         href={conQuery(base, { ...query, fecha: null })}

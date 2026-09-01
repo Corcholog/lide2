@@ -64,7 +64,9 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Equipos</h1>
+          {/* Mismo tratamiento que estadísticas, tablas y admin: al cambiar de
+              sección el título no tiene que cambiar de tamaño ni de caja. */}
+          <h1 className="font-display text-3xl uppercase tracking-tight">Equipos</h1>
           {/*
             Como se vinculan las partidas con los equipos es una regla de la
             ingesta: le sirve a quien administra y a nadie mas. Un visitante
@@ -110,7 +112,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
             name="name"
             required
             placeholder="Nombre del equipo"
-            className="flex-1 rounded border border-line-strong bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+            className="flex-1 rounded border border-line-strong bg-surface px-3 py-2 text-sm focus:border-accent"
           />
           <button
             type="submit"

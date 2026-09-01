@@ -48,7 +48,7 @@ export function AssignRole({
         defaultValue={role ?? ''}
         aria-label="Línea de esta cuenta"
         disabled={pending}
-        className="rounded border border-line-strong bg-raised px-2 py-1 text-xs outline-none focus:border-accent disabled:opacity-50"
+        className="rounded border border-line-strong bg-raised px-2 py-1 text-xs focus:border-accent disabled:opacity-50"
       >
         <option value="">sin asignar</option>
         {ROLES.map((r) => (

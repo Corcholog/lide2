@@ -53,7 +53,7 @@ export default async function DetectTeamsPage() {
                   name={`name-${index}`}
                   defaultValue={team.suggestedName ?? ''}
                   placeholder="Nombre del equipo"
-                  className="w-48 rounded border border-line-strong bg-canvas px-3 py-1.5 text-sm outline-none focus:border-accent"
+                  className="w-48 rounded border border-line-strong bg-canvas px-3 py-1.5 text-sm focus:border-accent"
                 />
               </label>
 

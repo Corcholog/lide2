@@ -31,7 +31,7 @@ export interface UniversityOption {
 }
 
 const CAMPO =
-  'border-2 border-line-strong bg-raised px-2 py-1.5 text-sm outline-none focus:border-accent'
+  'border-2 border-line-strong bg-raised px-2 py-1.5 text-sm focus:border-accent'
 
 /** Las cinco columnas de una fila, iguales en el encabezado y en cada inscripto. */
 const COLUMNAS =

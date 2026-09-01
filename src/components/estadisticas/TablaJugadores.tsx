@@ -9,9 +9,10 @@ import { rutaJugador } from '@/lib/rutas'
 /**
  * Todos los jugadores del recorte, con todas sus columnas.
  *
- * La tabla de /jugadores es el histórico del torneo y tiene un orden fijo; esta
- * respeta el recorte de fecha y grupo, y se ordena por lo que uno quiera. Es la
+ * Respeta el recorte de fecha y grupo, y se ordena por lo que uno quiera: es la
  * que sirve para "¿quién es el que más daño hace de los junglas del Grupo C?".
+ * Desde acá se llega a la ficha de cada uno, que es el único camino que hay:
+ * el índice de /jugadores se sacó y la ruta hoy devuelve 404.
  */
 
 export interface FilaJugador {

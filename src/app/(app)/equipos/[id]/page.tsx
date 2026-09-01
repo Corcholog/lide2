@@ -189,9 +189,14 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
       <section className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-4">
           <h2 className="text-sm font-medium text-muted">Plantel</h2>
+          {/* "Nick" es la palabra del pipeline de ingesta, no la de alguien que
+              entra a ver quién juega en su universidad. Y con cero confirmados,
+              "0 de 5" es una forma rebuscada de decir que no hay ninguno. */}
           {confirmados < lineup.length && (
             <span className="text-xs text-dim">
-              {confirmados} de {lineup.length} nicks
+              {confirmados === 0
+                ? 'Sin confirmar'
+                : `${confirmados} de ${lineup.length} confirmados`}
             </span>
           )}
         </div>

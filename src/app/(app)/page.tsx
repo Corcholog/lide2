@@ -16,7 +16,8 @@ import {
 import { SectionNav, type NavSection } from '@/components/torneo/SectionNav'
 import { TeamFocus, type FocusTeam } from '@/components/torneo/TeamFocus'
 import { LogoUniversidad } from '@/components/torneo/LogoUniversidad'
-import { FixtureFechas } from '@/components/torneo/FixtureFechas'
+import { IconoDiscord, IconoTwitch } from '@/components/iconos/Marcas'
+import { Pestanas } from '@/components/nav/Pestanas'
 import type {
   FixtureResultRow,
   GroupStandingRow,
@@ -153,7 +154,17 @@ export default async function Lide2Page() {
   const fixture = rows<FixtureResultRow>(fixtureRes, 'el fixture')
   const next = CALENDAR.find((milestone) => daysUntil(milestone.date) >= 0)
 
-  const rounds = ['Cuartos de final', 'Semifinales', 'Gran final']
+  /*
+   * Las tres rondas de playoffs. `round` es el valor que guarda la base y por
+   * el que se filtra; `corto` es lo que entra en la pestaña: en 390px las tres
+   * se reparten unos 104px cada una y "Cuartos de final" se parte en tres
+   * renglones. El nombre largo ya está en el subtítulo de la sección.
+   */
+  const rounds = [
+    { round: 'Cuartos de final', corto: 'Cuartos' },
+    { round: 'Semifinales', corto: 'Semis' },
+    { round: 'Gran final', corto: 'Final' },
+  ]
 
   const sections = [
     { id: 'calendario', label: 'Calendario' },
@@ -213,17 +224,61 @@ export default async function Lide2Page() {
           <p className="text-xs text-faint">Cuartos y semis BO3 · final BO5 presencial</p>
         </div>
 
-        <div className="overflow-x-auto">
-          <div className="grid min-w-3xl grid-cols-3 gap-4">
-            {rounds.map((round) => (
-              <BracketColumn
+        {/*
+          EL BRACKET SE DIBUJA DOS VECES, y se elige por CSS cuál se ve.
+
+          Un bracket comunica con la forma del árbol: las tres rondas al lado,
+          cada una con la mitad de cruces que la anterior. Donde hay ancho eso
+          vale y se muestra entero. Donde no —un teléfono— antes se resolvía con
+          `min-w-3xl` y scroll horizontal: 768px metidos en 390, con
+          "Semifinales" cortada al medio y sin ninguna señal de que siguiera.
+          Ahí va una ronda por vez, con las mismas pestañas del fixture.
+
+          El corte es `md` (768px) y no `sm`: la grilla pedía 3xl justamente
+          porque tres columnas necesitan ese ancho. A 640px cada una queda en
+          197px y los nombres se truncan, que es volver al problema por otro
+          lado. A 768 son 229px, que es lo que el diseño original tenía.
+
+          Se dibuja dos veces y no se conmuta con JavaScript porque `inert` es un
+          atributo del DOM y no se puede condicionar por breakpoint desde CSS:
+          los paneles escondidos de las pestañas tienen que estar inertes en el
+          teléfono y no existir en el escritorio. Con `hidden` el navegador los
+          saca del árbol de accesibilidad, así que no se lee nada dos veces, y
+          son siete tarjetas: unos pocos kilobytes de HTML de más.
+        */}
+        <div className="hidden gap-4 md:grid md:grid-cols-3">
+          {rounds.map(({ round }) => (
+            <ColumnaRonda
+              key={round}
+              title={round}
+              series={series.filter((item) => item.round === round)}
+              champion={round === 'Gran final'}
+            />
+          ))}
+        </div>
+
+        {/* El mismo `gap-4` que la sección: Pestanas devuelve la barra y los
+            paneles como hermanos y los separa el contenedor. */}
+        <div className="flex flex-col gap-4 md:hidden">
+          <Pestanas
+            etiqueta="Rondas de playoffs"
+            pestanas={rounds.map(({ round, corto }) => {
+              const cuando = series.find((item) => item.round === round)?.scheduled_at
+              return {
+                id: `ronda-${round.split(' ')[0].toLowerCase()}`,
+                titulo: corto,
+                detalle: cuando ? diaYMes(cuando) : 'a definir',
+              }
+            })}
+          >
+            {rounds.map(({ round }) => (
+              <Ronda
                 key={round}
-                title={round}
                 series={series.filter((item) => item.round === round)}
                 champion={round === 'Gran final'}
               />
             ))}
-          </div>
+          </Pestanas>
         </div>
       </section>
 
@@ -373,21 +428,29 @@ function Hero({ next, sections }: { next: Milestone | undefined; sections: NavSe
             </div>
           )}
 
+          {/*
+            Con el ícono de cada marca adelante. Los dos botones se veían igual
+            —mismo borde, mismo fondo, texto del mismo largo— y a qué lugar
+            llevaba cada uno había que leerlo. El logo se reconoce antes que la
+            palabra, que es justamente para lo que sirve un logo.
+          */}
           <div className="flex flex-wrap gap-2">
             <a
               href={TOURNAMENT.broadcast.url}
               target="_blank"
               rel="noreferrer"
-              className="rounded border border-white/20 bg-black/30 px-4 py-2 text-sm font-medium backdrop-blur transition-colors hover:border-accent hover:text-accent"
+              className="inline-flex items-center gap-2 rounded border border-white/20 bg-black/30 px-4 py-2 text-sm font-medium backdrop-blur transition-colors hover:border-accent hover:text-accent"
             >
+              <IconoTwitch />
               Ver la transmisión
             </a>
             <a
               href={TOURNAMENT.discord}
               target="_blank"
               rel="noreferrer"
-              className="rounded border border-white/20 bg-black/30 px-4 py-2 text-sm font-medium backdrop-blur transition-colors hover:border-accent hover:text-accent"
+              className="inline-flex items-center gap-2 rounded border border-white/20 bg-black/30 px-4 py-2 text-sm font-medium backdrop-blur transition-colors hover:border-accent hover:text-accent"
             >
+              <IconoDiscord />
               Discord
             </a>
           </div>
@@ -456,7 +519,12 @@ function Universidades({ universidades }: { universidades: { tag: string; name: 
 
   return (
     <section aria-label="Universidades participantes" className="-mt-4">
-      <div className="group flex overflow-x-auto border-y border-line py-3 motion-safe:overflow-hidden">
+      {/*
+        La máscara desvanece los dos bordes. Sin ella la tira termina en un
+        corte al ras a mitad de palabra ("…de la Empresa"), que se lee como un
+        error de render y no como algo que sigue moviéndose.
+      */}
+      <div className="group flex overflow-x-auto border-y border-line py-3 [mask-image:linear-gradient(to_right,transparent,black_3rem,black_calc(100%-3rem),transparent)] motion-safe:overflow-hidden">
         <div className="flex motion-safe:animate-[tira_60s_linear_infinite] motion-safe:group-hover:[animation-play-state:paused]">
           {tira(false)}
           {tira(true)}
@@ -529,15 +597,24 @@ function Fixture({ rounds }: { rounds: FixtureResultRow[] }) {
       </div>
 
       {/*
+        Sólo en el teléfono. En una pantalla con mouse el resaltado se descubre
+        solo —el nombre se pone rojo al pasar por encima— pero con el dedo no
+        hay hover y nada dice que la fila haga algo. Es la mejor función de la
+        portada y se estaba encontrando de casualidad.
+      */}
+      <p className="text-xs text-faint sm:hidden">Tocá un equipo para ver todos sus partidos.</p>
+
+      {/*
         Una fecha por vez. Con los grupos en dos columnas, las tres fechas
         seguidas son seis filas de grupos: el fixture se comia la portada entera
         y lo que venia despues —playoffs, la final— quedaba enterrado.
 
         Los paneles se dibujan aca, en el servidor, y viajan como children: el
-        componente de cliente solo decide cual se ve. Ver FixtureFechas.
+        componente de cliente solo decide cual se ve. Ver Pestanas.
       */}
-      <FixtureFechas
-        fechas={porFecha.map(([matchday, delDia]) => {
+      <Pestanas
+        etiqueta="Fechas del fixture"
+        pestanas={porFecha.map(([matchday, delDia]) => {
           const cruces = delDia.reduce(
             (total, slot) => total + [...slot.groups.values()].flat().length,
             0,
@@ -547,9 +624,12 @@ function Fixture({ rounds }: { rounds: FixtureResultRow[] }) {
             .filter((row) => row.status === 'jugado').length
 
           return {
-            matchday,
-            cuando: diaCorto(delDia[0].kickoff),
-            detalle: jugados > 0 ? `${jugados} de ${cruces} jugados` : null,
+            id: `fecha-${matchday}`,
+            titulo: `Fecha ${matchday}`,
+            // Cuántos se jugaron apenas hay alguno; hasta entonces, cuándo se
+            // juega, que es lo único que se puede decir de una fecha futura.
+            detalle:
+              jugados > 0 ? `${jugados} de ${cruces} jugados` : diaCorto(delDia[0].kickoff),
           }
         })}
       >
@@ -604,9 +684,23 @@ function Fixture({ rounds }: { rounds: FixtureResultRow[] }) {
             ))}
           </div>
         ))}
-      </FixtureFechas>
+      </Pestanas>
     </section>
   )
+}
+
+/**
+ * "26 de septiembre", para las rondas de playoffs.
+ *
+ * Va en UTC y no en el huso del torneo porque las series de playoffs traen la
+ * fecha sin hora: pasarlas por America/Argentina las correría un día para atrás.
+ */
+function diaYMes(iso: string): string {
+  return new Date(iso).toLocaleDateString('es-AR', {
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'UTC',
+  })
 }
 
 /** "sábado 5 de septiembre", para el boton de la fecha. */
@@ -764,8 +858,14 @@ function FixtureTeam({
           ))}
         </span>
       )}
+      {/*
+        `nombre-equipo` no pinta nada por sí sola: es el gancho de la regla de
+        `@media (hover: none)` de globals.css, que en un teléfono le pone un
+        subrayado punteado. Sin eso, la única señal de que el nombre se puede
+        tocar era el `group-hover:text-accent`, o sea ninguna donde no hay mouse.
+      */}
       <span
-        className={`min-w-0 flex-1 truncate transition-colors group-hover:text-accent ${
+        className={`nombre-equipo min-w-0 flex-1 truncate transition-colors group-hover:text-accent ${
           align === 'right' ? 'text-right' : 'text-left'
         } ${won === null ? 'text-fg-soft' : won ? 'font-semibold text-fg' : 'text-loss'}`}
       >
@@ -856,7 +956,14 @@ function Row({ row }: { row: GroupStandingRow }) {
   const qualified = row.position <= 2
 
   return (
-    <tr data-team={row.team_id} className={qualified ? 'bg-accent-dim/40' : ''}>
+    // El borde rojo de la izquierda, además del fondo teñido: que un equipo
+    // esté clasificando se decía sólo con color, y con daltonismo rojo-verde
+    // —o con el teléfono al sol— las cinco filas se ven iguales. La barra se
+    // lee por forma y no depende del tono.
+    <tr
+      data-team={row.team_id}
+      className={qualified ? 'bg-accent-dim/40 [box-shadow:inset_3px_0_0_0_var(--accent)]' : ''}
+    >
       <td
         className={`tabular px-2 py-2 text-right ${
           qualified ? 'font-bold text-accent' : 'text-faint'
@@ -918,7 +1025,11 @@ function Row({ row }: { row: GroupStandingRow }) {
   )
 }
 
-function BracketColumn({
+/**
+ * Una ronda como columna del bracket. Es la vista de escritorio: las tres al
+ * lado forman el árbol, que es lo que un bracket tiene para decir.
+ */
+function ColumnaRonda({
   title,
   series,
   champion = false,
@@ -928,23 +1039,12 @@ function BracketColumn({
   champion?: boolean
 }) {
   const date = series[0]?.scheduled_at
-  const final = series[0]
-  const winnerName =
-    final?.winner_team_id === final?.team_a_id ? final?.team_a_name : final?.team_b_name
 
   return (
     <div className="flex flex-col gap-3">
       <div>
         <h3 className="text-sm font-bold uppercase tracking-wide">{title}</h3>
-        <p className="text-xs text-faint">
-          {date
-            ? new Date(date).toLocaleDateString('es-AR', {
-                day: 'numeric',
-                month: 'long',
-                timeZone: 'UTC',
-              })
-            : 'a definir'}
-        </p>
+        <p className="text-xs text-faint">{date ? diaYMes(date) : 'a definir'}</p>
       </div>
 
       {/* Cada columna reparte sus series a lo alto para que queden centradas
@@ -953,22 +1053,49 @@ function BracketColumn({
         {series.map((item) => (
           <SeriesCard key={item.id} series={item} />
         ))}
-
-        {champion && (
-          <div
-            className={`rounded-lg border px-4 py-3 ${
-              final?.winner_team_id
-                ? 'border-accent bg-gradient-to-br from-accent-dim to-surface'
-                : 'border-dashed border-line'
-            }`}
-          >
-            <p className="text-xs uppercase tracking-[0.2em] text-accent">Campeón</p>
-            <p className="font-display mt-1 text-xl font-bold">
-              {winnerName ?? <span className="text-dim">por definir</span>}
-            </p>
-          </div>
-        )}
+        {champion && <Campeon final={series[0]} />}
       </div>
+    </div>
+  )
+}
+
+/**
+ * La misma ronda como panel de su pestaña. Es la vista del teléfono, donde no
+ * entra el árbol: una sola columna, apiladas.
+ *
+ * Sin título ni fecha adentro, que van en la pestaña de arriba —igual que en el
+ * fixture, donde el panel tampoco repite "Fecha 2"— y sin el `justify-around`
+ * de la columna, que existe para alinear una ronda contra la de al lado y acá
+ * no hay ninguna al lado.
+ */
+function Ronda({ series, champion = false }: { series: SeriesResultRow[]; champion?: boolean }) {
+  return (
+    <div className="flex flex-col gap-3">
+      {series.map((item) => (
+        <SeriesCard key={item.id} series={item} />
+      ))}
+      {champion && <Campeon final={series[0]} />}
+    </div>
+  )
+}
+
+/** Quién ganó el torneo, o el lugar donde va a ir el nombre. */
+function Campeon({ final }: { final: SeriesResultRow | undefined }) {
+  const winnerName =
+    final?.winner_team_id === final?.team_a_id ? final?.team_a_name : final?.team_b_name
+
+  return (
+    <div
+      className={`rounded-lg border px-4 py-3 ${
+        final?.winner_team_id
+          ? 'border-accent bg-gradient-to-br from-accent-dim to-surface'
+          : 'border-dashed border-line'
+      }`}
+    >
+      <p className="text-xs uppercase tracking-[0.2em] text-accent">Campeón</p>
+      <p className="font-display mt-1 text-xl font-bold">
+        {winnerName ?? <span className="text-dim">por definir</span>}
+      </p>
     </div>
   )
 }
@@ -1156,13 +1283,18 @@ function DondeSeSigue() {
     <section className="flex flex-col gap-3 border-t border-line pt-6">
       <h2 className="text-sm font-medium text-muted">Dónde se sigue</h2>
       <div className="grid gap-3 sm:grid-cols-3">
+        {/* El ícono al lado del título y no arriba: la tarjeta tiene tres
+            renglones y una fila más la haría crecer sin decir nada nuevo. */}
         <a
           href={TOURNAMENT.broadcast.url}
           target="_blank"
           rel="noreferrer"
-          className="border-2 border-line bg-surface px-4 py-3 transition-colors hover:border-accent"
+          className="group border-2 border-line bg-surface px-4 py-3 transition-colors hover:border-accent"
         >
-          <p className="text-sm font-medium">Transmisión</p>
+          <p className="flex items-center gap-2 text-sm font-medium">
+            <IconoTwitch className="size-4 text-muted transition-colors group-hover:text-accent" />
+            Transmisión
+          </p>
           <p className="text-xs text-faint">{TOURNAMENT.broadcast.channel}</p>
           <p className="text-xs text-dim">{TOURNAMENT.broadcast.schedule}</p>
         </a>
@@ -1171,9 +1303,12 @@ function DondeSeSigue() {
           href={TOURNAMENT.discord}
           target="_blank"
           rel="noreferrer"
-          className="border-2 border-line bg-surface px-4 py-3 transition-colors hover:border-accent"
+          className="group border-2 border-line bg-surface px-4 py-3 transition-colors hover:border-accent"
         >
-          <p className="text-sm font-medium">Discord</p>
+          <p className="flex items-center gap-2 text-sm font-medium">
+            <IconoDiscord className="size-4 text-muted transition-colors group-hover:text-accent" />
+            Discord
+          </p>
           <p className="text-xs text-faint">Esports UNLP</p>
           <p className="text-xs text-dim">canal #busco-rival-lide2</p>
         </a>
