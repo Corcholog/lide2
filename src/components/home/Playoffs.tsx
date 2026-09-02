@@ -1,5 +1,6 @@
 import { Tabs } from '@/components/nav/Tabs'
 import { dayAndMonth } from '@/lib/lide2/dates'
+import { FINAL_ROUND, seriesWinner } from '@/lib/lide2/winner'
 import type { SeriesResultRow } from '@/types/db'
 
 /*
@@ -11,7 +12,7 @@ import type { SeriesResultRow } from '@/types/db'
 const ROUNDS = [
   { round: 'Cuartos de final', short: 'Cuartos' },
   { round: 'Semifinales', short: 'Semis' },
-  { round: 'Gran final', short: 'Final' },
+  { round: FINAL_ROUND, short: 'Final' },
 ]
 
 export function Playoffs({ series }: { series: SeriesResultRow[] }) {
@@ -53,7 +54,7 @@ export function Playoffs({ series }: { series: SeriesResultRow[] }) {
             key={round}
             title={round}
             series={inRound(round)}
-            champion={round === 'Gran final'}
+            champion={round === FINAL_ROUND}
           />
         ))}
       </div>
@@ -73,7 +74,7 @@ export function Playoffs({ series }: { series: SeriesResultRow[] }) {
           })}
         >
           {ROUNDS.map(({ round }) => (
-            <Round key={round} series={inRound(round)} champion={round === 'Gran final'} />
+            <Round key={round} series={inRound(round)} champion={round === FINAL_ROUND} />
           ))}
         </Tabs>
       </div>
@@ -137,13 +138,12 @@ function Round({ series, champion = false }: { series: SeriesResultRow[]; champi
 
 /** Who won the tournament, or the place the name will go. */
 function Champion({ final }: { final: SeriesResultRow | undefined }) {
-  const winnerName =
-    final?.winner_team_id === final?.team_a_id ? final?.team_a_name : final?.team_b_name
+  const winnerName = seriesWinner(final)
 
   return (
     <div
       className={`rounded-lg border px-4 py-3 ${
-        final?.winner_team_id
+        winnerName
           ? 'border-accent bg-gradient-to-br from-accent-dim to-surface'
           : 'border-dashed border-line'
       }`}

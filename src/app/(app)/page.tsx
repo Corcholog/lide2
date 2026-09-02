@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { maybeRow, rows } from '@/lib/supabase/query'
 import { daysUntil } from '@/lib/lide2/dates'
 import { CALENDAR, TOURNAMENT } from '@/lib/lide2/tournament'
+import { championOf } from '@/lib/lide2/winner'
 import { TeamFocus, type FocusTeam } from '@/components/tournament/TeamFocus'
 import { Hero, UniversityStrip } from '@/components/home/Hero'
 import { Calendar } from '@/components/home/Calendar'
@@ -112,11 +113,13 @@ export default async function Lide2Page() {
   const series = rows<SeriesResultRow>(seriesRes, 'the bracket')
   const fixture = rows<FixtureResultRow>(fixtureRes, 'the fixture')
   const next = CALENDAR.find((milestone) => daysUntil(milestone.date) >= 0)
+  // What the hero shows once the final has been played and `next` runs out.
+  const champion = championOf(series)
 
   return (
     <TeamFocus teams={focusTeams(fixture)} className="flex flex-col gap-10">
       {/* The section bar goes inside: it closes the hero, it does not follow it. */}
-      <Hero next={next} sections={SECTIONS} />
+      <Hero next={next} champion={champion} sections={SECTIONS} />
 
       <UniversityStrip universities={universities} />
 

@@ -33,7 +33,15 @@ const HERO_OVERLAY = [
 const HERO_GRAIN =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")"
 
-export function Hero({ next, sections }: { next: Milestone | undefined; sections: NavSection[] }) {
+export function Hero({
+  next,
+  champion,
+  sections,
+}: {
+  next: Milestone | undefined
+  champion: string | undefined
+  sections: NavSection[]
+}) {
   const days = next ? daysUntil(next.date) : null
 
   const stats = [
@@ -117,7 +125,14 @@ export function Hero({ next, sections }: { next: Milestone | undefined; sections
             <p className="mt-3 max-w-md text-sm text-fg-soft">{TOURNAMENT.fullName}</p>
           </div>
 
-          {next && days !== null && (
+          {/*
+            The one line that changes on its own: while there are dates left it
+            counts down to the next one, and once the last one has been played
+            it carries the champion. In between - the final played and the
+            result not loaded yet - it shows nothing, which is better than a
+            countdown to a date that has already happened.
+          */}
+          {next && days !== null ? (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <p className="flex items-baseline gap-2 rounded-md bg-accent-strong px-3 py-1.5 text-white">
                 <span className="tabular font-display text-2xl font-bold leading-none">
@@ -142,7 +157,16 @@ export function Hero({ next, sections }: { next: Milestone | undefined; sections
                 </span>
               </p>
             </div>
-          )}
+          ) : champion ? (
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+              <p className="rounded-md bg-accent-strong px-3 py-1.5 text-xs font-bold uppercase tracking-[0.2em] text-white">
+                Campeón
+              </p>
+              <p className="font-display text-2xl font-bold uppercase leading-none tracking-[-0.02em]">
+                {champion}
+              </p>
+            </div>
+          ) : null}
 
           {/*
             With each brand's icon in front. The two buttons looked identical -
