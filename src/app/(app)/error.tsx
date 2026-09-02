@@ -4,19 +4,19 @@ import Link from 'next/link'
 import { useEffect } from 'react'
 
 /**
- * Cuando una página del sitio se rompe.
+ * When a page of the site breaks.
  *
- * Antes de esto, una excepción en cualquier consulta mostraba la pantalla de
- * error cruda de Next, con el stack. El día de la primera fecha, con gente
- * mirando, eso es lo peor que puede pasar.
+ * Before this, an exception in any query showed Next's raw error screen, stack
+ * and all. On the day of the first matchday, with people watching, that is the
+ * worst thing that can happen.
  *
- * El botón dice "reintentar" y de verdad reintenta: `retry()` vuelve a
- * renderizar el segmento del servidor, así que si lo que falló fue un pico de
- * carga o un timeout de Supabase, se arregla solo desde el mismo lugar.
+ * The button says "reintentar" and it really does retry: `retry()` re-renders
+ * the server segment, so if what failed was a load spike or a Supabase timeout,
+ * it fixes itself from the same place.
  *
- * `digest` es el identificador que Next le pone al error en el servidor: en
- * producción el mensaje real no viaja al browser, y ese código es lo único que
- * permite encontrarlo en los logs. Por eso se muestra.
+ * `digest` is the identifier Next attaches to the error on the server: in
+ * production the real message never travels to the browser, and that code is
+ * the only thing that makes it findable in the logs. Hence it is shown.
  */
 export default function ErrorBoundary({
   error,

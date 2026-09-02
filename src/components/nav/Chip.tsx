@@ -1,28 +1,30 @@
 import Link from 'next/link'
 
 /**
- * El chip de los filtros del sitio.
+ * The site's filter chip.
  *
- * El markup estaba repetido en `ScopeNav` y `OrdenEquipos`; con la pestaña de
- * tablas pasaban a ser cuatro copias de lo mismo, que ya es una de más para que
- * sigan pareciéndose entre sí sin que nadie se acuerde de tocar las cuatro.
+ * The markup was duplicated across `ScopeNav` and `TeamOrderPicker`; with the
+ * tables tab it would have become four copies of the same thing, which is one
+ * too many for them to keep looking alike without somebody remembering to touch
+ * all four.
  *
- * Es un `<Link>` y no un botón porque el filtro viaja en la URL: la página
- * sigue siendo un componente de servidor, el recorte se puede compartir pegando
- * el link y anda sin JavaScript.
+ * It is a `<Link>` and not a button because the filter travels in the URL: the
+ * page stays a server component, the scope can be shared by pasting the link
+ * and it works without JavaScript.
  */
 export function Chip({ label, href, active }: { label: string; href: string; active: boolean }) {
   return (
     <Link
       href={href}
       aria-current={active ? 'true' : undefined}
-      // py-2 y no py-1: con `text-xs` el chip medía 26px de alto y es el
-      // control que más se toca del sitio —fecha, grupo, vista y orden, en
-      // cuatro páginas—. WCAG 2.5.8 pide 24 y la guía de iOS y Android 44;
-      // así queda en 38, que entra en el renglón sin desarmar la fila.
-      // shrink-0 y whitespace-nowrap: abajo de `sm` la barra que los contiene
-      // scrollea en horizontal en vez de envolver, y sin esto los chips se
-      // achican para entrar todos y el texto se parte en dos renglones.
+      // py-2 and not py-1: with `text-xs` the chip stood 26px tall and it is
+      // the most-tapped control on the site - matchday, group, view and order,
+      // across four pages. WCAG 2.5.8 asks for 24 and the iOS and Android
+      // guidelines for 44; this lands on 38, which fits the line without
+      // breaking the row apart.
+      // shrink-0 and whitespace-nowrap: below `sm` the bar holding them
+      // scrolls horizontally instead of wrapping, and without these the chips
+      // shrink to fit and the text breaks across two lines.
       className={`shrink-0 whitespace-nowrap border-2 px-3 py-2 text-xs font-bold uppercase tracking-wide transition-colors ${
         active
           ? 'border-accent bg-accent-dim text-accent'

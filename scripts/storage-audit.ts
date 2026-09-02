@@ -1,12 +1,12 @@
 /**
- * Compara el bucket de replays contra la base y reporta objetos huérfanos.
+ * Compares the replays bucket against the database and reports orphan objects.
  *
- * Ojo con qué es "huérfano": los archivos de una ingesta fallida tampoco tienen
- * fila en match_files, pero se conservan a propósito para poder reintentar. Sólo
- * cuenta como huérfano lo que no está ni en match_files ni en ingest_failures.
+ * Mind what "orphan" means: the files of a failed ingest have no match_files
+ * row either, but they are kept on purpose so the ingest can be retried. Only
+ * what is in neither match_files nor ingest_failures counts as an orphan.
  *
  *   npm run storage:audit
- *   npm run storage:audit -- --fix     (borra los huérfanos)
+ *   npm run storage:audit -- --fix     (deletes the orphans)
  */
 import { REPLAYS_BUCKET } from '../src/lib/env'
 import { createAdminClient } from '../src/lib/supabase/admin'
@@ -21,7 +21,7 @@ async function listObjects(prefix: string): Promise<{ path: string; size: number
 
   const results: { path: string; size: number }[] = []
   for (const entry of data ?? []) {
-    // Una carpeta no trae metadata; hay que bajar un nivel.
+    // A folder carries no metadata; you have to go one level down.
     if (!entry.metadata) {
       results.push(...(await listObjects(prefix ? `${prefix}/${entry.name}` : entry.name)))
     } else {
@@ -55,10 +55,10 @@ async function main() {
   const totalMb = objects.reduce((acc, o) => acc + o.size, 0) / 1048576
   const orphanMb = orphans.reduce((acc, o) => acc + o.size, 0) / 1048576
 
-  console.log(`\n  ${objects.length} objetos en el bucket · ${totalMb.toFixed(1)} MB`)
-  console.log(`  ${files.data?.length ?? 0} referenciados por match_files`)
-  console.log(`  ${failures.data?.length ?? 0} de ingestas fallidas (se conservan para reintentar)`)
-  console.log(`  ${orphans.length} huérfanos · ${orphanMb.toFixed(1)} MB\n`)
+  console.log(`\n  ${objects.length} objects in the bucket · ${totalMb.toFixed(1)} MB`)
+  console.log(`  ${files.data?.length ?? 0} referenced by match_files`)
+  console.log(`  ${failures.data?.length ?? 0} from failed ingests (kept for a retry)`)
+  console.log(`  ${orphans.length} orphans · ${orphanMb.toFixed(1)} MB\n`)
 
   if (orphans.length === 0) return
 
@@ -67,14 +67,14 @@ async function main() {
   }
 
   if (!fix) {
-    console.log('\n  Volvé a correrlo con --fix para borrarlos.\n')
+    console.log('\n  Run it again with --fix to delete them.\n')
     return
   }
 
   const { error } = await supabase.storage.from(REPLAYS_BUCKET).remove(orphans.map((o) => o.path))
   if (error) throw new Error(error.message)
 
-  console.log(`\n  ${orphans.length} objetos borrados · ${orphanMb.toFixed(1)} MB liberados\n`)
+  console.log(`\n  ${orphans.length} objects deleted · ${orphanMb.toFixed(1)} MB freed\n`)
 }
 
 main()

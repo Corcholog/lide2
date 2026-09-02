@@ -3,13 +3,13 @@ import { maybeRow, rows } from '@/lib/supabase/query'
 import type { PostgrestError } from '@supabase/supabase-js'
 
 /**
- * Que un error de consulta no se disfrace de "todavía no hay nada".
+ * That a query error never disguises itself as "nothing here yet".
  *
- * Es la diferencia que importa un día de partido: sin esto, una policy rota y
- * una fecha sin jugar se ven exactamente igual en la pantalla.
+ * It is the difference that matters on a match day: without this, a broken
+ * policy and an unplayed matchday look exactly the same on screen.
  */
 
-const falla: PostgrestError = Object.assign(new Error('permission denied for table matches'), {
+const failure: PostgrestError = Object.assign(new Error('permission denied for table matches'), {
   code: '42501',
   details: '',
   hint: '',
@@ -17,51 +17,51 @@ const falla: PostgrestError = Object.assign(new Error('permission denied for tab
   toJSON: () => ({}),
 }) as unknown as PostgrestError
 
-describe('leer una consulta', () => {
-  it('vacío es un resultado válido', () => {
-    expect(rows({ data: [], error: null }, 'las partidas')).toEqual([])
+describe('reading a query', () => {
+  it('empty is a valid result', () => {
+    expect(rows({ data: [], error: null }, 'the matches')).toEqual([])
   })
 
-  it('null sin error también: PostgREST a veces no manda array', () => {
-    expect(rows({ data: null, error: null }, 'las partidas')).toEqual([])
+  it('null with no error too: PostgREST sometimes sends no array', () => {
+    expect(rows({ data: null, error: null }, 'the matches')).toEqual([])
   })
 
-  it('devuelve las filas cuando hay', () => {
-    expect(rows({ data: [{ id: 1 }], error: null }, 'las partidas')).toEqual([{ id: 1 }])
+  it('returns the rows when there are any', () => {
+    expect(rows({ data: [{ id: 1 }], error: null }, 'the matches')).toEqual([{ id: 1 }])
   })
 
-  it('un error explota en vez de devolver vacío', () => {
-    expect(() => rows({ data: null, error: falla }, 'las partidas')).toThrow(
-      /No se pudo leer las partidas/,
+  it('an error blows up instead of returning empty', () => {
+    expect(() => rows({ data: null, error: failure }, 'the matches')).toThrow(
+      /Could not read the matches/,
     )
   })
 
-  it('el mensaje lleva el código, que es lo que se busca en los logs', () => {
-    expect(() => rows({ data: null, error: falla }, 'las partidas')).toThrow(/42501/)
+  it('the message carries the code, which is what gets searched in the logs', () => {
+    expect(() => rows({ data: null, error: failure }, 'the matches')).toThrow(/42501/)
   })
 
-  it('y conserva el error original como causa', () => {
+  it('and keeps the original error as the cause', () => {
     try {
-      rows({ data: null, error: falla }, 'las partidas')
+      rows({ data: null, error: failure }, 'the matches')
       expect.unreachable()
     } catch (error) {
-      expect((error as Error).cause).toBe(falla)
+      expect((error as Error).cause).toBe(failure)
     }
   })
 
-  it('explota aunque haya llegado data: si hubo error, los datos no son confiables', () => {
-    expect(() => rows({ data: [{ id: 1 }], error: falla }, 'las partidas')).toThrow()
+  it('blows up even when data arrived: after an error the data is not trustworthy', () => {
+    expect(() => rows({ data: [{ id: 1 }], error: failure }, 'the matches')).toThrow()
   })
 })
 
-describe('leer una fila que puede no existir', () => {
-  it('null es "no está", y eso no es un error', () => {
-    expect(maybeRow({ data: null, error: null }, 'el equipo')).toBeNull()
+describe('reading a row that may not exist', () => {
+  it('null means "it is not there", and that is not an error', () => {
+    expect(maybeRow({ data: null, error: null }, 'the team')).toBeNull()
   })
 
-  it('pero "no se pudo preguntar" sí lo es', () => {
-    expect(() => maybeRow({ data: null, error: falla }, 'el equipo')).toThrow(
-      /No se pudo leer el equipo/,
+  it('but "it could not be asked" is', () => {
+    expect(() => maybeRow({ data: null, error: failure }, 'the team')).toThrow(
+      /Could not read the team/,
     )
   })
 })

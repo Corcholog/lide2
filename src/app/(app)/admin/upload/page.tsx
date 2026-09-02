@@ -14,13 +14,13 @@ export default async function UploadPage() {
           15 MB se leen ~118 KB. Si un archivo falla, el resto del lote sigue.
         </p>
         {/*
-          Antes acá se escribían a mano la etapa y la ronda. Ya no: el fixture
-          está publicado y cargado, así que en vez de escribir "Fecha 2" se
-          elige el cruce, que además dice qué equipos jugaron.
+          The stage and the round used to be typed in here by hand. Not any
+          more: the fixture is published and loaded, so instead of typing
+          "Fecha 2" you pick the matchup, which also says which teams played.
         */}
         <p className="mt-2 max-w-2xl text-sm text-muted">
           Después hay que decir de qué cruce es cada una, en{' '}
-          <Link href="/admin/asignar" className="text-accent underline-offset-2 hover:underline">
+          <Link href="/admin/assign" className="text-accent underline-offset-2 hover:underline">
             Asignar partidas
           </Link>
           . Hasta entonces la partida no tiene equipos ni fecha y no aparece en la tabla ni en las

@@ -1,13 +1,14 @@
 /**
- * El meta: qué se jugó y qué funcionó.
+ * The meta: what got played and what worked.
  *
- * Los picks salen del scoreboard, así que están siempre. Los bans no: el .rofl
- * no guarda el draft y hay que cargarlos a mano desde el panel, partida por
- * partida, cuando los equipos manden su historial. Puede no pasar nunca.
+ * Picks come from the scoreboard, so they are always there. Bans are not: the
+ * .rofl does not store the draft and they have to be entered by hand from the
+ * admin panel, match by match, whenever the teams send their history. That may
+ * never happen.
  *
- * Por eso los bloques de bans y de presencia aclaran sobre cuántas partidas se
- * midieron y desaparecen si no hay ninguna cargada: una presencia del 60%
- * calculada sobre 3 de 40 partidas no es una estadística del torneo.
+ * That is why the bans and presence blocks state how many matches they were
+ * measured over, and disappear when none is entered: a 60% presence computed
+ * over 3 matches out of 40 is not a tournament stat.
  */
 
 import { championIcon, championName } from '@/lib/ddragon'
@@ -16,7 +17,7 @@ import { block, rankRows } from './rank'
 import type { StatBlock, StatsData } from './types'
 import type { ChampionStatRow } from '@/types/db'
 
-/** Picks mínimos para que un porcentaje de victorias signifique algo. */
+/** Minimum picks for a win percentage to mean anything. */
 const MIN_PICKS_FOR_WINRATE = 3
 
 function championRanking(
@@ -28,8 +29,8 @@ function championRanking(
     detail?: (row: ChampionStatRow) => string | null
   },
 ) {
-  // El id sigue siendo la clave interna —es lo único único— pero el nombre que
-  // se lee es el de ddragon: en la base Wukong es "MonkeyKing".
+  // The id is still the internal key - it is the only unique thing - but the
+  // name that gets read is ddragon's: in the database Wukong is "MonkeyKing".
   const names = data.championNames ?? {}
   const version = data.assetVersion
 
@@ -37,9 +38,9 @@ function championRanking(
     id: (row) => row.champion,
     name: (row) => championName(names, row.champion),
     subtitle: (row) => formatPosition(row.position),
-    // El retrato del campeón. Sin la versión de ddragon no hay URL que armar y
-    // el ranking sale sin íconos, que es exactamente lo que pasa cuando Riot
-    // no contesta: se lee igual.
+    // The champion portrait. Without the ddragon version there is no URL to
+    // build and the ranking comes out iconless, which is exactly what happens
+    // when Riot does not answer: it reads the same.
     logo: (row) => (version ? championIcon(version, row.champion) : null),
     detail: options.detail ?? ((row) => `${row.picks} ${row.picks === 1 ? 'pick' : 'picks'} · KDA ${row.kda.toFixed(2)}`),
     value: options.value,
@@ -49,7 +50,7 @@ function championRanking(
   })
 }
 
-/** Cuántas partidas del recorte tienen el draft cargado. */
+/** How many matches in the scope have their draft entered. */
 function bansCoverage(data: StatsData): { withBans: number; total: number } {
   const row = data.champions[0]
   return { withBans: row?.matches_with_bans ?? 0, total: row?.matches ?? data.records.length }
@@ -59,8 +60,8 @@ export function mostPicked(data: StatsData): StatBlock | null {
   const rows = championRanking(data, {
     value: (row) => row.picks,
     display: (value) => `${value}`,
-    // La vista también trae los que sólo se banearon, que tienen 0 picks: en un
-    // ranking de los más elegidos no pintan nada.
+    // The view also returns champions that were only banned, which have 0
+    // picks: in a ranking of the most picked they have no business being.
     eligible: (row) => row.picks > 0,
   })
   return block('picks', 'Los más elegidos', rows, { subtitle: 'Picks en el recorte' })
@@ -105,10 +106,11 @@ export function mostBanned(data: StatsData): StatBlock | null {
 }
 
 /**
- * Presencia: picks + bans sobre las partidas con draft cargado.
+ * Presence: picks + bans over the matches whose draft is entered.
  *
- * Los picks del numerador también se cuentan sólo sobre esas partidas, si no el
- * porcentaje mezclaría dos universos distintos y podría pasarse del 100%.
+ * The picks in the numerator are counted over those matches only as well;
+ * otherwise the percentage would mix two different universes and could go past
+ * 100%.
  */
 export function presence(data: StatsData): StatBlock | null {
   const { withBans, total } = bansCoverage(data)

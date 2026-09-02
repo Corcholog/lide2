@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 const MAX_BYTES = 50 * 1024 * 1024
-/** Dos en paralelo: son archivos de 12-17 MB, más no acelera nada. */
+/** Two in parallel: they are 12-17 MB files, more speeds nothing up. */
 const CONCURRENCY = 2
 
 type Status = 'pending' | 'hashing' | 'uploading' | 'parsing' | 'done' | 'duplicate' | 'error'
@@ -175,7 +175,7 @@ export function UploadDropzone() {
       setBusy(true)
       const queue = [...accepted]
 
-      // Un archivo por request: si uno falla, el resto del lote sigue.
+      // One file per request: when one fails, the rest of the batch goes on.
       await Promise.all(
         Array.from({ length: Math.min(CONCURRENCY, queue.length) }, async () => {
           for (let next = queue.shift(); next; next = queue.shift()) {

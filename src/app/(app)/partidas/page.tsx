@@ -4,14 +4,14 @@ import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
 import { assetVersion, championIcon, championName, championNames } from '@/lib/ddragon'
 import { formatDate, formatDuration, formatKda, ROLES } from '@/lib/format'
-import { inicioDelTorneo, TOURNAMENT } from '@/lib/lide2/tournament'
-import { parseEquipo } from '@/lib/partidas/filtros'
+import { tournamentStartDate, TOURNAMENT } from '@/lib/lide2/tournament'
+import { parseTeamFilter } from '@/lib/stats/scope'
 import { resolveTournamentId } from '@/lib/stats/query'
 import { parseScope } from '@/lib/stats/scope'
-import { ScopeNav } from '@/components/estadisticas/ScopeNav'
+import { ScopeNav } from '@/components/stats/ScopeNav'
 import { GameIcon } from '@/components/match/GameIcon'
-import { DetallePartida, type JugadorDetalle } from '@/components/partidas/DetallePartida'
-import { FiltroEquipo } from '@/components/partidas/FiltroEquipo'
+import { MatchDetail, type DetailPlayer } from '@/components/match/MatchDetail'
+import { TeamFilter } from '@/components/match/TeamFilter'
 import type { MatchPlayerScoreRow, MatchSummaryRow, MatchTeamStatsRow } from '@/types/db'
 
 export const metadata = {
@@ -22,38 +22,39 @@ export const metadata = {
 export const dynamic = 'force-dynamic'
 
 /**
- * El historial del torneo.
+ * The tournament's history.
  *
- * Cada partida es una fila que se despliega: adentro está el scoreboard
- * resumido de los dos equipos. Antes había que entrar a la ficha para ver
- * cualquier cosa, y revisar una fecha entera eran diez idas y vueltas.
+ * Every match is a row that expands: inside is both teams' summarized
+ * scoreboard. You used to have to open the match page to see anything, and
+ * going over a whole matchday was ten trips back and forth.
  *
- * EL DESPLEGABLE ES `<details>` NATIVO y no una isla de cliente: no necesita
- * JavaScript, el navegador ya le da el `aria-expanded`, el toggle con Enter y
- * el foco donde va, y además no dibuja el contenido mientras está cerrado. Es
- * la misma razón por la que los filtros son links y no estado de React.
+ * THE EXPANDER IS A NATIVE `<details>` and not a client island: it needs no
+ * JavaScript, the browser already gives it `aria-expanded`, toggling with Enter
+ * and the focus where it belongs, and on top of that it does not draw the
+ * content while closed. It is the same reason the filters are links and not
+ * React state.
  *
- * EL DETALLE VIENE PRECARGADO. El torneo entero son unas sesenta partidas, o
- * sea seiscientas filas de `match_player_scores`: traerlas de una sale más
- * barato que un endpoint aparte con su estado de carga. Se piden las columnas
- * necesarias y no `*` —items y hechizos son siete íconos por jugador que acá no
- * se miran— y se recorta a las partidas ya filtradas. Si alguna vez el listado
- * pasara de unas 150 visibles a la vez, ahí sí conviene un handler que devuelva
- * el detalle de una partida a pedido.
+ * THE DETAIL COMES PRELOADED. The whole tournament is about sixty matches, that
+ * is six hundred `match_player_scores` rows: fetching them in one go costs less
+ * than a separate endpoint with its own loading state. The needed columns are
+ * requested and not `*` - items and spells are seven icons per player that
+ * nobody looks at here - and it is scoped to the already-filtered matches. If
+ * the listing ever went past some 150 visible at once, then a handler returning
+ * one match's detail on demand would be the better trade.
  */
 
 /**
- * Las columnas del scoreboard que usa el detalle. Sin items ni hechizos.
+ * The scoreboard columns the detail uses. No items, no spells.
  *
- * Va en una sola línea y no partida con `+`: supabase-js le mira el TIPO a esta
- * cadena para saber qué devuelve la consulta, y una concatenación deja de ser
- * un literal y pasa a ser `string`, con lo que el resultado se vuelve
- * inutilizable (`GenericStringError`).
+ * It goes on a single line and is not split with `+`: supabase-js looks at this
+ * string's TYPE to know what the query returns, and a concatenation stops being
+ * a literal and becomes `string`, which makes the result unusable
+ * (`GenericStringError`).
  */
-const COLUMNAS_DETALLE =
+const DETAIL_COLUMNS =
   'match_player_id,match_id,side,player_id,champion,position,riot_game_name,riot_tag_line,kills,deaths,assists,cs,csm,gold_earned,damage_to_champions,vision_score,kill_participation,match_rank'
 
-type ScoreDetalle = Pick<
+type DetailScore = Pick<
   MatchPlayerScoreRow,
   | 'match_player_id'
   | 'match_id'
@@ -76,7 +77,7 @@ type ScoreDetalle = Pick<
 >
 
 export default async function MatchesPage({ searchParams }: PageProps<'/partidas'>) {
-  // La lista se ve sin sesión; subir replays, no.
+  // The list is visible without a session; uploading replays is not.
   const user = await getUser()
   const supabase = await createClient()
   const tournamentId = await resolveTournamentId(supabase)
@@ -84,65 +85,66 @@ export default async function MatchesPage({ searchParams }: PageProps<'/partidas
   const params = await searchParams
 
   /*
-   * Sólo las partidas del torneo.
+   * The tournament's matches only.
    *
-   * Sin el filtro esta lista mostraba `match_summaries` entera, o sea todo
-   * .rofl que alguna vez se haya subido: los de prueba, los de otro torneo y
-   * los que están esperando que alguien los asigne a su cruce. Nada de eso es
-   * la LIDE 2, y en una página pública se lee como si lo fuera.
+   * Without the filter this list showed the whole of `match_summaries`, which
+   * is every .rofl ever uploaded: the test ones, the ones from another
+   * tournament and the ones waiting for somebody to assign them a matchup. None
+   * of that is LIDE 2, and on a public page it reads as if it were.
    *
-   * Las que todavía no tienen cruce se ven en /admin/asignar, que es donde
-   * hace falta verlas.
+   * The ones that do not have a matchup yet are visible on /admin/asignar,
+   * which is where they need to be seen.
    */
-  const equipos = tournamentId
+  const teams = tournamentId
     ? rows<{ id: string; name: string; group_label: string | null }>(
         await supabase
           .from('teams')
           .select('id,name,group_label')
           .eq('tournament_id', tournamentId)
           .order('name'),
-        'los equipos',
+        'the teams',
       )
     : []
 
   const scope = parseScope(params.fecha, tournamentId ?? '')
-  const equipo = parseEquipo(
+  const teamId = parseTeamFilter(
     params.equipo,
-    equipos.map((e) => e.id),
+    teams.map((team) => team.id),
   )
-  const filtrando = scope.matchday !== null || equipo !== null
+  const filtering = scope.matchday !== null || teamId !== null
 
-  let consulta = supabase
+  let query = supabase
     .from('match_summaries')
     .select('*')
     .eq('tournament_id', tournamentId ?? '')
     .order('played_at', { ascending: false, nullsFirst: false })
     .limit(100)
 
-  // `matchday` sale de match_summaries desde 0021: sin esa columna había que
-  // pedirle antes a match_context los ids de la fecha y filtrar con un `in`.
-  if (scope.matchday !== null) consulta = consulta.eq('matchday', scope.matchday)
-  if (equipo) consulta = consulta.or(`blue_team_id.eq.${equipo},red_team_id.eq.${equipo}`)
+  // `matchday` has come from match_summaries since 0021: without that column
+  // you had to ask match_context for the matchday's ids first and filter with
+  // an `in`.
+  if (scope.matchday !== null) query = query.eq('matchday', scope.matchday)
+  if (teamId) query = query.or(`blue_team_id.eq.${teamId},red_team_id.eq.${teamId}`)
 
-  const matches = tournamentId ? rows<MatchSummaryRow>(await consulta, 'las partidas') : []
+  const matches = tournamentId ? rows<MatchSummaryRow>(await query, 'the matches') : []
   const ids = matches.map((match) => match.id)
 
   const [scoresRes, statsRes] = await Promise.all([
     ids.length > 0
-      ? supabase.from('match_player_scores').select(COLUMNAS_DETALLE).in('match_id', ids)
+      ? supabase.from('match_player_scores').select(DETAIL_COLUMNS).in('match_id', ids)
       : Promise.resolve({ data: [], error: null }),
     ids.length > 0
       ? supabase.from('match_team_stats').select('*').in('match_id', ids)
       : Promise.resolve({ data: [], error: null }),
   ])
 
-  const scores = rows<ScoreDetalle>(scoresRes, 'el detalle de las partidas')
-  const teamStats = rows<MatchTeamStatsRow>(statsRes, 'los totales por equipo')
+  const scores = rows<DetailScore>(scoresRes, 'the match details')
+  const teamStats = rows<MatchTeamStatsRow>(statsRes, 'the per-team totals')
 
-  const jugadoresPorPartida = new Map<string, JugadorDetalle[]>()
+  const playersByMatch = new Map<string, DetailPlayer[]>()
   for (const score of scores) {
-    const lista = jugadoresPorPartida.get(score.match_id) ?? []
-    lista.push({
+    const list = playersByMatch.get(score.match_id) ?? []
+    list.push({
       matchPlayerId: score.match_player_id,
       side: score.side,
       playerId: score.player_id,
@@ -161,42 +163,40 @@ export default async function MatchesPage({ searchParams }: PageProps<'/partidas
       visionScore: score.vision_score,
       isMvp: score.match_rank === 1,
     })
-    jugadoresPorPartida.set(score.match_id, lista)
+    playersByMatch.set(score.match_id, list)
   }
 
   /*
-   * Cada equipo, en orden de línea: top, jungla, mid, ADC, soporte.
+   * Each team, in lane order: top, jungle, mid, ADC, support.
    *
-   * `match_player_scores` los devuelve en el orden en que los escribió el
-   * .rofl, que es el de los slots del lobby y no significa nada. Un scoreboard
-   * se lee por línea —quién ganó el mid, cómo salió el botlane— y para eso las
-   * dos columnas tienen que estar en el mismo orden; si no, comparar rivales es
-   * ir y venir con el ojo.
+   * `match_player_scores` returns them in the order the .rofl wrote them, which
+   * is the lobby's slot order and means nothing. A scoreboard is read by lane -
+   * who won mid, how the bot lane went - and for that the two columns have to
+   * be in the same order; otherwise comparing opponents means your eyes going
+   * back and forth.
    *
-   * Se ordena una vez acá y no en cada componente porque lo usan los dos: la
-   * fila cerrada, para los íconos de campeón, y el detalle desplegado.
+   * It is sorted once here and not in each component because both use it: the
+   * closed row, for the champion icons, and the expanded detail.
    */
-  const ordenDeLinea = (posicion: string | null) => {
-    const index = ROLES.indexOf((posicion ?? '') as (typeof ROLES)[number])
-    // Sin posición al final: el .rofl no siempre la trae.
+  const laneOrder = (position: string | null) => {
+    const index = ROLES.indexOf((position ?? '') as (typeof ROLES)[number])
+    // No position goes last: the .rofl does not always carry it.
     return index === -1 ? ROLES.length : index
   }
 
-  for (const lista of jugadoresPorPartida.values()) {
-    lista.sort(
-      (a, b) => a.side - b.side || ordenDeLinea(a.position) - ordenDeLinea(b.position),
-    )
+  for (const list of playersByMatch.values()) {
+    list.sort((a, b) => a.side - b.side || laneOrder(a.position) - laneOrder(b.position))
   }
 
-  const statsPorPartida = new Map<string, Map<100 | 200, MatchTeamStatsRow>>()
-  for (const fila of teamStats) {
-    const lados = statsPorPartida.get(fila.match_id) ?? new Map<100 | 200, MatchTeamStatsRow>()
-    lados.set(fila.side, fila)
-    statsPorPartida.set(fila.match_id, lados)
+  const statsByMatch = new Map<string, Map<100 | 200, MatchTeamStatsRow>>()
+  for (const row of teamStats) {
+    const sides = statsByMatch.get(row.match_id) ?? new Map<100 | 200, MatchTeamStatsRow>()
+    sides.set(row.side, row)
+    statsByMatch.set(row.match_id, sides)
   }
 
-  // El listado cruza parches, pero los nombres de los campeones no cambian de
-  // uno a otro: alcanza con el catálogo del último.
+  // The listing spans patches, but champion names do not change from one to
+  // another: the latest catalogue is enough.
   const version = await assetVersion(null)
   const champNames = await championNames(version)
 
@@ -204,14 +204,14 @@ export default async function MatchesPage({ searchParams }: PageProps<'/partidas
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          {/* Mismo tratamiento que estadísticas, tablas y admin: al cambiar de
-              sección el título no tiene que cambiar de tamaño ni de caja. */}
+          {/* The same treatment as stats, tables and admin: moving between
+              sections, the title should not change size or shape. */}
           <h1 className="font-display text-3xl uppercase tracking-tight">Partidas</h1>
           <p className="mt-1 text-sm text-muted">
             {matches.length === 0
               ? 'Todavía no hay partidas cargadas.'
               : `${matches.length} partida${matches.length === 1 ? '' : 's'}${
-                  filtrando ? ' en este recorte' : ' cargadas'
+                  filtering ? ' en este recorte' : ' cargadas'
                 }.`}
           </p>
         </div>
@@ -226,28 +226,29 @@ export default async function MatchesPage({ searchParams }: PageProps<'/partidas
       </div>
 
       <div className="flex flex-col gap-3">
-        <ScopeNav base="/partidas" matchday={scope.matchday} query={{ equipo }} />
-        {equipos.length > 0 && (
-          <FiltroEquipo equipos={equipos} equipo={equipo} fecha={scope.matchday} />
+        <ScopeNav base="/partidas" matchday={scope.matchday} query={{ equipo: teamId }} />
+        {teams.length > 0 && (
+          <TeamFilter teams={teams} selected={teamId} matchday={scope.matchday} />
         )}
       </div>
 
       {matches.length === 0 ? (
         <div className="rounded-lg border border-dashed border-line-strong px-6 py-14 text-center">
           {/*
-            Tres textos porque son tres situaciones distintas. Con un filtro
-            puesto lo que falta no es que se juegue nada: es aflojar el filtro.
-            Sin filtro y con sesión esto es una pantalla de trabajo y lo que
-            falta es subir los archivos. Sin sesión es alguien que entró a ver
-            el torneo: pedirle que suba un .rofl es pedirle algo que no puede
-            hacer, con una palabra que capaz ni conoce.
+            Three texts because these are three different situations. With a
+            filter on, what is missing is not that anything be played: it is
+            loosening the filter. With no filter and a session this is a
+            working screen and what is missing is uploading the files. With no
+            session it is somebody who came to watch the tournament: asking them
+            to upload a .rofl is asking for something they cannot do, in a word
+            they may not even know.
           */}
           <p className="text-fg-soft">
-            {filtrando
+            {filtering
               ? 'Ninguna partida de este recorte. Probá con otra fecha u otro equipo.'
               : user
                 ? 'Subí los .rofl de las partidas jugadas para empezar.'
-                : `Todavía no se jugó ninguna partida. La ${TOURNAMENT.name} arranca el ${inicioDelTorneo()}.`}
+                : `Todavía no se jugó ninguna partida. La ${TOURNAMENT.name} arranca el ${tournamentStartDate()}.`}
           </p>
         </div>
       ) : (
@@ -268,17 +269,17 @@ export default async function MatchesPage({ searchParams }: PageProps<'/partidas
                   </div>
 
                   {/*
-                    Nombre, campeones, marcador, campeones, nombre.
+                    Name, champions, scoreline, champions, name.
 
-                    Los dos equipos quedan en los extremos y los diez campeones
-                    contra el marcador, que es el orden en que se lee: quién
-                    contra quién, con qué. Puestos debajo del nombre tenían que
-                    entrar en la mitad del ancho de la fila y no pasaban de
-                    veinte píxeles, que para un retrato de campeón es una mancha.
+                    The two teams sit at the ends and the ten champions against
+                    the scoreline, which is the order it gets read in: who
+                    against whom, with what. Placed below the name they had to
+                    fit in half the row's width and never got past twenty
+                    pixels, which for a champion portrait is a smudge.
 
-                    En pantallas chicas los campeones no van: cinco de 32px por
-                    lado no entran al lado de los nombres, y lo que no puede
-                    achicarse más sin dejar de leerse es el marcador.
+                    On small screens the champions are dropped: five 32px ones
+                    per side do not fit beside the names, and what cannot shrink
+                    any further without becoming unreadable is the scoreline.
                   */}
                   <div className="flex flex-1 items-center justify-center gap-3">
                     <SideName
@@ -288,8 +289,8 @@ export default async function MatchesPage({ searchParams }: PageProps<'/partidas
                       align="right"
                       accent="aqua"
                     />
-                    <Campeones
-                      jugadores={jugadoresPorPartida.get(match.id) ?? []}
+                    <Champions
+                      players={playersByMatch.get(match.id) ?? []}
                       side={100}
                       version={version}
                       championNames={champNames}
@@ -310,8 +311,8 @@ export default async function MatchesPage({ searchParams }: PageProps<'/partidas
                       </p>
                       <p className="text-xs text-faint">{formatDuration(match.game_length_ms)}</p>
                     </div>
-                    <Campeones
-                      jugadores={jugadoresPorPartida.get(match.id) ?? []}
+                    <Champions
+                      players={playersByMatch.get(match.id) ?? []}
                       side={200}
                       version={version}
                       championNames={champNames}
@@ -356,11 +357,11 @@ export default async function MatchesPage({ searchParams }: PageProps<'/partidas
                   </svg>
                 </summary>
 
-                <DetallePartida
+                <MatchDetail
                   matchId={match.id}
-                  jugadores={jugadoresPorPartida.get(match.id) ?? []}
-                  equipos={statsPorPartida.get(match.id) ?? new Map()}
-                  nombres={{
+                  players={playersByMatch.get(match.id) ?? []}
+                  teamStats={statsByMatch.get(match.id) ?? new Map()}
+                  teamNames={{
                     100: match.blue_team_name ?? 'Lado azul',
                     200: match.red_team_name ?? 'Lado rojo',
                   }}
@@ -377,36 +378,36 @@ export default async function MatchesPage({ searchParams }: PageProps<'/partidas
 }
 
 /**
- * Los cinco campeones de un lado, en orden de línea.
+ * One side's five champions, in lane order.
  *
- * Van sin nombre —son 20px, el nombre no entra— pero con `alt`, así que un
- * lector de pantalla lee la composición igual y el `title` la muestra al pasar
- * el mouse. Si una partida no tiene el scoreboard cargado no se dibuja nada, en
- * vez de cinco huecos grises.
+ * They go without names - they are 20px, a name does not fit - but with an
+ * `alt`, so a screen reader reads the composition anyway and the `title` shows
+ * it on hover. If a match has no scoreboard loaded, nothing is drawn at all
+ * instead of five grey gaps.
  */
-function Campeones({
-  jugadores,
+function Champions({
+  players,
   side,
   version,
   championNames: names,
 }: {
-  jugadores: JugadorDetalle[]
+  players: DetailPlayer[]
   side: 100 | 200
   version: string
   championNames: Record<string, string>
 }) {
-  const delLado = jugadores.filter((jugador) => jugador.side === side)
-  if (delLado.length === 0) return null
+  const onSide = players.filter((player) => player.side === side)
+  if (onSide.length === 0) return null
 
   return (
     <div className="hidden shrink-0 gap-0.5 md:flex">
-      {delLado.map((jugador) => {
-        const campeon = championName(names, jugador.champion)
+      {onSide.map((player) => {
+        const champion = championName(names, player.champion)
         return (
           <GameIcon
-            key={jugador.matchPlayerId}
-            src={championIcon(version, jugador.champion)}
-            alt={campeon}
+            key={player.matchPlayerId}
+            src={championIcon(version, player.champion)}
+            alt={champion}
             size={32}
           />
         )

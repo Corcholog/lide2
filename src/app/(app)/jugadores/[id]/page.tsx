@@ -45,11 +45,11 @@ export async function generateMetadata({ params }: PageProps<'/jugadores/[id]'>)
     .eq('player_id', id)
     .maybeSingle()
 
-  const nombre = playerName(
+  const name = playerName(
     (data?.riot_game_name as string) ?? null,
     (data?.display_name as string) ?? null,
   )
-  return { title: nombre, description: `Partidas, números y pool de campeones de ${nombre}.` }
+  return { title: name, description: `Partidas, números y pool de campeones de ${name}.` }
 }
 
 export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'>) {
@@ -74,13 +74,13 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
     supabase.from('teams').select('id,name'),
   ])
 
-  const totals = maybeRow<PlayerTotalsRow>(totalsRes, 'los totales del jugador')
-  const champions = rows<PlayerChampionRow>(championsRes, 'el pool de campeones').sort(
+  const totals = maybeRow<PlayerTotalsRow>(totalsRes, 'the player totals')
+  const champions = rows<PlayerChampionRow>(championsRes, 'the champion pool').sort(
     (a, b) => b.games - a.games || b.kda - a.kda,
   )
-  const scores = rows<MatchPlayerScoreRow>(scoresRes, 'las partidas del jugador')
+  const scores = rows<MatchPlayerScoreRow>(scoresRes, 'the player matches')
   const teamNames = new Map(
-    rows<{ id: string; name: string }>(teamsRes, 'los equipos').map((team) => [team.id, team.name]),
+    rows<{ id: string; name: string }>(teamsRes, 'the teams').map((team) => [team.id, team.name]),
   )
 
   // El contexto de cada partida (fecha, etapa, rival) vive en match_summaries.

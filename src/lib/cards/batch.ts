@@ -1,14 +1,15 @@
 /**
- * El lote de piezas de un recorte.
+ * The batch of pieces for one scope.
  *
- * Son las estadísticas que valen como publicación, no las 34 del registro: un
- * feed no aguanta un posteo por ranking, y la mitad de esos rankings existen
- * para consultar, no para mirar. La lista de acá es una decisión editorial y
- * está pensada para cambiarse.
+ * These are the stats worth publishing, not the 34 in the registry: a feed
+ * cannot take one post per ranking, and half of those rankings exist to be
+ * looked up, not looked at. The list here is an editorial decision and it is
+ * meant to be changed.
  *
- * El lote cambia según el recorte, que es el punto de todo el motor: una fecha
- * se cuenta con quién la rompió, y la fase entera con quién la sostuvo tres
- * fechas seguidas. Por eso son dos listas y no una con más items.
+ * The batch changes with the scope, which is the point of the whole engine: a
+ * matchday is told through whoever broke it open, and the full phase through
+ * whoever held it up across three matchdays. That is why there are two lists
+ * and not one with more items.
  */
 
 import { STATS } from '@/lib/stats/registry'
@@ -18,17 +19,18 @@ import { groupTables, matchdayNumbers } from './summary'
 import type { Poster } from './types'
 
 /**
- * Qué se publica de una fecha: el que más rindió, el quinteto, la universidad
- * destacada y el meta. Rankings acumulativos como "más kills" no van: en una
- * sola jornada premian al que jugó dos partidos en vez de uno.
+ * What gets published for a matchday: the best performer, the starting five,
+ * the standout university and the meta. Cumulative rankings like "most kills"
+ * are out: within a single matchday they reward whoever played two games
+ * instead of one.
  */
-export const POR_FECHA = ['mvp', 'quinteto', 'universidad-fecha', 'picks', 'bans']
+export const BY_MATCHDAY = ['mvp', 'quinteto', 'universidad-fecha', 'picks', 'bans']
 
 /**
- * Qué se publica del acumulado: ahí sí los totales significan algo, y entran
- * los récords, que necesitan varias partidas para tener gracia.
+ * What gets published for the accumulated total: there the totals do mean
+ * something, and the records come in, which need several matches to be any fun.
  */
-export const ACUMULADO = [
+export const ACCUMULATED = [
   'mvp',
   'quinteto',
   'kills',
@@ -43,7 +45,7 @@ export const ACUMULADO = [
   'mas-pareja',
 ]
 
-/** "Fecha 2 · Fase de grupos", el renglón chico de arriba de cada pieza. */
+/** "Fecha 2 · Fase de grupos", the small line at the top of every piece. */
 export function kickerFor(scope: StatScope): string {
   const phase = scope.phase === 'grupos' ? 'Fase de grupos' : 'Playoffs'
   return scope.matchday === null ? `Acumulado · ${phase}` : `Fecha ${scope.matchday} · ${phase}`
@@ -51,27 +53,27 @@ export function kickerFor(scope: StatScope): string {
 
 export function buildPosters(data: StatsData, standings: GroupStandingRow[] = []): Poster[] {
   const kicker = kickerFor(data.scope)
-  const wanted = data.scope.matchday === null ? ACUMULADO : POR_FECHA
+  const wanted = data.scope.matchday === null ? ACCUMULATED : BY_MATCHDAY
 
-  // Los números primero: es la única que se puede subir sin que nadie revise
-  // nada, apenas termina de jugarse la fecha.
+  // The numbers first: it is the only one that can go up without anybody
+  // reviewing anything, the moment the matchday finishes.
   const numbers = matchdayNumbers(data)
   const opening: Poster[] = numbers
     ? [{ id: numbers.id, block: numbers, kicker, ordered: false }]
     : []
 
-  // El orden es el de la lista, no el del registro: la lista es el orden en que
-  // se publican y ahí sí importa cuál abre.
+  // The order is the list's, not the registry's: the list is the order they
+  // are published in, and there it does matter which one opens.
   const ranked = wanted
     .map((id) => STATS.find((stat) => stat.id === id))
     .filter((stat) => stat !== undefined)
     .map((stat) => stat.build(data))
-    // Las que no tienen datos suficientes devuelven null y quedan afuera: sin
-    // bans cargados no hay pieza de bans, y una card vacía es peor que ninguna.
+    // The ones without enough data return null and drop out: with no bans
+    // entered there is no bans piece, and an empty card is worse than none.
     .filter((block) => block !== null)
     .map((block) => ({ id: block.id, block, kicker, ordered: true }))
 
-  // La tabla sí es un ranking: el número es la posición del equipo en el grupo.
+  // The table IS a ranking: the number is the team's position in the group.
   const tables = groupTables(standings).map((block) => ({
     id: block.id,
     block,

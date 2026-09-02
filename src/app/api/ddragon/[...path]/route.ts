@@ -6,17 +6,19 @@ const DDRAGON = 'https://ddragon.leagueoflegends.com'
 const ALLOWED = /^cdn\/[\w.]+\/img\/(champion|item|spell|profileicon)\/[\w.'-]+\.png$/
 
 /**
- * Proxy same-origin de los assets de Riot.
+ * Same-origin proxy for Riot's assets.
  *
- * Sirve para dos cosas: que la card de Instagram se pueda exportar a PNG sin que
- * el canvas quede contaminado por imágenes cross-origin, y que la app no dependa
- * de que el CDN mande cabeceras CORS.
+ * It serves two purposes: letting the Instagram card be exported to PNG without
+ * the canvas being tainted by cross-origin images, and keeping the app from
+ * depending on the CDN sending CORS headers.
+ *
+ * The JSON error messages stay in Spanish: they reach the upload panel.
  */
 export async function GET(_request: Request, { params }: RouteContext<'/api/ddragon/[...path]'>) {
   const { path } = await params
   const relative = path.join('/')
 
-  // Lista blanca estricta: esto no puede convertirse en un proxy abierto.
+  // Strict allowlist: this must never turn into an open proxy.
   if (!ALLOWED.test(relative)) {
     return NextResponse.json({ error: 'Ruta no permitida' }, { status: 400 })
   }

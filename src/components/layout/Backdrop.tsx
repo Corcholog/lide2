@@ -1,23 +1,23 @@
 /**
- * El fondo del sitio.
+ * The site's backdrop.
  *
- * La portada del torneo es una foto que ocupa la primera pantalla; en cuanto se
- * scrollea, atrás no queda nada. Esto es lo que aparece.
+ * The tournament's home page is a photo filling the first screen; the moment
+ * you scroll, there is nothing behind it. This is what shows up.
  *
- * Va `fixed`, así que no se mueve mientras el contenido pasa por encima: el
- * efecto es de contenido deslizándose sobre un telón, no de un fondo que
- * scrollea con vos.
+ * It is `fixed`, so it does not move while the content passes over it: the
+ * effect is of content sliding over a curtain, not of a background scrolling
+ * along with you.
  *
- * Nada de tramas repetidas acá. Una trama de líneas al mismo grosor y casi al
- * mismo color que los bordes de las tarjetas compite con el contenido en vez de
- * sostenerlo: el ojo no sabe qué es fondo y qué es tabla. Lo que queda son
- * manchas grandes y suaves —rojo y acero, la paleta del arte— y unas pocas
- * figuras rectas y bien grandes, que a esa escala se leen como composición y no
- * como textura. El grano fino de arriba de todo no dibuja nada: rompe el
- * bandeado de los degradados, que en pantallas de 8 bits se ve.
+ * No repeating patterns here. A line pattern at the same weight and nearly the
+ * same colour as the cards' borders competes with the content instead of
+ * holding it up: the eye cannot tell what is background and what is table. What
+ * is left are large soft blooms - red and steel, the artwork's palette - and a
+ * few straight, very large shapes, which at that scale read as composition and
+ * not as texture. The fine grain on top draws nothing: it breaks the banding in
+ * the gradients, which shows on 8-bit displays.
  *
- * Todo se arma con `color-mix` sobre los tokens, así que sigue al tema sin
- * duplicar una sola definición.
+ * Everything is built with `color-mix` over the tokens, so it follows the theme
+ * without duplicating a single definition.
  */
 
 const GRAIN =
@@ -26,7 +26,7 @@ const GRAIN =
 export function Backdrop() {
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-canvas">
-      {/* Manchas: rojo arriba a la derecha, acero abajo a la izquierda. */}
+      {/* Blooms: red at the top right, steel at the bottom left. */}
       <div
         className="absolute inset-0"
         style={{
@@ -39,9 +39,9 @@ export function Backdrop() {
       />
 
       {/*
-        Las figuras, con clip-path: pesan cero, se recortan solas a cualquier
-        pantalla y toman el color del tema. Van a media pantalla de grandes a
-        propósito, porque a escala chica volverían a leerse como ruido.
+        The shapes, with clip-path: they weigh nothing, clip themselves to any
+        screen and take the theme's colour. They run half a screen tall on
+        purpose, because at a small scale they would read as noise again.
       */}
       <div
         className="absolute -right-[12vw] top-[6vh] hidden h-[62vh] w-[52vw] bg-accent/[0.06] lg:block"

@@ -1,34 +1,37 @@
 import { cache } from 'react'
 
 /**
- * Assets y nombres de Riot (Data Dragon).
+ * Riot assets and names (Data Dragon).
  *
- * Los assets se sirven por /api/ddragon/... y no directo desde el CDN:
- * same-origin evita problemas de CORS y deja que la card de Instagram se
- * exporte a PNG con html-to-image sin ensuciar el canvas. Los datos (versiones,
- * hechizos, nombres de campeones) sí se piden directo, que para eso no hay
- * canvas de por medio.
+ * The assets are served through /api/ddragon/... and not straight from the CDN:
+ * same-origin avoids CORS trouble and lets the Instagram card be exported to
+ * PNG with html-to-image without tainting the canvas. The data (versions,
+ * spells, champion names) is fetched directly, since no canvas is involved
+ * there.
+ *
+ * The `es_AR` locale in the URLs is deliberate: the names shown on the site are
+ * the Spanish ones.
  */
 
 const DDRAGON = 'https://ddragon.leagueoflegends.com'
 const DAY = 60 * 60 * 24
 
 /**
- * De qué parche se cuelgan los assets si ddragon no contesta.
+ * Which patch the assets hang off when ddragon does not answer.
  *
- * Conviene tenerla más o menos al día: con una versión vieja los campeones
- * salidos después no tienen ícono. Igual es el peor caso del peor caso —hace
- * falta que se caiga el listado de versiones— y un parche corrido no se nota.
+ * Worth keeping roughly up to date: on an old version, champions released after
+ * it have no icon. It is still the worst case of the worst case - the version
+ * listing itself has to go down - and being one patch behind does not show.
  */
 const FALLBACK_VERSION = '16.17.1'
 
 /**
- * El .rofl escribe el nombre interno del campeón, que casi siempre coincide con
- * la clave de ddragon. Las excepciones van acá.
+ * The .rofl writes the champion's internal name, which nearly always matches
+ * the ddragon key. The exceptions go here.
  *
- * Sólo hace falta para armar la URL del ícono, que es una ruta de CDN y
- * distingue mayúsculas. Los nombres para mostrar se buscan sin distinguirlas
- * (ver `championNames`), así que ese lado no necesita la lista.
+ * It is only needed to build the icon URL, which is a CDN path and is
+ * case-sensitive. Display names are looked up case-insensitively (see
+ * `championNames`), so that side does not need the list.
  */
 const CHAMPION_ALIASES: Record<string, string> = {
   FiddleSticks: 'Fiddlesticks',
@@ -39,35 +42,34 @@ export function championKey(champion: string): string {
 }
 
 /**
- * El camino inverso: de la clave de ddragon a la que escribe el .rofl.
+ * The way back: from the ddragon key to the spelling the .rofl writes.
  *
- * Hace falta al cargar los bans a mano. El campeón se elige de una lista que
- * viene de ddragon, pero lo que se guarda tiene que ser la grafía del .rofl:
- * `champion_meta` une picks y bans por igualdad exacta de texto, así que un
- * "Fiddlesticks" baneado y un "FiddleSticks" jugado serían dos campeones
- * distintos, cada uno con la mitad de los números.
+ * It is needed when bans are entered by hand. The champion is picked from a
+ * list that comes from ddragon, but what gets stored has to be the .rofl
+ * spelling: `champion_meta` joins picks and bans on exact text equality, so a
+ * banned "Fiddlesticks" and a played "FiddleSticks" would be two different
+ * champions, each with half the numbers.
  *
- * Se deriva del mismo objeto que `championKey` para que la lista de
- * excepciones siga viviendo en un solo lugar.
+ * It derives from the same object as `championKey` so the list of exceptions
+ * keeps living in one place.
  */
 export function roflKey(ddragonId: string): string {
-  const entrada = Object.entries(CHAMPION_ALIASES).find(([, alias]) => alias === ddragonId)
-  return entrada?.[0] ?? ddragonId
+  const entry = Object.entries(CHAMPION_ALIASES).find(([, alias]) => alias === ddragonId)
+  return entry?.[0] ?? ddragonId
 }
 
 /**
- * Un GET a ddragon que degrada en vez de tirar.
+ * A GET to ddragon that degrades instead of throwing.
  *
- * Nada de lo que se pide acá es imprescindible: sin versión hay una de
- * respaldo, sin nombres se muestra la clave interna y sin ícono queda el hueco
- * gris de `GameIcon`. Que una caída de Riot voltee una página entera sería
- * bastante peor que eso.
+ * Nothing requested here is essential: with no version there is a fallback,
+ * with no names the internal key is shown, and with no icon the grey gap of
+ * `GameIcon` is left. Having a Riot outage take down a whole page would be a
+ * good deal worse than that.
  *
- * El reintento es por la caché y no por la red: Next guarda también la
- * respuesta fallida durante toda la ventana de revalidación, así que un
- * parpadeo de dos segundos dejaría el sitio degradado por 24 horas. Un
- * reintento sin caché sólo cuesta un pedido mientras ddragon esté caído, y hace
- * que se recupere solo.
+ * The retry is about the cache and not about the network: Next also stores the
+ * failed response for the whole revalidation window, so a two-second blip would
+ * leave the site degraded for 24 hours. A retry with no cache only costs one
+ * request while ddragon is down, and makes it recover on its own.
  */
 async function get<T>(path: string, what: string): Promise<T | null> {
   for (const init of [{ next: { revalidate: DAY } }, { cache: 'no-store' as const }]) {
@@ -76,23 +78,23 @@ async function get<T>(path: string, what: string): Promise<T | null> {
       if (!res.ok) continue
       return (await res.json()) as T
     } catch {
-      // Error de red o JSON roto: se maneja igual.
+      // Network error or broken JSON: handled the same way.
     }
   }
 
-  console.error(`ddragon: no se pudo cargar ${what} (${path}).`)
+  console.error(`ddragon: could not load ${what} (${path}).`)
   return null
 }
 
-/** Versiones de ddragon, de la más nueva a la más vieja. */
+/** ddragon versions, newest first. */
 const versions = cache(async (): Promise<string[]> => {
-  return (await get<string[]>('api/versions.json', 'el listado de versiones')) ?? []
+  return (await get<string[]>('api/versions.json', 'the version listing')) ?? []
 })
 
 /**
- * Versión de assets para un parche dado ("16.12" -> "16.12.1"). Si el parche no
- * existe en ddragon (o no se conoce), se usa la última disponible: los íconos
- * cambian poco y es mejor mostrar algo que un hueco.
+ * Asset version for a given patch ("16.12" -> "16.12.1"). When the patch does
+ * not exist in ddragon (or is unknown), the latest available one is used: icons
+ * change little and showing something beats showing a gap.
  */
 export const assetVersion = cache(async (patch: string | null): Promise<string> => {
   const all = await versions()
@@ -101,11 +103,11 @@ export const assetVersion = cache(async (patch: string | null): Promise<string> 
   return all.find((v) => v.startsWith(`${patch}.`)) ?? all[0]
 })
 
-/** Los hechizos vienen como id numérico ("4"); ddragon los nombra ("SummonerFlash"). */
+/** Spells arrive as a numeric id ("4"); ddragon names them ("SummonerFlash"). */
 export const summonerSpellNames = cache(async (version: string): Promise<Record<string, string>> => {
   const json = await get<{ data: Record<string, { key: string; id: string }> }>(
     `cdn/${version}/data/es_AR/summoner.json`,
-    'los hechizos de invocador',
+    'the summoner spells',
   )
 
   const byKey: Record<string, string> = {}
@@ -114,22 +116,22 @@ export const summonerSpellNames = cache(async (version: string): Promise<Record<
 })
 
 /**
- * Cómo se llama cada campeón, indexado por su clave interna en minúsculas.
+ * What each champion is called, indexed by its internal key in lower case.
  *
- * El .rofl no guarda el nombre del campeón sino el interno, que es otra cosa:
- * "MonkeyKing" es Wukong, "Kaisa" es Kai'Sa, "XinZhao" es Xin Zhao y "Nunu" es
- * Nunu y Willump. Sirve como clave —es lo que se guarda en la base— pero
- * mostrárselo a alguien es mostrarle el nombre de una variable. El nombre de
- * verdad, y encima en castellano, sólo vive acá.
+ * The .rofl does not store the champion's name but the internal one, which is a
+ * different thing: "MonkeyKing" is Wukong, "Kaisa" is Kai'Sa, "XinZhao" is Xin
+ * Zhao and "Nunu" is Nunu y Willump. It works as a key - it is what the
+ * database stores - but showing it to somebody is showing them a variable name.
+ * The real name, in Spanish on top of that, only lives here.
  *
- * La clave va en minúsculas para que las diferencias de mayúsculas entre el
- * .rofl y ddragon ("FiddleSticks" contra "Fiddlesticks") no dejen a un campeón
- * sin nombre.
+ * The key is lower-cased so that casing differences between the .rofl and
+ * ddragon ("FiddleSticks" against "Fiddlesticks") cannot leave a champion
+ * nameless.
  */
 export const championNames = cache(async (version: string): Promise<Record<string, string>> => {
   const json = await get<{ data: Record<string, { id: string; name: string }> }>(
     `cdn/${version}/data/es_AR/champion.json`,
-    'los nombres de los campeones',
+    'the champion names',
   )
 
   const byKey: Record<string, string> = {}
@@ -138,18 +140,18 @@ export const championNames = cache(async (version: string): Promise<Record<strin
 })
 
 /**
- * El catálogo entero, con la clave tal cual la escribe ddragon.
+ * The whole catalogue, with the key exactly as ddragon writes it.
  *
- * `championNames` indexa en minúsculas y con eso pierde el casing original,
- * que es justo lo que hace falta para armar la URL de un ícono y para guardar
- * un ban. Devuelve las dos puntas —clave y nombre— ordenadas por nombre, que
- * es como se lee un desplegable de 170 campeones.
+ * `championNames` indexes in lower case and loses the original casing doing so,
+ * which is precisely what it takes to build an icon URL and to store a ban.
+ * This returns both ends - key and name - sorted by name, which is how a
+ * dropdown of 170 champions gets read.
  */
 export const championCatalog = cache(
   async (version: string): Promise<{ key: string; name: string }[]> => {
     const json = await get<{ data: Record<string, { id: string; name: string }> }>(
       `cdn/${version}/data/es_AR/champion.json`,
-      'el catálogo de campeones',
+      'the champion catalogue',
     )
 
     return Object.values(json?.data ?? {})
@@ -159,11 +161,11 @@ export const championCatalog = cache(
 )
 
 /**
- * El nombre para mostrar de un campeón.
+ * A champion's display name.
  *
- * Si ddragon no contestó, o si el campeón es tan nuevo que todavía no está en
- * el parche que se consultó, queda la clave interna: se lee peor que "Wukong"
- * pero se entiende, que es más de lo que se puede decir de un espacio vacío.
+ * If ddragon did not answer, or the champion is so new it is not in the patch
+ * that was queried yet, the internal key is left: it reads worse than "Wukong"
+ * but it is understandable, which is more than can be said for an empty space.
  */
 export function championName(names: Record<string, string>, champion: string): string {
   return names[champion.toLowerCase()] ?? champion

@@ -29,14 +29,15 @@ interface UnassignedRow {
 }
 
 /**
- * El panel del día de partido.
+ * The match-day panel.
  *
- * Se sube el .rofl, se dice de qué cruce es, y con eso la base se entera de
- * todo lo demás: qué equipos jugaron, de qué fecha es, y —la primera vez— qué
- * cuenta de Riot es de qué equipo. Ver `supabase/migrations/0011_asignacion.sql`
- * para por qué el orden es ése y no al revés.
+ * The .rofl gets uploaded, its matchup gets named, and with that the database
+ * works out everything else: which teams played, which matchday it belongs to,
+ * and - the first time - which Riot account belongs to which team. See
+ * `supabase/migrations/0011_asignacion.sql` for why the order is that one and
+ * not the reverse.
  */
-export default async function AsignarPage() {
+export default async function AssignMatchesPage() {
   await requireUser()
 
   const supabase = await createClient()
@@ -62,15 +63,15 @@ export default async function AsignarPage() {
       : Promise.resolve({ data: [], error: null }),
   ])
 
-  // Los replays sin asignar pueden ser de parches distintos, pero los nombres de
-  // los campeones no cambian entre uno y otro: alcanza con el catálogo del
-  // último. Acá se reconoce un equipo mirando el scoreboard, así que conviene
-  // que diga lo mismo que el resto del sitio y no la clave interna del .rofl.
+  // Unassigned replays may come from different patches, but champion names do
+  // not change between them: the latest catalogue is enough. A team is
+  // recognized here by looking at the scoreboard, so it had better say the same
+  // thing as the rest of the site and not the .rofl's internal key.
   const champNames = await championNames(await assetVersion(null))
   const named = (players: SidePlayer[]): SidePlayer[] =>
     players.map((player) => ({ ...player, champion: championName(champNames, player.champion) }))
 
-  const matches = rows<UnassignedRow>(pendingRes, 'las partidas sin asignar').map(
+  const matches = rows<UnassignedRow>(pendingRes, 'the unassigned matches').map(
     (row): UnassignedMatch => ({
       matchId: row.match_id,
       playedAt: row.played_at,
@@ -84,7 +85,7 @@ export default async function AsignarPage() {
     }),
   )
 
-  const fixture = rows<FixtureResultRow>(fixtureRes, 'el fixture')
+  const fixture = rows<FixtureResultRow>(fixtureRes, 'the fixture')
   const pending = fixture.filter((row) => row.match_id === null)
   const done = fixture.filter((row) => row.match_id !== null)
 
@@ -170,7 +171,7 @@ export default async function AsignarPage() {
   )
 }
 
-/** "Equipo 15 (UNER / UADE)": el número solo no distingue nada. */
+/** "Equipo 15 (UNER / UADE)": the number alone tells nothing apart. */
 function label(name: string, universities: string[] | null): string {
   return universities && universities.length > 0 ? `${name} (${universities.join(' / ')})` : name
 }

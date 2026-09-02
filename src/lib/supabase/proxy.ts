@@ -3,17 +3,17 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { supabasePublishableKey, supabaseUrl } from '../env'
 
 /**
- * Rutas que piden sesion. Todo lo demas es publico.
+ * Routes that require a session. Everything else is public.
  *
- * Antes era al reves —una lista de rutas publicas y todo lo demas cerrado— y se
- * dio vuelta cuando el sitio se abrio a los visitantes. El default cambio de
- * "cerrado salvo que se diga" a "abierto salvo que se diga", asi que una ruta
- * nueva del panel que no se anote aca queda a la vista.
+ * It used to be the other way round - a list of public routes with everything
+ * else closed - and it was flipped when the site opened up to visitors. The
+ * default went from "closed unless stated" to "open unless stated", so a new
+ * admin route that is not listed here is out in the open.
  *
- * Igual esto es solo UX: lo que de verdad protege los datos es el RLS (ver
- * supabase/migrations/0013_publico.sql) y el `requireUser()` de cada pagina y
- * cada server action. El proxy solo evita que un visitante llegue a una
- * pantalla vacia.
+ * This is only UX either way: what actually protects the data is RLS (see
+ * supabase/migrations/0013_publico.sql) and the `requireUser()` in every page
+ * and every server action. The proxy only keeps a visitor from landing on an
+ * empty screen.
  */
 const PRIVATE_PATHS = ['/admin', '/equipos/detectar']
 
@@ -37,8 +37,8 @@ export async function updateSession(request: NextRequest) {
     },
   })
 
-  // No meter codigo entre createServerClient y getUser: rompe el refresh de la
-  // sesion de formas dificiles de debuggear.
+  // Do not put code between createServerClient and getUser: it breaks the
+  // session refresh in ways that are hard to debug.
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -46,9 +46,9 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isPrivate = PRIVATE_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
 
-  // Las rutas de API nunca se redirigen: un fetch que sigue el redirect recibe
-  // el HTML del login y falla al parsear el JSON con un error indescifrable.
-  // Cada route handler devuelve su propio 401 con requireApiUser().
+  // API routes are never redirected: a fetch that follows the redirect gets
+  // the login HTML and fails to parse the JSON with an indecipherable error.
+  // Every route handler returns its own 401 through requireApiUser().
   if (pathname.startsWith('/api/')) {
     return response
   }
@@ -56,12 +56,13 @@ export async function updateSession(request: NextRequest) {
   if (!user && isPrivate) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    // El destino se lleva su query: a /admin/cards?fecha=2 hay que volver a la
-    // fecha 2, no al acumulado. Se limpia primero para no dejar los parámetros
-    // del original sueltos al lado del `next`, apuntando a la nada.
-    const destino = `${pathname}${request.nextUrl.search}`
+    // The destination takes its query with it: /admin/cards?fecha=2 has to
+    // come back to matchday 2, not to the accumulated total. It is cleared
+    // first so the original's parameters are not left loose next to `next`,
+    // pointing nowhere.
+    const destination = `${pathname}${request.nextUrl.search}`
     url.search = ''
-    url.searchParams.set('next', destino)
+    url.searchParams.set('next', destination)
     return NextResponse.redirect(url)
   }
 

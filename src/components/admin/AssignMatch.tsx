@@ -34,23 +34,23 @@ export interface UnassignedMatch {
   winningSide: 100 | 200 | null
   bluePlayers: SidePlayer[]
   redPlayers: SidePlayer[]
-  /** Equipo deducido por los jugadores ya vinculados, si alcanzó la mayoría. */
+  /** Team deduced from the already-linked players, when they reached a majority. */
   blueGuess: string | null
   redGuess: string | null
 }
 
 /**
- * Enganchar una partida con su cruce.
+ * Hooking a match up with its matchup.
  *
- * Dos decisiones en una pantalla: qué cruce es, y quién jugó de azul. La
- * segunda parece redundante —el cruce ya dice qué dos equipos son— pero el
- * .rofl no sabe de equipos: sabe que hubo un lado azul y uno rojo. Alguien
- * tiene que decir cuál era cuál, al menos la primera vez.
+ * Two decisions on one screen: which matchup it is, and who played blue. The
+ * second looks redundant - the matchup already says which two teams these are -
+ * but the .rofl knows nothing about teams: it knows there was a blue side and a
+ * red side. Somebody has to say which was which, at least the first time.
  *
- * De ahí que los dos lados se muestren con sus jugadores y sus campeones: es la
- * única forma de reconocerlos en la fecha 1, cuando todavía no hay ningún
- * plantel cargado. A partir de la 2, `blueGuess` viene resuelto de la base y la
- * orientación queda preseleccionada.
+ * Hence both sides are shown with their players and their champions: it is the
+ * only way to recognize them on matchday 1, when no roster is loaded yet. From
+ * matchday 2 on, `blueGuess` arrives resolved from the database and the
+ * orientation comes preselected.
  */
 export function AssignMatch({
   match,
@@ -89,7 +89,7 @@ export function AssignMatch({
           {formatDuration(match.gameLengthMs)}
           {match.patch && ` · parche ${match.patch}`}
         </span>
-        <Borrar matchId={match.matchId} />
+        <DeleteMatch matchId={match.matchId} />
       </header>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -188,30 +188,30 @@ export function AssignMatch({
 }
 
 /**
- * Borrar la partida entera.
+ * Deleting the whole match.
  *
- * Es para lo que se subió por error: un replay de otro torneo, una prueba del
- * flujo, el .rofl equivocado. Hasta ahora la única salida era el SQL editor,
- * porque una partida sin asignar igual se ve en /partidas y sus diez cuentas
- * quedan dadas de alta con ficha propia en /jugadores/[id].
+ * It is for whatever was uploaded by mistake: a replay from another tournament,
+ * a run through the flow, the wrong .rofl. Until now the only way out was the
+ * SQL editor, because an unassigned match still shows on /partidas and its ten
+ * accounts end up registered with pages of their own at /jugadores/[id].
  *
- * Va con confirmación en dos clics y no con un `confirm()`: es irreversible —se
- * borra también el .rofl del bucket, que no se puede regenerar— y el botón está
- * al lado del de asignar. Va en el encabezado y no adentro del formulario
- * porque un form no puede vivir adentro de otro.
+ * It confirms in two clicks and not with a `confirm()`: it is irreversible -
+ * the .rofl is deleted from the bucket too, and it cannot be regenerated - and
+ * the button sits next to the assign one. It goes in the header and not inside
+ * the form because a form cannot live inside another.
  */
-function Borrar({ matchId }: { matchId: string }) {
+function DeleteMatch({ matchId }: { matchId: string }) {
   const [state, formAction, pending] = useActionState<DeleteResult | null, FormData>(
     deleteMatchAction,
     null,
   )
-  const [confirmando, setConfirmando] = useState(false)
+  const [confirming, setConfirming] = useState(false)
 
-  if (!confirmando) {
+  if (!confirming) {
     return (
       <button
         type="button"
-        onClick={() => setConfirmando(true)}
+        onClick={() => setConfirming(true)}
         className="text-muted underline decoration-dotted underline-offset-4 transition-colors hover:text-danger"
       >
         Borrar
@@ -219,8 +219,8 @@ function Borrar({ matchId }: { matchId: string }) {
     )
   }
 
-  // El error reemplaza a la advertencia y deja los botones donde estaban: si el
-  // bucket falló, lo que hace falta es volver a intentar, no empezar de nuevo.
+  // The error replaces the warning and leaves the buttons where they were: if
+  // the bucket failed, what is needed is another try, not starting over.
   return (
     <form action={formAction} className="flex flex-wrap items-center gap-2">
       <input type="hidden" name="matchId" value={matchId} />
@@ -236,7 +236,7 @@ function Borrar({ matchId }: { matchId: string }) {
       </button>
       <button
         type="button"
-        onClick={() => setConfirmando(false)}
+        onClick={() => setConfirming(false)}
         className="text-muted transition-colors hover:text-fg"
       >
         No
@@ -246,10 +246,10 @@ function Borrar({ matchId }: { matchId: string }) {
 }
 
 /**
- * Con qué equipo arranca preseleccionado el lado azul.
+ * Which team the blue side starts preselected with.
  *
- * Si la base ya pudo deducir alguno de los dos lados, se usa. Deducir el rojo
- * también sirve: dice que el azul es el otro.
+ * If the database managed to deduce either of the two sides, it is used.
+ * Deducing red works too: it says blue is the other one.
  */
 function orientationFor(fixture: FixtureOption | undefined, match: UnassignedMatch): string {
   if (!fixture) return ''
@@ -263,9 +263,9 @@ function orientationFor(fixture: FixtureOption | undefined, match: UnassignedMat
 }
 
 /**
- * Las clases van enteras y no armadas con `text-${tone}`: Tailwind lee el
- * código fuente para saber qué CSS generar, y un nombre de clase construido en
- * tiempo de ejecución no aparece en ningún lado, así que no se genera.
+ * The classes go in whole and are not assembled with `text-${tone}`: Tailwind
+ * reads the source code to know which CSS to generate, and a class name built
+ * at runtime appears nowhere, so it is not generated.
  */
 const TONE = {
   'side-blue': 'text-side-blue',

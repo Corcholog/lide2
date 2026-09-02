@@ -5,7 +5,7 @@ import { Backdrop } from '@/components/layout/Backdrop'
 import { SiteFooter } from '@/components/layout/SiteFooter'
 import { SiteHeader, type NavLink } from '@/components/layout/SiteHeader'
 
-/** Las secciones del sitio, en el orden en que se leen. */
+/** The site's sections, in the order they are read. */
 const LINKS: NavLink[] = [
   { href: '/estadisticas', label: 'Estadísticas' },
   { href: '/partidas', label: 'Partidas' },
@@ -13,16 +13,17 @@ const LINKS: NavLink[] = [
 ]
 
 export default async function AppLayout({ children }: LayoutProps<'/'>) {
-  // getUser y no requireUser: el sitio se ve sin sesión. Lo que cambia con la
-  // sesión es que aparece el panel.
+  // getUser and not requireUser: the site is visible without a session. What
+  // the session changes is that the admin panel appears.
   const user = await getUser()
 
   async function signOut() {
     'use server'
     const supabase = await createClient()
     await supabase.auth.signOut()
-    // A la home y no al login: sin sesión el sitio se ve igual, sólo que sin
-    // el panel. Mandar al login al salir daría a entender que hace falta.
+    // To the home page and not to the login: without a session the site looks
+    // the same, only without the panel. Sending people to the login on the way
+    // out would imply one is needed.
     redirect('/')
   }
 
@@ -36,8 +37,9 @@ export default async function AppLayout({ children }: LayoutProps<'/'>) {
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">{children}</main>
 
-      {/* El wrapper ya es flex-col con min-h-screen y el <main> lleva flex-1,
-          asi que el pie queda abajo de todo aunque la pagina sea corta. */}
+      {/* The wrapper is already flex-col with min-h-screen and the <main>
+          carries flex-1, so the footer sits at the bottom even on a short
+          page. */}
       <SiteFooter />
     </div>
   )

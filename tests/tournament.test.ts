@@ -25,7 +25,7 @@ interface SeriesRow {
   winner_team_id: string | null
 }
 
-describe('estructura del torneo', () => {
+describe('tournament structure', () => {
   let db: PGlite
   let tournamentId: string
   let semiId: string
@@ -54,8 +54,8 @@ describe('estructura del torneo', () => {
       teams.set(name, rows[0].id)
     }
 
-    // Bracket: dos cuartos que desembocan en la misma semifinal. La semi se crea
-    // primero porque los cuartos la referencian.
+    // Bracket: two quarter-finals feeding the same semi. The semi is created
+    // first because the quarters reference it.
     const stage = await db.query<{ id: string }>(
       `insert into public.stages (tournament_id, name, kind, order_index)
        values ($1, 'Playoffs', 'bracket', 1) returning id`,
@@ -90,7 +90,7 @@ describe('estructura del torneo', () => {
     await db?.close()
   })
 
-  it('muestra a los cinco equipos del grupo antes de que se juegue nada', async () => {
+  it("shows the group's five teams before anything is played", async () => {
     const { rows } = await db.query<StandingRow>(
       `select team_name, games, wins, losses, position, university_tag, form
          from public.group_standings where group_label = 'Grupo A' order by position`,
@@ -100,11 +100,11 @@ describe('estructura del torneo', () => {
     expect(rows.map((r) => r.team_name)).toEqual(['Alfa', 'Bravo', 'Charlie', 'Delta', 'Eco'])
     expect(rows.every((r) => r.games === 0 && r.wins === 0 && r.losses === 0)).toBe(true)
     expect(rows[0].form).toEqual([])
-    // El nombre de la universidad viaja con la fila: la tabla se dibuja sin joins extra.
+    // The university name travels with the row: the table draws with no extra joins.
     expect(rows[0].university_tag).toBe('UDP')
   })
 
-  it('suma las partidas de grupo y deja afuera las de playoffs', async () => {
+  it('adds up the group games and leaves the playoff ones out', async () => {
     await playMatch(db, {
       blueTeamId: teams.get('Alfa'),
       redTeamId: teams.get('Bravo'),
@@ -135,20 +135,20 @@ describe('estructura del torneo', () => {
       ['Alfa', 1, 0],
       ['Charlie', 1, 0],
       ['Eco', 0, 0],
-      // Los dos perdieron una: desempata la diferencia de kills (-3 contra -10).
+      // Both lost one: the kill difference breaks the tie (-3 against -10).
       ['Delta', 0, 1],
       ['Bravo', 0, 1],
     ])
     expect(Number(rows[0].kill_diff)).toBe(10)
   })
 
-  it('el ganador de una serie aparece solo en la ronda siguiente', async () => {
+  it('a series winner appears on its own in the next round', async () => {
     const cuartos = await db.query<{ id: string }>(
       `select id from public.series where round = 'Cuartos de final' order by order_index`,
     )
     const [q1, q2] = cuartos.rows
 
-    // Alfa se lleva el primer cuarto 2-0: la serie cierra sin jugar el tercero.
+    // Alfa takes the first quarter 2-0: the series closes without a third game.
     for (const game of [1, 2]) {
       await playMatch(db, {
         blueTeamId: teams.get('Alfa'),
@@ -161,7 +161,7 @@ describe('estructura del torneo', () => {
       })
     }
 
-    // Charlie pierde el primero y se lleva los dos siguientes.
+    // Charlie loses the first and takes the next two.
     await playMatch(db, {
       blueTeamId: teams.get('Charlie'),
       redTeamId: teams.get('Delta'),
@@ -195,28 +195,28 @@ describe('estructura del torneo', () => {
     expect(cuartosRows[0].status).toBe('finished')
     expect([cuartosRows[1].wins_a, cuartosRows[1].wins_b]).toEqual([2, 1])
 
-    // Nadie cargo la semifinal a mano: los dos lados los puso advance_series.
+    // Nobody entered the semi by hand: advance_series filled both sides.
     expect(semi?.team_a_name).toBe('Alfa')
     expect(semi?.team_b_name).toBe('Charlie')
     expect(semi?.status).toBe('pending')
     expect(semi?.winner_team_id).toBeNull()
   })
 
-  it('las partidas de playoffs no ensucian la tabla del grupo', async () => {
+  it('the playoff games do not dirty the group table', async () => {
     const { rows } = await db.query<StandingRow>(
       `select team_name, games from public.group_standings
         where group_label = 'Grupo A' and team_name = 'Alfa'`,
     )
-    // Jugo una de grupos y dos de cuartos; en la tabla del grupo cuenta una sola.
+    // They played one group game and two quarters; in the group table only one counts.
     expect(rows[0].games).toBe(1)
   })
 
-  it('corregir una partida mal cargada corrige el bracket', async () => {
+  it('fixing a wrongly entered match fixes the bracket', async () => {
     const q1 = await db.query<{ id: string }>(
       `select id from public.series where round = 'Cuartos de final' order by order_index limit 1`,
     )
 
-    // Se rehacen los dos juegos: ahora la serie la gana Bravo.
+    // Both games are redone: now Bravo wins the series.
     await db.query('update public.matches set winning_side = 200 where series_id = $1', [
       q1.rows[0].id,
     ])

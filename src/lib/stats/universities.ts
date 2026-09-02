@@ -1,16 +1,17 @@
 /**
- * Rankings por universidad.
+ * Per-university rankings.
  *
- * La unidad de todo esto es la APARICIÓN (un jugador en una partida), no el
- * partido, porque cuatro equipos mezclan hasta tres universidades: el Equipo 15
- * es de UNER, UADE y UNLP a la vez, y un partido suyo le suma a las tres según
- * qué jugadores pusieron. Contar partidos obligaría a decidir de quién es un
- * partido que jugaron tres universidades juntas, y no hay respuesta correcta.
+ * The unit of all of this is the APPEARANCE (one player in one match), not the
+ * match, because four teams mix up to three universities: Team 15 belongs to
+ * UNER, UADE and UNLP at once, and one of its matches adds to all three
+ * depending on which players it fielded. Counting matches would force a
+ * decision about who a match played by three universities together belongs to,
+ * and there is no right answer.
  *
- * Consecuencia visible: cuando un equipo de una sola universidad gana, esa
- * universidad suma 5 victorias, no 1. Todas se miden igual, así que el ranking
- * no se distorsiona, pero los textos lo aclaran para que nadie lea "5" como
- * cinco partidos.
+ * The visible consequence: when a single-university team wins, that university
+ * adds 5 wins, not 1. Every university is measured the same way, so the ranking
+ * does not skew, but the copy spells it out so nobody reads "5" as five
+ * matches.
  */
 
 import { formatNumber } from '@/lib/format'
@@ -43,10 +44,10 @@ function universityRanking(
 }
 
 /**
- * La tabla de universidades: porcentaje de victorias de sus jugadores.
+ * The university table: the win percentage of their players.
  *
- * Con un mínimo de apariciones para que una universidad que puso un solo
- * jugador en un solo partido no encabece la tabla con el 100%.
+ * With a minimum number of appearances so a university that fielded one player
+ * in one match cannot head the table on 100%.
  */
 export function universityStandings(data: StatsData): StatBlock | null {
   const min = minGamesForAverages(data.scope) * 5
@@ -54,9 +55,9 @@ export function universityStandings(data: StatsData): StatBlock | null {
     value: (row) => row.win_pct,
     display: (value) => `${Math.round(value * 100)}%`,
     eligible: (row) => row.appearances >= min,
-    // Sólo el récord: "51-47 en 98 apariciones" repite el mismo dato dos veces
-    // —51 más 47 SON las 98— y ese renglón lo necesita el nombre largo de la
-    // universidad, que es lo que de verdad no entraba.
+    // The record only: "51-47 across 98 appearances" states the same fact
+    // twice - 51 plus 47 ARE the 98 - and that line is needed by the long
+    // university name, which is what actually did not fit.
     detail: (row) => `${row.wins}-${row.losses}`,
   })
 
@@ -66,7 +67,7 @@ export function universityStandings(data: StatsData): StatBlock | null {
   })
 }
 
-/** Kills por equipo. Mismo motivo que el daño: ver `universityDamage`. */
+/** Kills per team. Same reason as the damage: see `universityDamage`. */
 export function universityKills(data: StatsData): StatBlock | null {
   const rows = universityRanking(data, {
     value: (row) => row.kills / Math.max(row.teams, 1),
@@ -80,20 +81,20 @@ export function universityKills(data: StatsData): StatBlock | null {
 }
 
 /**
- * Daño por equipo, no daño total.
+ * Damage per team, not total damage.
  *
- * El total no era un ranking de nada: la UNLP puso nueve equipos y la UNER uno,
- * así que la que más equipos mete gana siempre y el orden termina siendo el de
- * la tabla de inscripciones. Dividido por equipos, mide qué tan fuerte pega la
- * universidad y no cuánta gente anotó. Es el mismo motivo por el que
- * `universityOfTheDay` va por promedio, y vale igual para las kills.
+ * The total was not a ranking of anything: UNLP fielded nine teams and UNER
+ * one, so whoever enters the most teams always wins and the order ends up being
+ * the signup table. Divided by teams, it measures how hard the university hits
+ * and not how many people signed up. It is the same reason `universityOfTheDay`
+ * goes by average, and it holds for kills just the same.
  */
 export function universityDamage(data: StatsData): StatBlock | null {
   const rows = universityRanking(data, {
     value: (row) => row.damage / Math.max(row.teams, 1),
     display: (value) => formatNumber(Math.round(value)),
-    // Sin la cuenta de jugadores: acá lo que divide son los equipos, y el
-    // renglón que sobra lo necesita el nombre de la universidad.
+    // No player count: what divides here is teams, and the line that frees up
+    // is needed by the university name.
     detail: (row) => `${row.teams} ${row.teams === 1 ? 'equipo' : 'equipos'}`,
   })
 
@@ -103,11 +104,11 @@ export function universityDamage(data: StatsData): StatBlock | null {
 }
 
 /**
- * Universidad de la fecha: la que mejor rindió, midiendo por el score promedio
- * de sus jugadores en vez de por victorias.
+ * University of the matchday: the one that performed best, measured by the
+ * average score of its players rather than by wins.
  *
- * Va por promedio y no por total a propósito: si no, siempre ganaría la que más
- * equipos metió en el torneo. UNLP puso seis y UNCuyo uno.
+ * It goes by average and not by total on purpose: otherwise whoever entered the
+ * most teams would always win. UNLP entered six and UNCuyo one.
  */
 export function universityOfTheDay(data: StatsData): StatBlock | null {
   const min = minGamesForAverages(data.scope) * 5
@@ -115,9 +116,9 @@ export function universityOfTheDay(data: StatsData): StatBlock | null {
     value: (row) => row.avg_score,
     display: (value) => value.toFixed(2),
     eligible: (row) => row.appearances >= min,
-    // Sin detalle: el porcentaje de victorias ya es la tarjeta de al lado y el
-    // KDA no explica el score. El renglón que dejan libre se lo queda el
-    // nombre de la universidad cuando no entra en uno solo.
+    // No detail line: the win percentage is already the card next to this one
+    // and the KDA does not explain the score. The line they free up goes to the
+    // university name when it does not fit on one.
     detail: () => null,
   })
 

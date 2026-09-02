@@ -24,12 +24,12 @@ interface ByeRow {
 }
 
 /**
- * Un grupo de 5 con el mismo esqueleto que el de verdad: en cada turno juegan
- * dos parejas y uno descansa. Alcanza con un grupo para verificar las vistas;
- * que el fixture completo cierre lo comprueba tests/fixture.test.ts sobre los
- * datos, sin base.
+ * A group of 5 with the same skeleton as the real one: in every slot two pairs
+ * play and one rests. One group is enough to verify the views; that the whole
+ * fixture adds up is checked by tests/fixture.test.ts over the data, with no
+ * database.
  */
-describe('fixture en la base', () => {
+describe('fixture in the database', () => {
   let db: PGlite
   let tournamentId: string
   const team = new Map<string, string>()
@@ -65,8 +65,8 @@ describe('fixture en la base', () => {
       team.set(name, rows[0].id)
     }
 
-    // El 15 es de los que salieron de inscripciones individuales: tres
-    // universidades, la principal primero.
+    // Team 15 is one of those that came out of individual signups: three
+    // universities, the main one first.
     for (const [index, tag] of ['UNER', 'UADE', 'UNLP'].entries()) {
       await db.query(
         `insert into public.team_universities (team_id, university_id, order_index)
@@ -79,21 +79,21 @@ describe('fixture en la base', () => {
       team.get('Equipo 15'),
     ])
 
-    // El 01 representa a una sola.
+    // Team 01 represents just one.
     await db.query(
       `insert into public.team_universities (team_id, university_id, order_index)
        values ($1, $2, 0)`,
       [team.get('Equipo 01'), universities.get('UNLP')],
     )
 
-    const cruces: [number, number, string, string][] = [
+    const matchups: [number, number, string, string][] = [
       [1, 1, 'Equipo 10', 'Equipo 07'],
       [1, 1, 'Equipo 15', 'Equipo 16'],
       [1, 2, 'Equipo 07', 'Equipo 15'],
       [1, 2, 'Equipo 01', 'Equipo 10'],
     ]
 
-    for (const [matchday, slot, a, b] of cruces) {
+    for (const [matchday, slot, a, b] of matchups) {
       await db.query(
         `insert into public.fixtures
            (tournament_id, group_label, matchday, slot, kickoff, team_a_id, team_b_id)
@@ -114,10 +114,10 @@ describe('fixture en la base', () => {
     await db.close()
   })
 
-  it('muestra los cruces como pendientes mientras no haya partida', async () => {
-    // Dentro de un turno hay dos cruces por grupo y el orden entre ellos no
-    // significa nada, asi que se desempata por nombre para que el test no
-    // dependa de en que orden los devuelva Postgres.
+  it('shows the matchups as pending while there is no match', async () => {
+    // Within a slot there are two matchups per group and the order between
+    // them means nothing, so they are tiebroken by name so the test does not
+    // depend on the order Postgres returns them in.
     const { rows } = await db.query<FixtureRow>(
       `select * from public.fixture_results
         where tournament_id = $1
@@ -136,7 +136,7 @@ describe('fixture en la base', () => {
     ])
   })
 
-  it('deja libre a uno de los cinco en cada turno', async () => {
+  it('leaves one of the five on a bye in every slot', async () => {
     const { rows } = await db.query<ByeRow>(
       `select * from public.fixture_byes where tournament_id = $1 order by matchday, slot`,
       [tournamentId],
@@ -147,8 +147,8 @@ describe('fixture en la base', () => {
     expect(rows[1]).toMatchObject({ matchday: 1, slot: 2, team_name: 'Equipo 16' })
   })
 
-  it('trae el resultado cuando se le engancha la partida', async () => {
-    // El 10 (lado azul) le gana al 07 por 18 a 6.
+  it('brings the result once the match is hooked to it', async () => {
+    // Team 10 (blue side) beats 07 by 18 to 6.
     const matchId = await playMatch(db, {
       blueTeamId: team.get('Equipo 10'),
       redTeamId: team.get('Equipo 07'),
@@ -180,8 +180,8 @@ describe('fixture en la base', () => {
     })
   })
 
-  it('da vuelta el resultado si el equipo A jugo del lado rojo', async () => {
-    // El cruce dice "15 vs 16" pero en la partida el 15 jugo de rojo y perdio.
+  it('flips the result when team A played the red side', async () => {
+    // The matchup says "15 vs 16" but in the match 15 played red and lost.
     const matchId = await playMatch(db, {
       blueTeamId: team.get('Equipo 16'),
       redTeamId: team.get('Equipo 15'),
@@ -213,7 +213,7 @@ describe('fixture en la base', () => {
     })
   })
 
-  it('lista todas las universidades del equipo en la tabla de grupos', async () => {
+  it("lists all of a team's universities in the group table", async () => {
     const { rows } = await db.query<{ team_name: string; university_tags: string[] }>(
       `select team_name, university_tags from public.group_standings
         where tournament_id = $1 order by team_name`,
@@ -222,13 +222,13 @@ describe('fixture en la base', () => {
 
     const tags = new Map(rows.map((row) => [row.team_name, row.university_tags]))
 
-    // La principal primero, despues las otras en el orden que puso la organizacion.
+    // The main one first, then the others in the order the organizers set.
     expect(tags.get('Equipo 15')).toEqual(['UNER', 'UADE', 'UNLP'])
     expect(tags.get('Equipo 01')).toEqual(['UNLP'])
   })
 
-  it('cae en la universidad suelta si el equipo no tiene la lista cargada', async () => {
-    // Equipo 07 nunca entro a team_universities, pero tiene university_id.
+  it('falls back to the loose university when the team has no list loaded', async () => {
+    // Team 07 never made it into team_universities, but it has a university_id.
     const { rows } = await db.query<{ university_tags: string[] }>(
       `select university_tags from public.group_standings where team_id = $1`,
       [team.get('Equipo 07')],
@@ -237,7 +237,7 @@ describe('fixture en la base', () => {
     expect(rows[0].university_tags).toEqual(['UNLP'])
   })
 
-  it('no deja que dos cruces se queden con la misma partida', async () => {
+  it('does not let two matchups claim the same match', async () => {
     const { rows } = await db.query<{ match_id: string }>(
       `select match_id from public.fixtures where match_id is not null limit 1`,
     )

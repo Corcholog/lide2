@@ -1,22 +1,22 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
- * Guardar el draft de una partida.
+ * Saving a match's draft.
  *
- * El .rofl no trae los baneos —guarda el scoreboard del final, no el draft—,
- * así que la única fuente posible es alguien mirando la transmisión o el
- * historial del cliente. Sin esto, `champion_meta` no puede calcular ban rate
- * ni presencia y las columnas quedan en blanco.
+ * The .rofl does not carry the bans - it stores the final scoreboard, not the
+ * draft - so the only possible source is somebody watching the broadcast or the
+ * client's match history. Without this, `champion_meta` cannot compute ban rate
+ * or presence and the columns stay blank.
  */
 
 export interface SaveBansResult {
   ok: boolean
   error?: string
-  /** Cuántos quedaron guardados. Puede ser menos de diez: se puede pasar un ban. */
+  /** How many were saved. It can be fewer than ten: a ban may be skipped. */
   bans?: number
 }
 
-/** Un baneo tal cual se manda a la base: la clave interna, no el nombre visible. */
+/** One ban exactly as it is sent to the database: the internal key, not the display name. */
 export interface BanInput {
   side: 100 | 200
   orderIndex: number
@@ -24,11 +24,11 @@ export interface BanInput {
 }
 
 /**
- * Reemplaza el draft entero de una partida.
+ * Replaces a match's entire draft.
  *
- * Todo el trabajo lo hace `set_match_bans()`: valida, normaliza la grafía del
- * campeón contra lo que ya tiene la base, y borra e inserta en una sola
- * llamada. Ver `supabase/migrations/0021_meta_y_bans.sql`.
+ * `set_match_bans()` does all the work: it validates, normalizes the champion
+ * spelling against what the database already holds, and deletes and inserts in
+ * a single call. See `supabase/migrations/0021_meta_y_bans.sql`.
  */
 export async function setMatchBans(
   matchId: string,

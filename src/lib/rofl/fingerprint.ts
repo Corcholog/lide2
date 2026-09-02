@@ -9,12 +9,12 @@ interface FingerprintPlayer {
 }
 
 /**
- * Identidad estable de una partida, independiente del archivo.
+ * A match's stable identity, independent of the file.
  *
- * Cada cliente graba su propio .rofl, así que el archivo del equipo A y el del
- * equipo B de la misma partida son bytes distintos: no se puede deduplicar por
- * hash del archivo. Esto sí los une, y a la vez distingue dos partidas del
- * mismo Bo3 entre los mismos 10 jugadores (cambian campeones y KDA).
+ * Every client records its own .rofl, so team A's file and team B's file for
+ * the same match are different bytes: they cannot be deduplicated by file hash.
+ * This does join them, while still telling apart two games of the same Bo3
+ * between the same 10 players (champions and KDA change).
  */
 export function matchFingerprint(players: FingerprintPlayer[], gameLengthMs: number): string {
   const rows = players
@@ -27,9 +27,9 @@ export function matchFingerprint(players: FingerprintPlayer[], gameLengthMs: num
 }
 
 /**
- * El .rofl no guarda el match id, pero el cliente nombra el archivo con él:
- * "LA2-1234567890.rofl". Espera un nombre de archivo, no una ruta.
- * Devuelve null si el nombre no sigue ese patrón.
+ * The .rofl does not store the match id, but the client names the file after
+ * it: "LA2-1234567890.rofl". Expects a file name, not a path. Returns null when
+ * the name does not follow that pattern.
  */
 export function riotMatchIdFromFileName(fileName: string): string | null {
   const m = /^([A-Za-z]{2,5}\d?)-(\d+)/.exec(fileName)

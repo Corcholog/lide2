@@ -5,7 +5,7 @@ import { rows } from '@/lib/supabase/query'
 import { assetVersion, championCatalog, championName, championNames } from '@/lib/ddragon'
 import { formatDate } from '@/lib/format'
 import { resolveTournamentId } from '@/lib/stats/query'
-import { CargarBans } from '@/components/admin/CargarBans'
+import { BanEntry } from '@/components/admin/BanEntry'
 import type { MatchBanRow, MatchSummaryRow } from '@/types/db'
 
 export const metadata = { title: 'Bans' }
@@ -13,27 +13,28 @@ export const metadata = { title: 'Bans' }
 export const dynamic = 'force-dynamic'
 
 /**
- * Cargar el draft de cada partida.
+ * Entering each match's draft.
  *
- * Es el único paso del panel que no sale de un archivo: el .rofl guarda el
- * scoreboard del final y no el draft, así que los diez baneos hay que mirarlos
- * de la transmisión o del historial del cliente y escribirlos. Es tedioso, y
- * por eso vale aclarar para qué sirve: sin esto la tabla de campeones tiene
- * pick rate y winrate, pero ban rate y presencia quedan vacías.
+ * It is the only step in the panel that does not come out of a file: the .rofl
+ * stores the final scoreboard and not the draft, so the ten bans have to be
+ * read off the broadcast or the client's history and typed in. It is tedious,
+ * and that is why it is worth spelling out what it buys: without this the
+ * champion table has pick rate and win rate, but ban rate and presence stay
+ * empty.
  *
- * Por defecto se listan las que están sin cargar, que es lo que queda por
- * hacer; con `?estado=todas` aparecen todas, para corregir una que salió mal.
+ * By default the ones with nothing entered are listed, which is what is left to
+ * do; with `?estado=todas` they all appear, to fix one that came out wrong.
  */
 export default async function BansPage({ searchParams }: PageProps<'/admin/bans'>) {
   await requireUser()
 
   const supabase = await createClient()
   const tournamentId = await resolveTournamentId(supabase)
-  const todas = (await searchParams).estado === 'todas'
+  const showAll = (await searchParams).estado === 'todas'
 
-  const partidas = tournamentId
+  const matches = tournamentId
     ? rows<MatchSummaryRow>(
-        await (todas
+        await (showAll
           ? supabase
               .from('match_summaries')
               .select('*')
@@ -47,39 +48,39 @@ export default async function BansPage({ searchParams }: PageProps<'/admin/bans'
               .eq('ban_count', 0)
               .order('played_at', { ascending: false, nullsFirst: false })
               .limit(60)),
-        'las partidas',
+        'the matches',
       )
     : []
 
-  // Sólo hace falta traer los bans si se están mostrando las cargadas: las
-  // pendientes, por definición, no tienen ninguno.
+  // The bans only need fetching when the entered ones are being shown: the
+  // pending ones, by definition, have none.
   const guardados =
-    todas && partidas.length > 0
+    showAll && matches.length > 0
       ? rows<MatchBanRow>(
           await supabase
             .from('match_bans')
             .select('*')
             .in(
               'match_id',
-              partidas.map((p) => p.id),
+              matches.map((m) => m.id),
             ),
           'los bans cargados',
         )
       : []
 
   const version = await assetVersion(null)
-  const [catalogo, names] = await Promise.all([championCatalog(version), championNames(version)])
+  const [catalog, names] = await Promise.all([championCatalog(version), championNames(version)])
 
-  // Los bans de cada partida, indexados como los espera el formulario.
-  const porPartida = new Map<string, Record<string, string>>()
+  // Each match's bans, indexed the way the form expects them.
+  const bansByMatch = new Map<string, Record<string, string>>()
   for (const ban of guardados) {
-    const actual = porPartida.get(ban.match_id) ?? {}
-    actual[`${ban.side}-${ban.order_index}`] = championName(names, ban.champion)
-    porPartida.set(ban.match_id, actual)
+    const current = bansByMatch.get(ban.match_id) ?? {}
+    current[`${ban.side}-${ban.order_index}`] = championName(names, ban.champion)
+    bansByMatch.set(ban.match_id, current)
   }
 
-  const conDraft = partidas.filter((p) => p.ban_count > 0).length
-  const totalBans = partidas.reduce((suma, p) => suma + p.ban_count, 0)
+  const withDraft = matches.filter((m) => m.ban_count > 0).length
+  const totalBans = matches.reduce((total, m) => total + m.ban_count, 0)
 
   return (
     <div className="flex flex-col gap-8">
@@ -95,9 +96,9 @@ export default async function BansPage({ searchParams }: PageProps<'/admin/bans'
         <nav aria-label="Filtro" className="flex gap-1">
           <Link
             href="/admin/bans"
-            aria-current={!todas ? 'true' : undefined}
+            aria-current={!showAll ? 'true' : undefined}
             className={`border-2 px-3 py-1 text-xs font-bold uppercase tracking-wide transition-colors ${
-              !todas
+              !showAll
                 ? 'border-accent bg-accent-dim text-accent'
                 : 'border-line text-muted hover:border-line-strong hover:text-accent'
             }`}
@@ -106,9 +107,9 @@ export default async function BansPage({ searchParams }: PageProps<'/admin/bans'
           </Link>
           <Link
             href="/admin/bans?estado=todas"
-            aria-current={todas ? 'true' : undefined}
+            aria-current={showAll ? 'true' : undefined}
             className={`border-2 px-3 py-1 text-xs font-bold uppercase tracking-wide transition-colors ${
-              todas
+              showAll
                 ? 'border-accent bg-accent-dim text-accent'
                 : 'border-line text-muted hover:border-line-strong hover:text-accent'
             }`}
@@ -120,11 +121,11 @@ export default async function BansPage({ searchParams }: PageProps<'/admin/bans'
 
       <dl className="grid grid-cols-3 gap-0.5 bg-line">
         <Stat
-          label={todas ? 'Partidas' : 'Sin draft'}
-          value={partidas.length}
-          tone={!todas && partidas.length > 0}
+          label={showAll ? 'Partidas' : 'Sin draft'}
+          value={matches.length}
+          tone={!showAll && matches.length > 0}
         />
-        <Stat label="Con draft" value={conDraft} />
+        <Stat label="Con draft" value={withDraft} />
         <Stat label="Bans cargados" value={totalBans} />
       </dl>
 
@@ -135,56 +136,56 @@ export default async function BansPage({ searchParams }: PageProps<'/admin/bans'
       )}
 
       {/*
-        UN SOLO datalist para los diez campos de cada formulario y para todas
-        las partidas de la página. Uno por campo serían 170 opciones × 10 × 60
-        partidas; así son 170 nodos en total.
+        ONE datalist for every form's ten fields and for every match on the
+        page. One per field would be 170 options x 10 x 60 matches; this way it
+        is 170 nodes in total.
       */}
-      <datalist id="campeones">
-        {catalogo.map((champ) => (
+      <datalist id="champions">
+        {catalog.map((champ) => (
           <option key={champ.key} value={champ.name} />
         ))}
       </datalist>
 
-      {partidas.length === 0 ? (
+      {matches.length === 0 ? (
         <p className="border-2 border-dashed border-line-strong px-6 py-10 text-center text-sm text-fg-soft">
-          {todas
+          {showAll
             ? 'Todavía no hay partidas cargadas.'
             : 'Todas las partidas tienen su draft cargado.'}
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
-          {partidas.map((partida) => {
-            const azul = partida.blue_team_name ?? 'Lado azul'
-            const rojo = partida.red_team_name ?? 'Lado rojo'
+          {matches.map((match) => {
+            const blue = match.blue_team_name ?? 'Lado azul'
+            const red = match.red_team_name ?? 'Lado rojo'
 
             return (
-              <li key={partida.id}>
+              <li key={match.id}>
                 <details className="border-2 border-line bg-surface">
                   <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-sm [&::-webkit-details-marker]:hidden">
-                    <span className="text-side-blue">{azul}</span>
+                    <span className="text-side-blue">{blue}</span>
                     <span className="text-dim">vs</span>
-                    <span className="text-side-red">{rojo}</span>
+                    <span className="text-side-red">{red}</span>
 
                     <span className="text-xs text-faint">
-                      {[partida.group_label, partida.matchday && `Fecha ${partida.matchday}`]
+                      {[match.group_label, match.matchday && `Fecha ${match.matchday}`]
                         .filter(Boolean)
-                        .join(' · ') || formatDate(partida.played_at)}
+                        .join(' · ') || formatDate(match.played_at)}
                     </span>
 
                     <span
                       className={`ml-auto text-xs font-medium ${
-                        partida.ban_count > 0 ? 'text-ok' : 'text-accent'
+                        match.ban_count > 0 ? 'text-ok' : 'text-accent'
                       }`}
                     >
-                      {partida.ban_count > 0 ? `${partida.ban_count} bans` : 'sin draft'}
+                      {match.ban_count > 0 ? `${match.ban_count} bans` : 'sin draft'}
                     </span>
                   </summary>
 
                   <div className="border-t-2 border-line px-4 py-4">
-                    <CargarBans
-                      matchId={partida.id}
-                      bans={porPartida.get(partida.id) ?? {}}
-                      equipos={{ 100: azul, 200: rojo }}
+                    <BanEntry
+                      matchId={match.id}
+                      bans={bansByMatch.get(match.id) ?? {}}
+                      teamNames={{ 100: blue, 200: red }}
                     />
                   </div>
                 </details>

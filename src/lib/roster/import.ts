@@ -1,22 +1,22 @@
 /**
- * Pegar la lista de Riot IDs que mande la organización.
+ * Pasting whatever list of Riot IDs the organizers send.
  *
- * No se sabe en qué formato va a llegar. Puede ser cualquiera de estos:
+ * There is no telling what format it will arrive in. It could be any of these:
  *
  *   Equipo 15, Denis Chang, DenisChang#LAN
  *   Denis Chang; DenisChang#LAN
  *   Chang, Denis    DenisChang#LAN
  *   15 | Denis Chang | DenisChang#LAN | titular
  *
- * Así que en vez de exigir un formato, se busca de otra forma: de cada línea se
- * saca el Riot ID (el campo con `#`, o el último) y con lo que queda se buscan
- * los inscriptos cuyos nombres estén **todos** contenidos en la línea. Eso
- * aguanta columnas de más, separadores distintos y "Apellido, Nombre" dado
- * vuelta, porque compara palabras sueltas y no la cadena entera.
+ * So instead of demanding a format, the search works differently: each line
+ * gives up its Riot ID (the field with a `#`, or the last one) and what is left
+ * is used to find the signups whose names are **all** contained in the line.
+ * That survives extra columns, different separators and a reversed "Surname,
+ * Name", because it compares loose words and not the whole string.
  *
- * Se aplica sólo cuando hay exactamente un inscripto candidato. Con dos o más,
- * la línea se reporta como ambigua y no se toca nada: cargar el Riot ID de
- * alguien en la fila de otro es un error que después no se ve.
+ * It only applies when there is exactly one candidate signup. With two or more
+ * the line is reported as ambiguous and nothing is touched: filing somebody's
+ * Riot ID under somebody else's row is a mistake that goes unseen afterwards.
  */
 
 import { parseRiotId } from '@/lib/format'
@@ -37,17 +37,18 @@ export interface RosterMatch {
 
 export interface RosterImportResult {
   matched: RosterMatch[]
-  /** Líneas que no encontraron a nadie. */
+  /** Lines that found nobody. */
   unmatched: string[]
-  /** Líneas que encontraron a más de uno, con los nombres que colisionaron. */
+  /** Lines that found more than one, with the names that collided. */
   ambiguous: { line: string; names: string[] }[]
 }
 
 /**
- * Las palabras de un texto, comparables.
+ * The words of a text, made comparable.
  *
- * Sin acentos (la planilla los tiene y las listas que llegan por WhatsApp no) y
- * sin puntuación, para que "Chang, Denis" y "Denis Chang" den lo mismo.
+ * Without accents (the spreadsheet has them and the lists that arrive over
+ * WhatsApp do not) and without punctuation, so "Chang, Denis" and "Denis Chang"
+ * come out the same.
  */
 function words(text: string): string[] {
   return text
@@ -62,7 +63,7 @@ function words(text: string): string[] {
 
 const SEPARATORS = /[\t;,|]+/
 
-/** Separa el Riot ID del resto de la línea. */
+/** Splits the Riot ID off from the rest of the line. */
 function splitLine(line: string): { riot: string; rest: string } | null {
   const fields = line
     .split(SEPARATORS)
@@ -71,12 +72,12 @@ function splitLine(line: string): { riot: string; rest: string } | null {
 
   if (fields.length === 0) return null
 
-  // El campo con '#' es inequívocamente el Riot ID. Si no hay ninguno, se toma
-  // el último, que es donde suele ir.
+  // The field with a '#' is unambiguously the Riot ID. When there is none, the
+  // last one is taken, which is where it usually sits.
   const index = fields.findLastIndex((field) => field.includes('#'))
   const at = index >= 0 ? index : fields.length - 1
 
-  // Con un solo campo no hay nombre contra el cual buscar.
+  // With a single field there is no name to search against.
   if (fields.length < 2) return null
 
   return { riot: fields[at], rest: fields.filter((_, i) => i !== at).join(' ') }

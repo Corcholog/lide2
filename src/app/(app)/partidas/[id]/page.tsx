@@ -20,10 +20,10 @@ export async function generateMetadata({ params }: PageProps<'/partidas/[id]'>) 
 
   if (!data) return { title: 'Partida' }
 
-  const cruce = `${(data.blue_team_name as string) ?? 'Azul'} vs ${(data.red_team_name as string) ?? 'Rojo'}`
+  const matchup = `${(data.blue_team_name as string) ?? 'Azul'} vs ${(data.red_team_name as string) ?? 'Rojo'}`
   return {
-    title: cruce,
-    description: [data.round_label, `Scoreboard completo de ${cruce}.`].filter(Boolean).join(' · '),
+    title: matchup,
+    description: [data.round_label, `Scoreboard completo de ${matchup}.`].filter(Boolean).join(' · '),
   }
 }
 
@@ -44,11 +44,11 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
     supabase.from('match_player_scores').select('*').eq('match_id', id),
   ])
 
-  const summary = maybeRow<MatchSummaryRow>(summaryRes, 'la partida')
+  const summary = maybeRow<MatchSummaryRow>(summaryRes, 'the match')
   if (!summary) notFound()
 
-  const teamStats = rows<MatchTeamStatsRow>(teamsRes, 'los totales por equipo')
-  const scores = rows<MatchPlayerScoreRow>(scoresRes, 'el scoreboard')
+  const teamStats = rows<MatchTeamStatsRow>(teamsRes, 'the per-team totals')
+  const scores = rows<MatchPlayerScoreRow>(scoresRes, 'the scoreboard')
 
   const version = await assetVersion(summary.patch)
   const [spellNames, champNames] = await Promise.all([

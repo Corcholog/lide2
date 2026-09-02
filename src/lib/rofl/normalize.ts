@@ -2,9 +2,9 @@ import { matchFingerprint, riotMatchIdFromFileName } from './fingerprint'
 import type { RoflMetadata, RoflPlayerStats } from './types'
 
 /**
- * Todos los valores de statsJson son strings; algunos números vienen en
- * notación científica ("1.234E+07"). Number() los resuelve bien, pero hay que
- * cubrir vacíos y basura.
+ * Every value in statsJson is a string, and some numbers arrive in scientific
+ * notation ("1.234E+07"). Number() handles those fine, but empties and garbage
+ * still have to be covered.
  */
 export function toInt(value: unknown): number {
   const n = Number(String(value ?? '').trim())
@@ -96,14 +96,14 @@ export interface NormalizedPlayer {
   wasLeaver: boolean
   avgPing: number
 
-  /** Los ~180 campos originales, sin tocar. */
+  /** The ~180 original fields, untouched. */
   raw: RoflPlayerStats
 }
 
 export interface NormalizedMatch {
   format: RoflMetadata['format']
   gameVersion: string | null
-  /** Parche corto derivado de gameVersion, ej. "15.16". */
+  /** Short patch derived from gameVersion, e.g. "15.16". */
   patch: string | null
   gameLengthMs: number
   winningSide: TeamSide | null
@@ -117,9 +117,9 @@ export interface NormalizedMatch {
 }
 
 export interface NormalizeOptions {
-  /** Nombre original del archivo, del que sale el match id ("LA2-1234567890.rofl"). */
+  /** The file's original name, which the match id comes from ("LA2-1234567890.rofl"). */
   fileName?: string
-  /** El .rofl no guarda la fecha; se usa el lastModified del archivo como estimación. */
+  /** The .rofl does not store the date; the file's lastModified stands in for it. */
   playedAt?: Date | string | null
 }
 
@@ -129,16 +129,16 @@ function text(value: unknown): string | null {
 }
 
 /**
- * El rol, con un solo nombre.
+ * The role, under a single name.
  *
- * El .rofl escribe `UTILITY` para el soporte. Adentro del proyecto ese rol se
- * llama `SUPPORT` y nada más: tener el mismo puesto con dos nombres hace que
- * las vistas que agrupan por `position` lo cuenten como dos roles distintos y
- * que un rótulo sin traducir salga crudo en la web.
+ * The .rofl writes `UTILITY` for support. Inside the project that role is
+ * called `SUPPORT` and nothing else: having one position under two names makes
+ * the views that group by `position` count it as two different roles, and lets
+ * an untranslated label reach the site raw.
  *
- * `Invalid` y `NONE` no son roles: es lo que deja Riot cuando la partida no
- * tiene líneas asignadas (un custom raro, un remake). Se van como null para que
- * la posición caiga en el otro campo, que puede tener algo bueno.
+ * `Invalid` and `NONE` are not roles: they are what Riot leaves when the match
+ * has no assigned lanes (an odd custom, a remake). They leave as null so the
+ * position falls through to the other field, which may hold something useful.
  */
 function normalizePosition(value: unknown): string | null {
   const position = text(value)?.toUpperCase() ?? null

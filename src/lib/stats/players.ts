@@ -1,31 +1,31 @@
 /**
- * Rankings individuales.
+ * Individual rankings.
  *
- * Una función por estadística, todas con la misma firma, todas puras: reciben
- * lo que ya trajo `loadStats` y devuelven el bloque listo. Agregar una es
- * escribir una función y sumarla al registro.
+ * One function per stat, all with the same signature, all pure: they take what
+ * `loadStats` already fetched and return the finished block. Adding one means
+ * writing a function and listing it in the registry.
  */
 
 import { formatKda, formatNumber, formatPosition, ROLES } from '@/lib/format'
-import { rutaJugador } from '@/lib/rutas'
+import { playerPath } from '@/lib/routes'
 import { block, minGamesForAverages, rankRows } from './rank'
 import type { StatBlock, StatsData } from './types'
 import type { PlayerPhaseTotalsRow } from '@/types/db'
 
-/** Equipo y universidad, que es lo que ubica a un jugador en el torneo. */
+/** Team and university, which is what places a player in the tournament. */
 function who(row: PlayerPhaseTotalsRow): string | null {
   return [row.team_name, row.university_tag].filter(Boolean).join(' · ') || null
 }
 
 function key(row: PlayerPhaseTotalsRow): string {
-  return row.player_id ?? `${row.team_id ?? 'sin-equipo'}-${row.player_name ?? '?'}`
+  return row.player_id ?? `${row.team_id ?? 'no-team'}-${row.player_name ?? '?'}`
 }
 
 function record(row: PlayerPhaseTotalsRow): string {
   return `${formatKda(row.kills, row.deaths, row.assists)} · ${row.games} ${row.games === 1 ? 'partida' : 'partidas'}`
 }
 
-/** Base común de casi todos: quién es, de dónde, y su línea de KDA. */
+/** The shared base of nearly all of them: who, from where, and their KDA line. */
 function playerRanking(
   data: StatsData,
   options: {
@@ -40,35 +40,35 @@ function playerRanking(
     id: key,
     name: (row) => row.player_name ?? 'Desconocido',
     subtitle: who,
-    // Sólo los que tienen ficha: una cuenta sin `player_id` es una que la
-    // ingesta no pudo resolver, y no hay página a la que mandar.
-    href: (row) => (row.player_id ? rutaJugador(row.player_id) : null),
+    // Only the ones with a page: an account with no `player_id` is one the
+    // ingest could not resolve, and there is nowhere to send the reader.
+    href: (row) => (row.player_id ? playerPath(row.player_id) : null),
     detail: options.detail ?? record,
     value: options.value,
     display: options.display,
     order: options.order,
     eligible: options.eligible,
-    // Con pocas partidas los empates son moneda corriente: sin desempate, dos
-    // jugadores con el mismo número quedarían en el orden en que los devolvió
-    // Postgres, que puede cambiar entre consultas.
+    // With few games played, ties are everyday: without a tiebreak, two
+    // players on the same number would keep the order Postgres returned them
+    // in, which can change between queries.
     tiebreak: (a, b) => b.avg_score - a.avg_score || (a.player_name ?? '').localeCompare(b.player_name ?? ''),
   })
 }
 
-/** El MVP lo calcula la base (vista `tournament_mvp`), acá sólo se presenta. */
+/** The MVP is computed by the database (`tournament_mvp` view); this only presents it. */
 export function mvp(data: StatsData): StatBlock | null {
   const rows = rankRows(
     [...data.mvp].sort((a, b) => a.mvp_rank - b.mvp_rank),
     {
       id: (row) => row.player_id ?? `${row.player_name}`,
       name: (row) => row.player_name ?? 'Desconocido',
-      href: (row) => (row.player_id ? rutaJugador(row.player_id) : null),
+      href: (row) => (row.player_id ? playerPath(row.player_id) : null),
       subtitle: (row) => [row.team_name, row.university_tag].filter(Boolean).join(' · ') || null,
       detail: (row) =>
         `${formatKda(row.kills, row.deaths, row.assists)} · ${Math.round(row.kill_participation * 100)}% de participación`,
       value: (row) => row.avg_score,
       display: (value) => value.toFixed(2),
-      // Ya viene ordenado por la vista; el orden estable lo da mvp_rank.
+      // The view already returns it sorted; mvp_rank is what makes it stable.
       tiebreak: (a, b) => a.mvp_rank - b.mvp_rank,
     },
   )
@@ -79,10 +79,10 @@ export function mvp(data: StatsData): StatBlock | null {
 }
 
 /**
- * El quinteto: el mejor de cada rol.
+ * The starting five: the best of each role.
  *
- * El rol sale de `position`, que es el que más jugó en el recorte. Un jugador
- * que rotó de línea aparece en la que más repitió.
+ * The role comes from `position`, which is the one played most within the
+ * scope. A player who rotated lanes shows up in the one they repeated most.
  */
 export function bestFive(data: StatsData): StatBlock | null {
   const rows = ROLES.flatMap((role) => {
@@ -98,7 +98,7 @@ export function bestFive(data: StatsData): StatBlock | null {
         name: best.player_name ?? 'Desconocido',
         subtitle: who(best),
         logo: null,
-        href: best.player_id ? rutaJugador(best.player_id) : null,
+        href: best.player_id ? playerPath(best.player_id) : null,
         detail: record(best),
         value: best.avg_score,
         display: formatPosition(role),
@@ -152,12 +152,12 @@ export function longestKillingSpree(data: StatsData): StatBlock | null {
     display: (value) => `${value} kills`,
     eligible: (row) => row.best_killing_spree > 0,
   })
-  // Reemplaza a los first bloods: el .rofl no guarda quién hizo la primera
-  // sangre, pero sí la racha más larga sin morir de cada jugador.
+  // This replaces first bloods: the .rofl does not record who drew first
+  // blood, but it does record each player's longest streak without dying.
   //
-  // El número solo ("16 seguidas") no dice de qué: seguidas puede ser partidas
-  // ganadas, kills o cualquier otra cosa. Va con la unidad puesta y el
-  // subtítulo lo termina de explicar.
+  // The bare number ("16 in a row") does not say of what: in a row could be
+  // games won, kills or anything else. It ships with its unit attached and the
+  // subtitle finishes explaining it.
   return block('racha', 'Imparable', rows, {
     subtitle: 'La racha de kills más larga sin morir',
   })

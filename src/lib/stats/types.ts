@@ -1,15 +1,15 @@
 /**
- * El vocabulario del motor de estadísticas.
+ * The vocabulary of the stats engine.
  *
- * La idea de fondo: la base ya devuelve todo agregado (una fila por jugador y
- * fecha, por equipo, por universidad, por campeón), así que acá no se calcula
- * nada pesado. Lo que hace este módulo es *elegir y presentar*: ordenar por el
- * criterio de cada ranking, cortar el top y dejar cada fila con un nombre, un
- * número y una unidad, lista para una tabla o para una card de Instagram.
+ * The idea behind it: the database already returns everything aggregated (one
+ * row per player and matchday, per team, per university, per champion), so
+ * nothing heavy is computed here. What this module does is *pick and present*:
+ * sort by each ranking's criterion, cut the top and leave every row with a
+ * name, a number and a unit, ready for a table or for an Instagram card.
  *
- * Por eso todas las estadísticas terminan en la misma forma (`StatBlock`): la
- * página y las cards iteran sobre el registro en vez de repetir markup por cada
- * una, y agregar una estadística nueva es agregar una función, no una pantalla.
+ * That is why every stat ends in the same shape (`StatBlock`): the page and the
+ * cards iterate over the registry instead of repeating markup for each one, and
+ * adding a new stat means adding a function, not a screen.
  */
 
 import type {
@@ -23,19 +23,20 @@ import type {
 } from '@/types/db'
 
 /**
- * Qué pedazo del torneo se está mirando.
+ * Which slice of the tournament is being looked at.
  *
- * `matchday` en null es "toda la fase". No es lo mismo que la fecha 1: en la
- * base son filas distintas (`is_total`), justamente para que no se confundan.
+ * A null `matchday` means "the whole phase". That is not the same as matchday
+ * 1: in the database they are different rows (`is_total`), precisely so the two
+ * cannot be mixed up.
  */
 export interface StatScope {
   tournamentId: string
   phase: StatPhase
-  /** Fecha del torneo (1 a 3), o null para el acumulado. */
+  /** Tournament matchday (1 to 3), or null for the accumulated total. */
   matchday: number | null
 }
 
-/** Todo lo que la base devuelve para un recorte, en cinco consultas. */
+/** Everything the database returns for one scope, in five queries. */
 export interface StatsData {
   scope: StatScope
   players: PlayerPhaseTotalsRow[]
@@ -45,75 +46,81 @@ export interface StatsData {
   records: MatchRecordRow[]
   mvp: TournamentMvpRow[]
   /**
-   * Lo único que no sale de la base: cómo se llama cada campeón, de ddragon.
+   * The only thing that does not come from the database: each champion's
+   * display name, from ddragon.
    *
-   * La base guarda la clave interna del .rofl ("MonkeyKing"), que como nombre
-   * de un ranking no va. Es opcional porque ddragon puede no contestar, y
-   * entonces se muestra la clave: un ranking con nombres feos sigue siendo el
-   * ranking correcto.
+   * The database stores the internal key from the .rofl ("MonkeyKing"), which
+   * does not work as a name in a ranking. It is optional because ddragon may
+   * not answer, and then the key is shown: a ranking with ugly names is still
+   * the right ranking.
    */
   championNames?: Record<string, string>
   /**
-   * La versión de ddragon con la que se arman las URLs de los íconos.
+   * The ddragon version the icon URLs are built with.
    *
-   * Va acá y no se resuelve en cada builder porque es un pedido a la red: se
-   * hace una vez en `loadStats` y viaja con el resto de los datos. Opcional por
-   * el mismo motivo que los nombres —ddragon se puede caer— y sin ella los
-   * rankings de campeones salen sin ícono, que se ve peor pero se lee igual.
+   * It travels here instead of being resolved inside every builder because it
+   * is a network call: it happens once in `loadStats` and rides along with the
+   * rest of the data. Optional for the same reason as the names — ddragon can
+   * go down — and without it the champion rankings come out with no icon, which
+   * looks worse but reads the same.
    */
   assetVersion?: string
 }
 
-/** Una posición de un ranking. */
+/** One position in a ranking. */
 export interface StatRow {
-  /** Para el key de React. Único dentro del bloque. */
+  /** For the React key. Unique within the block. */
   id: string
   name: string
-  /** Equipo, universidad, rol: lo que ubique a la fila. */
+  /** Team, university, role: whatever places the row. */
   subtitle?: string | null
   logo?: string | null
-  /** El número crudo, para ordenar o exportar. */
+  /** The raw number, for sorting or exporting. */
   value: number
-  /** El mismo número ya formateado, con su unidad. */
+  /** The same number already formatted, with its unit. */
   display: string
-  /** Contexto corto: "17/4/9", "4 partidas". */
+  /** Short context: "17/4/9", "4 partidas". */
   detail?: string | null
   /**
-   * A dónde lleva la fila, si lleva a algún lado.
+   * Where the row leads, if it leads anywhere.
    *
-   * Un ranking de partidas o de jugadores es un índice: el nombre que se lee ya
-   * es el de una página que existe, y no poder hacerle clic obliga a ir a
-   * buscarla por otro lado. Los rankings de universidades y de campeones no
-   * tienen ficha propia, así que sus filas no son links.
+   * A ranking of matches or of players is an index: the name being read is
+   * already that of a page which exists, and not being able to click it forces
+   * you to go find it some other way. University and champion rankings have no
+   * page of their own, so their rows are not links.
    */
   href?: string | null
 }
 
-/** Una estadística resuelta: título, filas y, si hace falta, una advertencia. */
+/** A resolved stat: title, rows and, where needed, a caveat. */
 export interface StatBlock {
   id: string
   title: string
   subtitle?: string | null
   /**
-   * Aclaración sobre cómo se midió. Se usa sobre todo para los bans, que se
-   * cargan a mano y pueden cubrir sólo una parte de las partidas: sin decirlo,
-   * un "60% de presencia" se lee como si fuera del torneo entero.
+   * A note on how it was measured. Used mostly for bans, which are entered by
+   * hand and may cover only part of the matches: unsaid, a "60% presence" reads
+   * as if it covered the whole tournament.
    */
   note?: string | null
   rows: StatRow[]
 }
 
+/**
+ * The section ids stay in Spanish because they are content, not code: they end
+ * up as the `#jugadores` anchors of /estadisticas, which people paste around.
+ */
 export type StatSection = 'jugadores' | 'equipos' | 'universidades' | 'meta' | 'records'
 
-/** Una estadística en el registro: cómo se llama y cómo se calcula. */
+/** A stat in the registry: what it is called and how it is computed. */
 export interface StatDefinition {
   id: string
   title: string
   subtitle?: string
   section: StatSection
-  /** Devuelve null si no hay datos suficientes para mostrarla. */
+  /** Returns null when there is not enough data to show it. */
   build: (data: StatsData) => StatBlock | null
 }
 
-/** Cuántas filas muestra cada ranking. */
+/** How many rows each ranking shows. */
 export const TOP_ROWS = 5

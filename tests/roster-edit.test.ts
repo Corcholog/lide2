@@ -2,19 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { planRosterEdit, readRosterForm, type RosterCurrentRow } from '@/lib/roster/edit'
 
 /**
- * Los cambios de plantel del panel.
+ * The panel's roster edits.
  *
- * El caso modelo es el Equipo 15 de verdad: cinco personas de tres
- * universidades. Antes de que empiece el torneo se cae uno, entra otro y hay un
- * nombre que la planilla trajo mal.
+ * The model case is the real Team 15: five people from three universities.
+ * Before the tournament starts one drops out, another comes in and there is a
+ * name the sheet got wrong.
  */
 
-const EQUIPO = 'equipo-15'
+const TEAM = 'equipo-15'
 const UNER = 'uni-uner'
 const UADE = 'uni-uade'
 
-/** Los cinco, con los índices que dejó el seed. */
-const PLANTEL: RosterCurrentRow[] = [
+/** The five, with the indexes the seed left. */
+const ROSTER: RosterCurrentRow[] = [
   { id: 'r1', orderIndex: 0 },
   { id: 'r2', orderIndex: 1 },
   { id: 'r3', orderIndex: 2 },
@@ -22,86 +22,91 @@ const PLANTEL: RosterCurrentRow[] = [
   { id: 'r5', orderIndex: 4 },
 ]
 
-/** Arma el formulario que manda el navegador, en el orden de la pantalla. */
-function formulario(
-  filas: {
-    clave: string
-    nuevo?: boolean
-    baja?: boolean
-    nombre?: string
-    universidad?: string
+/**
+ * Builds the form the browser sends, in the order it appears on screen.
+ *
+ * The field names stay in Spanish: they are the contract with the markup in
+ * `RosterTeam.tsx`, which `readRosterForm` reads back.
+ */
+function buildForm(
+  rows: {
+    key: string
+    isNew?: boolean
+    removed?: boolean
+    name?: string
+    university?: string
     riot?: string
     player?: string
   }[],
 ): FormData {
   const form = new FormData()
-  form.set('teamId', EQUIPO)
+  form.set('teamId', TEAM)
 
-  for (const fila of filas) {
-    form.set(`fila-${fila.clave}`, fila.nuevo ? 'nuevo' : 'existente')
-    if (fila.baja) form.set(`baja-${fila.clave}`, '1')
-    form.set(`nombre-${fila.clave}`, fila.nombre ?? '')
-    form.set(`universidad-${fila.clave}`, fila.universidad ?? '')
-    form.set(`riot-${fila.clave}`, fila.riot ?? '')
-    form.set(`player-${fila.clave}`, fila.player ?? '')
+  for (const row of rows) {
+    form.set(`fila-${row.key}`, row.isNew ? 'nuevo' : 'existente')
+    if (row.removed) form.set(`baja-${row.key}`, '1')
+    form.set(`nombre-${row.key}`, row.name ?? '')
+    form.set(`universidad-${row.key}`, row.university ?? '')
+    form.set(`riot-${row.key}`, row.riot ?? '')
+    form.set(`player-${row.key}`, row.player ?? '')
   }
 
   return form
 }
 
-/** Las cinco filas sin tocar nada, que es como llega el formulario recién abierto. */
-const SIN_CAMBIOS = PLANTEL.map((row) => ({ clave: row.id, nombre: `Inscripto ${row.id}` }))
+/** The five rows with nothing touched, which is how a freshly opened form arrives. */
+const UNCHANGED = ROSTER.map((row) => ({ key: row.id, name: `Inscripto ${row.id}` }))
 
-describe('leer el formulario del plantel', () => {
-  it('respeta el orden de la pantalla y distingue las filas nuevas', () => {
-    const filas = readRosterForm(
-      formulario([
-        { clave: 'r1', nombre: 'Denis Chang' },
-        { clave: 'r2', nombre: 'Gabriel Pareja' },
-        { clave: 'nuevo-0', nuevo: true, nombre: 'Alexis Costas' },
+describe('reading the roster form', () => {
+  it('honours the screen order and tells the new rows apart', () => {
+    const rows = readRosterForm(
+      buildForm([
+        { key: 'r1', name: 'Denis Chang' },
+        { key: 'r2', name: 'Gabriel Pareja' },
+        { key: 'nuevo-0', isNew: true, name: 'Alexis Costas' },
       ]),
     )
 
-    expect(filas.map((fila) => [fila.key, fila.isNew])).toEqual([
+    expect(rows.map((row) => [row.key, row.isNew])).toEqual([
       ['r1', false],
       ['r2', false],
       ['nuevo-0', true],
     ])
   })
 
-  it('lee la baja, que es un campo que sólo viaja cuando está tildado', () => {
-    const filas = readRosterForm(
-      formulario([
-        { clave: 'r1', nombre: 'Denis Chang', baja: true },
-        { clave: 'r2', nombre: 'Gabriel Pareja' },
+  it('reads the removal, a field that only travels when it is ticked', () => {
+    const rows = readRosterForm(
+      buildForm([
+        { key: 'r1', name: 'Denis Chang', removed: true },
+        { key: 'r2', name: 'Gabriel Pareja' },
       ]),
     )
 
-    expect(filas.map((fila) => fila.baja)).toEqual([true, false])
+    expect(rows.map((row) => row.removed)).toEqual([true, false])
   })
 
-  it('recorta los espacios: un nombre con espacios de más no es un nombre distinto', () => {
-    const [fila] = readRosterForm(
-      formulario([{ clave: 'r1', nombre: '  Denis Chang  ', riot: ' DenisChang#LAN ' }]),
+  it('trims the spaces: a name with extra spaces is not a different name', () => {
+    const [row] = readRosterForm(
+      buildForm([{ key: 'r1', name: '  Denis Chang  ', riot: ' DenisChang#LAN ' }]),
     )
 
-    expect(fila.nombre).toBe('Denis Chang')
-    expect(fila.riot).toBe('DenisChang#LAN')
+    expect(row.fullName).toBe('Denis Chang')
+    expect(row.riot).toBe('DenisChang#LAN')
   })
 })
 
-describe('planificar los cambios de plantel', () => {
-  it('modificar escribe el nombre, la universidad y el Riot ID partido en dos', () => {
+describe('planning the roster edits', () => {
+  it('editing writes the name, the university and the Riot ID split in two', () => {
     const plan = planRosterEdit(
-      EQUIPO,
+      TEAM,
       readRosterForm(
-        formulario([
-          ...SIN_CAMBIOS.slice(1),
-          // El primero, corregido: la planilla lo trajo sin la universidad.
-          { clave: 'r1', nombre: 'Denis Chang', universidad: UNER, riot: 'DenisChang#LAN' },
+        buildForm([
+          ...UNCHANGED.slice(1),
+          // The first one, corrected: the sheet brought it with no university.
+          { key: 'r1', name: 'Denis Chang', university: UNER, riot: 'DenisChang#LAN' },
         ]),
       ),
-      PLANTEL,
+      ROSTER,
     )
 
     if (!plan.ok) throw new Error(plan.error)
@@ -111,7 +116,7 @@ describe('planificar los cambios de plantel', () => {
     expect(plan.update).toHaveLength(5)
     expect(plan.update.find((row) => row.id === 'r1')).toEqual({
       id: 'r1',
-      team_id: EQUIPO,
+      team_id: TEAM,
       full_name: 'Denis Chang',
       university_id: UNER,
       order_index: 0,
@@ -121,23 +126,23 @@ describe('planificar los cambios de plantel', () => {
     })
   })
 
-  it('el alta va al final y el resto queda con su lugar de la planilla', () => {
+  it('the addition goes last and the rest keep their place from the sheet', () => {
     const plan = planRosterEdit(
-      EQUIPO,
+      TEAM,
       readRosterForm(
-        formulario([
-          ...SIN_CAMBIOS,
-          { clave: 'nuevo-0', nuevo: true, nombre: 'Suplente que entró', universidad: UADE },
+        buildForm([
+          ...UNCHANGED,
+          { key: 'nuevo-0', isNew: true, name: 'Suplente que entró', university: UADE },
         ]),
       ),
-      PLANTEL,
+      ROSTER,
     )
 
     if (!plan.ok) throw new Error(plan.error)
 
     expect(plan.create).toEqual([
       {
-        team_id: EQUIPO,
+        team_id: TEAM,
         full_name: 'Suplente que entró',
         university_id: UADE,
         order_index: 5,
@@ -149,13 +154,13 @@ describe('planificar los cambios de plantel', () => {
     expect(plan.update.map((row) => row.order_index)).toEqual([0, 1, 2, 3, 4])
   })
 
-  it('la baja saca la fila y no toca a los demás', () => {
+  it('the removal takes the row out and does not touch the others', () => {
     const plan = planRosterEdit(
-      EQUIPO,
+      TEAM,
       readRosterForm(
-        formulario(SIN_CAMBIOS.map((fila) => (fila.clave === 'r3' ? { ...fila, baja: true } : fila))),
+        buildForm(UNCHANGED.map((row) => (row.key === 'r3' ? { ...row, removed: true } : row))),
       ),
-      PLANTEL,
+      ROSTER,
     )
 
     if (!plan.ok) throw new Error(plan.error)
@@ -165,21 +170,21 @@ describe('planificar los cambios de plantel', () => {
   })
 
   /**
-   * `order_index` no se recompacta: tiene un único por equipo y renumerar las
-   * filas que quedan obligaría a moverlas en dos pasos. Lo que importa es que el
-   * alta no caiga en el hueco que dejó la baja de la misma tanda, porque en ese
-   * momento la fila vieja todavía existe.
+   * `order_index` is not recompacted: it is unique per team and renumbering the
+   * remaining rows would mean moving them in two passes. What matters is that
+   * the addition does not land in the gap left by a removal in the same batch,
+   * because at that moment the old row still exists.
    */
-  it('una baja y un alta juntas: el nuevo no se mete en el hueco que quedó', () => {
+  it('a removal and an addition together: the new one does not fill the gap', () => {
     const plan = planRosterEdit(
-      EQUIPO,
+      TEAM,
       readRosterForm(
-        formulario([
-          ...SIN_CAMBIOS.map((fila) => (fila.clave === 'r5' ? { ...fila, baja: true } : fila)),
-          { clave: 'nuevo-0', nuevo: true, nombre: 'El reemplazo' },
+        buildForm([
+          ...UNCHANGED.map((row) => (row.key === 'r5' ? { ...row, removed: true } : row)),
+          { key: 'nuevo-0', isNew: true, name: 'El reemplazo' },
         ]),
       ),
-      PLANTEL,
+      ROSTER,
     )
 
     if (!plan.ok) throw new Error(plan.error)
@@ -188,68 +193,68 @@ describe('planificar los cambios de plantel', () => {
     expect(plan.create[0].order_index).toBe(5)
   })
 
-  it('una fila nueva que quedó en blanco se descarta sin chistar', () => {
+  it('a new row left blank is discarded without a word', () => {
     const plan = planRosterEdit(
-      EQUIPO,
-      readRosterForm(formulario([...SIN_CAMBIOS, { clave: 'nuevo-0', nuevo: true }])),
-      PLANTEL,
+      TEAM,
+      readRosterForm(buildForm([...UNCHANGED, { key: 'nuevo-0', isNew: true }])),
+      ROSTER,
     )
 
     if (!plan.ok) throw new Error(plan.error)
     expect(plan.create).toEqual([])
   })
 
-  it('una fila con datos pero sin nombre es un error, no una fila que se tira', () => {
+  it('a row with data but no name is an error, not a row to throw away', () => {
     const plan = planRosterEdit(
-      EQUIPO,
+      TEAM,
       readRosterForm(
-        formulario([...SIN_CAMBIOS, { clave: 'nuevo-0', nuevo: true, riot: 'Alguien#LAN' }]),
+        buildForm([...UNCHANGED, { key: 'nuevo-0', isNew: true, riot: 'Alguien#LAN' }]),
       ),
-      PLANTEL,
+      ROSTER,
     )
 
     expect(plan.ok).toBe(false)
   })
 
-  it('borrarle el nombre a un inscripto no lo da de baja: hay que quitarlo', () => {
+  it('clearing a signup name does not remove them: they have to be taken out', () => {
     const plan = planRosterEdit(
-      EQUIPO,
-      readRosterForm(formulario(SIN_CAMBIOS.map((fila) => ({ ...fila, nombre: '' })))),
-      PLANTEL,
+      TEAM,
+      readRosterForm(buildForm(UNCHANGED.map((row) => ({ ...row, name: '' })))),
+      ROSTER,
     )
 
     expect(plan.ok).toBe(false)
   })
 
-  it('la misma cuenta para dos inscriptos se rechaza antes de escribir nada', () => {
+  it('the same account for two signups is rejected before anything is written', () => {
     const plan = planRosterEdit(
-      EQUIPO,
+      TEAM,
       readRosterForm(
-        formulario(
-          SIN_CAMBIOS.map((fila) =>
-            fila.clave === 'r1' || fila.clave === 'r2' ? { ...fila, player: 'p-denis' } : fila,
+        buildForm(
+          UNCHANGED.map((row) =>
+            row.key === 'r1' || row.key === 'r2' ? { ...row, player: 'p-denis' } : row,
           ),
         ),
       ),
-      PLANTEL,
+      ROSTER,
     )
 
     expect(plan).toEqual({ ok: false, error: 'Hay una misma cuenta elegida para dos inscriptos.' })
   })
 
-  it('la cuenta de alguien que se da de baja queda libre para otro en la misma tanda', () => {
+  it('the account of somebody removed is free for another in the same batch', () => {
     const plan = planRosterEdit(
-      EQUIPO,
+      TEAM,
       readRosterForm(
-        formulario(
-          SIN_CAMBIOS.map((fila) => {
-            if (fila.clave === 'r1') return { ...fila, baja: true, player: 'p-denis' }
-            if (fila.clave === 'r2') return { ...fila, player: 'p-denis' }
-            return fila
+        buildForm(
+          UNCHANGED.map((row) => {
+            if (row.key === 'r1') return { ...row, removed: true, player: 'p-denis' }
+            if (row.key === 'r2') return { ...row, player: 'p-denis' }
+            return row
           }),
         ),
       ),
-      PLANTEL,
+      ROSTER,
     )
 
     if (!plan.ok) throw new Error(plan.error)
@@ -258,33 +263,29 @@ describe('planificar los cambios de plantel', () => {
   })
 
   /**
-   * El formulario manda el plantel entero, así que si le falta una fila que
-   * existe es un formulario viejo: se dibujó antes de que otra pestaña editara
-   * el plantel. Aplicarlo daría de baja a alguien que nadie tocó.
+   * The form sends the whole roster, so if a row that exists is missing from it
+   * the form is stale: it was drawn before another tab edited the roster.
+   * Applying it would remove somebody nobody touched.
    */
-  it('un formulario viejo se rechaza entero en vez de aplicarse a medias', () => {
-    const viejo = planRosterEdit(
-      EQUIPO,
-      readRosterForm(formulario(SIN_CAMBIOS.slice(0, 4))),
-      PLANTEL,
-    )
-    expect(viejo.ok).toBe(false)
+  it('a stale form is rejected whole instead of being half applied', () => {
+    const stale = planRosterEdit(TEAM, readRosterForm(buildForm(UNCHANGED.slice(0, 4))), ROSTER)
+    expect(stale.ok).toBe(false)
 
-    const fantasma = planRosterEdit(
-      EQUIPO,
-      readRosterForm(formulario([...SIN_CAMBIOS, { clave: 'r9', nombre: 'No existe' }])),
-      PLANTEL,
+    const ghost = planRosterEdit(
+      TEAM,
+      readRosterForm(buildForm([...UNCHANGED, { key: 'r9', name: 'No existe' }])),
+      ROSTER,
     )
-    expect(fantasma.ok).toBe(false)
+    expect(ghost.ok).toBe(false)
   })
 
-  it('un equipo sin nadie anotado se puede llenar de cero', () => {
+  it('a team with nobody signed up can be filled from scratch', () => {
     const plan = planRosterEdit(
-      EQUIPO,
+      TEAM,
       readRosterForm(
-        formulario([
-          { clave: 'nuevo-0', nuevo: true, nombre: 'Primero', universidad: UNER },
-          { clave: 'nuevo-1', nuevo: true, nombre: 'Segundo' },
+        buildForm([
+          { key: 'nuevo-0', isNew: true, name: 'Primero', university: UNER },
+          { key: 'nuevo-1', isNew: true, name: 'Segundo' },
         ]),
       ),
       [],

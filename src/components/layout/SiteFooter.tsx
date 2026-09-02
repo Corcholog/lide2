@@ -1,26 +1,26 @@
 import { TOURNAMENT } from '@/lib/lide2/tournament'
 
 /**
- * El pie del sitio: de quien es esto, y de quien no.
+ * The site's footer: whose this is, and whose it is not.
  *
- * Va en el layout y no en la portada porque el problema que resuelve es
- * justamente el de las paginas internas. La aclaracion de que el sitio no es
- * oficial vivia en un solo lugar —el cartel del hero—, asi que alguien que
- * entraba directo a /equipos desde un link compartido no veia nada que se lo
- * dijera. Y la pagina muestra los escudos de trece universidades: sin esto es
- * facil leerla como algo institucional.
+ * It goes in the layout and not on the home page because the problem it solves
+ * is precisely the one the inner pages have. The note saying the site is not
+ * official lived in a single place - the hero's banner - so somebody landing
+ * straight on /equipos from a shared link saw nothing that told them. And the
+ * page shows the crests of thirteen universities: without this it is easy to
+ * read as something institutional.
  *
- * El cartel del hero se queda igual. Este es el mismo mensaje dicho entero, en
- * el lugar donde se buscan estas cosas.
+ * The hero banner stays as it is. This is the same message said in full, in the
+ * place where people look for these things.
  */
 
-const CONTACTO = 'loguerciogiorgioivan@gmail.com'
+const CONTACT_EMAIL = 'loguerciogiorgioivan@gmail.com'
 
 export function SiteFooter() {
   return (
     <footer className="mt-16 border-t-2 border-line bg-surface">
-      {/* El mismo contenedor que el <main> del layout, para que el texto
-          arranque donde arranca el resto de la pagina. */}
+      {/* The same container as the layout's <main>, so the text starts where
+          the rest of the page starts. */}
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8">
         <div className="flex flex-col gap-4 sm:flex-row sm:justify-between">
           <div className="max-w-prose">
@@ -34,30 +34,30 @@ export function SiteFooter() {
           </div>
 
           {/*
-            El contacto enmarcado como "encontraste un error" y no como un mail
-            suelto. A alguien que ve mal su propio KDA le da una razon concreta
-            para escribir; un mail sin contexto no se usa nunca.
+            The contact framed as "did you find a mistake?" and not as a bare
+            email address. Somebody seeing their own KDA wrong has a concrete
+            reason to write; an email with no context never gets used.
           */}
           <div className="shrink-0">
             <p className="text-sm font-medium">¿Encontraste un error?</p>
             <p className="mt-1 text-xs text-faint">
               Escribime a{' '}
               <a
-                href={`mailto:${CONTACTO}`}
+                href={`mailto:${CONTACT_EMAIL}`}
                 className="text-muted underline underline-offset-2 transition-colors hover:text-accent"
               >
-                {CONTACTO}
+                {CONTACT_EMAIL}
               </a>
             </p>
           </div>
         </div>
 
         {/*
-          Letra chica, separada y mas apagada: no es informacion del torneo.
-          Cubre las tres cosas que el sitio usa de Riot —el arte de la portada,
-          los iconos de campeones y items que vienen de Data Dragon, y los
-          nombres y datos que salen de los replays—, y es una de las condiciones
-          que pide su politica de contenido de fans.
+          Fine print, set apart and dimmer: it is not tournament information. It
+          covers the three things the site uses from Riot - the home page
+          artwork, the champion and item icons that come from Data Dragon, and
+          the names and data that come out of the replays - and it is one of the
+          conditions their fan content policy asks for.
         */}
         <p className="border-t border-line pt-4 text-[11px] leading-relaxed text-dim">
           {TOURNAMENT.name} no está avalado por Riot Games y no refleja las opiniones de Riot Games

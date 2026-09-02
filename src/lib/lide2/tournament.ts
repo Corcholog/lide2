@@ -1,25 +1,29 @@
 /**
- * Estructura de la LIDE 2 tal como la comunicó la organización.
+ * The structure of LIDE 2 exactly as the organizers announced it.
  *
- * Todo lo de acá es dato firme: 113 jugadores, 20 equipos, 13 universidades, 4
- * grupos de 5, el fixture completo de la fase de grupos y los playoffs hasta la
- * final presencial. Ya no hay nada inventado: los equipos, los grupos y los
- * cruces salen de las planillas de la organización.
+ * Everything here is settled fact: 113 players, 20 teams, 13 universities, 4
+ * groups of 5, the full group-phase fixture and the playoffs through to the
+ * in-person final. Nothing is invented any more: the teams, the groups and the
+ * matchups come from the organizers' sheets.
  *
- * Este archivo es la fuente para el seed (`scripts/seed-lide2.ts`), que lo
- * escribe en la base. Las páginas leen de la base, no de acá.
+ * This file is the source for the seed (`scripts/seed-lide2.ts`), which writes
+ * it into the database. The pages read from the database, not from here.
+ *
+ * The values are content - names, labels, the slogan - so they stay in Spanish.
  */
 
 /**
- * El slogan, partido en artículo y sustantivo.
+ * The slogan, split into article and noun.
  *
- * La portada pinta el sustantivo en rojo y el artículo en claro: el peso del
- * slogan está en país / red / campeón, y el color lo dice sin subrayarlo.
+ * The home page paints the noun red and the article light: the weight of the
+ * slogan sits on país / red / campeón, and the colour says so without
+ * underlining it.
  *
- * Se guarda con tildes y en caja baja; la página lo pasa a versales con CSS. La
- * organización lo escribe en mayúsculas y sin tildes, que es lo habitual al
- * tipear, pero las tildes no se pierden por estar en mayúscula. Guardarlo así
- * deja mostrarlo en versales acá y en redonda en otro lado sin reescribirlo.
+ * It is stored accented and in lower case; the page puts it in small caps with
+ * CSS. The organizers write it in capitals and without accents, which is what
+ * people usually type, but accents are not lost by being capitalised. Storing
+ * it this way allows showing it in small caps here and in roman elsewhere
+ * without rewriting it.
  */
 export const SLOGAN_PARTS = [
   { article: 'Un', noun: 'país' },
@@ -29,38 +33,39 @@ export const SLOGAN_PARTS = [
 
 export const TOURNAMENT = {
   name: 'LIDE 2',
-  /** Cómo se identifica el torneo en la base (`tournaments.slug`). */
+  /** How the tournament is identified in the database (`tournaments.slug`). */
   slug: 'lide-2',
   fullName: 'Liga Interuniversitaria de Deportes Electrónicos',
-  /** Armado desde SLOGAN_PARTS, para no escribirlo dos veces. */
+  /** Built from SLOGAN_PARTS, so it is not written twice. */
   slogan: SLOGAN_PARTS.map(({ article, noun }) => `${article} ${noun}.`).join(' '),
   organizer: 'Red UNCI · Esports UNLP',
   players: 113,
   teams: 20,
   universities: 13,
   groups: 4,
-  /** Horario de competencia de la fase de grupos. */
+  /** Playing hours of the group phase. */
   playTime: '14:00 a 16:00',
   broadcast: {
     channel: 'twitch.tv/unlpesports',
     url: 'https://www.twitch.tv/unlpesports',
-    /** Las partidas seleccionadas van en diferido, no en vivo. */
+    /** The selected games go out delayed, not live. */
     schedule: '15:00 a 17:00, en diferido',
   },
   discord: 'https://discord.com/invite/C9UjkhPjwy',
 } as const
 
 /**
- * Sede de la final. Es la única fecha presencial del torneo.
+ * Venue of the final. It is the tournament's only in-person date.
  *
- * Ojo con las coordenadas: el iframe que da Google trae un `!2d`/`!3d` que es el
- * centro del encuadre del mapa, no el lugar marcado. En este caso caían dentro
- * del zoológico, medio kilómetro al sur. Lo que sí identifica al lugar sin
- * ambigüedad es el CID que viene en el mismo iframe, y de ahí sale `placeUrl`.
+ * Mind the coordinates: the iframe Google hands out carries a `!2d`/`!3d` that
+ * is the centre of the map's viewport, not the marked place. In this case they
+ * landed inside the zoo, half a kilometre south. What does identify the place
+ * unambiguously is the CID that comes in the same iframe, and `placeUrl` is
+ * built from it.
  *
- * `lat`/`lng` son las del complejo de la Facultad de Informática en
- * OpenStreetMap (way 52869224), que es donde está el CITT. Se usan para centrar
- * el mapa estático y para el link de "cómo llegar".
+ * `lat`/`lng` are those of the Facultad de Informática complex on OpenStreetMap
+ * (way 52869224), which is where the CITT is. They centre the map and feed the
+ * "how to get there" link.
  */
 export const VENUE = {
   name: 'CITT',
@@ -68,27 +73,28 @@ export const VENUE = {
   place: 'Facultad de Informática, UNLP · La Plata',
   lat: -34.9036474,
   lng: -57.9379974,
-  /** La ficha exacta de Google, por CID (0x34e35e5789ea31cd del iframe de la sede). */
+  /** The exact Google listing, by CID (0x34e35e5789ea31cd from the venue iframe). */
   placeUrl: 'https://maps.google.com/?cid=3810993439754564045',
 } as const
 
-/** Indicaciones para llegar, desde donde esté el que lo abra. */
+/** Directions there, from wherever whoever opens it happens to be. */
 export const VENUE_DIRECTIONS = `https://www.google.com/maps/dir/?api=1&destination=${VENUE.lat},${VENUE.lng}`
 
 /**
- * El mapa embebido de la sede, el que da Google al compartir la ficha del CITT.
+ * The venue's embedded map, the one Google hands out when sharing the CITT
+ * listing.
  *
- * Con una corrección: el `pb` que genera Google lleva DOS ubicaciones distintas
- * y es fácil no notarlo. El bloque `!3m3!1m2!1s0x…:0x34e35e5789ea31cd` es el
- * lugar —el CITT, el mismo id que `placeUrl`— y ese es el que pone el pin. Pero
- * `!2d`/`!3d` es el centro del encuadre con el que uno estaba mirando el mapa
- * cuando copió el iframe, y en el original caía en Diagonal 113, Barrio El
- * Mondongo, a 1,3 km de la facultad (verificado contra OpenStreetMap). Con un
- * encuadre de 1636 m de alto, el pin quedaba arriba del borde superior.
+ * With one correction: the `pb` Google generates carries TWO different
+ * locations and it is easy to miss. The `!3m3!1m2!1s0x...:0x34e35e5789ea31cd`
+ * block is the place - the CITT, the same id as `placeUrl` - and that is what
+ * drops the pin. But `!2d`/`!3d` is the centre of the viewport you happened to
+ * be looking at when you copied the iframe, and in the original it landed on
+ * Diagonal 113, Barrio El Mondongo, 1.3 km from the faculty (verified against
+ * OpenStreetMap). With a 1636 m tall viewport, the pin sat above the top edge.
  *
- * Por eso el centro se arma con `VENUE.lat`/`VENUE.lng` en vez de estar escrito
- * a mano: el mapa apunta al mismo lugar que el botón de "Cómo llegar", y si
- * alguna vez cambia la sede cambia una sola línea.
+ * That is why the centre is built from `VENUE.lat`/`VENUE.lng` instead of being
+ * written by hand: the map points at the same place as the "Cómo llegar"
+ * button, and if the venue ever changes, one line changes.
  */
 export const VENUE_EMBED = [
   'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1635.858751751946',
@@ -102,8 +108,8 @@ export const VENUE_EMBED = [
 export interface Milestone {
   id: string
   /**
-   * Mediodía UTC a propósito: con la fecha pelada ("2026-09-05") el navegador
-   * la lee como medianoche UTC y en Argentina la muestra un día antes.
+   * Midday UTC on purpose: given the bare date ("2026-09-05") the browser reads
+   * it as midnight UTC and shows it one day earlier in Argentina.
    */
   date: string
   label: string
@@ -113,7 +119,7 @@ export interface Milestone {
   detail: string | null
 }
 
-/** Las seis fechas del torneo. Todas caen sábado. */
+/** The tournament's six dates. They all fall on a Saturday. */
 export const CALENDAR: Milestone[] = [
   {
     id: 'fecha-1',
@@ -177,11 +183,11 @@ export interface University {
 }
 
 /**
- * Las 13 universidades del torneo, sacadas de los rosters.
+ * The tournament's 13 universities, taken from the rosters.
  *
- * La planilla de grupos escribe "UER" para la Universidad Nacional de Entre
- * Ríos, pero los rosters de los equipos 13 y 15 la escriben "UNER", que es la
- * sigla oficial. Se usa UNER.
+ * The groups sheet writes "UER" for the Universidad Nacional de Entre Ríos, but
+ * the rosters of teams 13 and 15 write "UNER", which is the official tag. UNER
+ * is what gets used.
  */
 export const UNIVERSITIES: Record<string, University> = {
   UNLP: { tag: 'UNLP', name: 'Universidad Nacional de La Plata' },
@@ -205,26 +211,25 @@ export const GROUPS = ['A', 'B', 'C', 'D'] as const
 export type GroupName = (typeof GROUPS)[number]
 
 export interface TeamSeed {
-  /** Número oficial, 1 a 20. Es la clave con la que la organización los nombra. */
+  /** Official number, 1 to 20. It is the key the organizers name them by. */
   number: number
-  /** "Equipo 01". La organización no les puso nombre propio. */
+  /** "Equipo 01". The organizers gave them no names of their own. */
   name: string
   /**
-   * Código de inscripción ("UNLP1", "UAI2"). Sólo lo tienen los que se
-   * anotaron como equipo armado; los que salieron de inscripciones individuales
-   * no tienen.
+   * Signup code ("UNLP1", "UAI2"). Only the ones that entered as a ready-made
+   * team have it; the ones that came out of individual signups do not.
    */
   code: string | null
-  /** Cómo se anotaron: con el equipo ya armado o sueltos. */
+  /** How they signed up: as a ready-made team, or one by one. */
   entry: 'equipo' | 'individual'
   group: GroupName
   /**
-   * Universidades del plantel, la más representada primero. Casi todos son de
-   * una sola, pero las inscripciones individuales armaron cuatro equipos
-   * mezclados (13, 15, 16 y 17).
+   * The roster's universities, most represented first. Nearly all are from one
+   * alone, but the individual signups built four mixed teams (13, 15, 16 and
+   * 17).
    */
   universities: UniversityTag[]
-  /** Jugadores inscriptos. Varios anotaron suplentes. */
+  /** Registered players. Several signed up substitutes. */
   roster: number
 }
 
@@ -247,7 +252,7 @@ function team(
   }
 }
 
-/** Los 20 equipos, en orden de número. */
+/** The 20 teams, in number order. */
 export const TEAMS: TeamSeed[] = [
   team(1, 'A', ['UNLP'], 5, 'equipo', 'UNLP1'),
   team(2, 'D', ['UNLP'], 5, 'equipo', 'UNLP2'),
@@ -271,30 +276,27 @@ export const TEAMS: TeamSeed[] = [
   team(20, 'B', ['UNPAZ'], 7, 'equipo', 'UNPAZ2'),
 ]
 
-/** Clasifican dos por grupo: son 4 grupos y los cuartos necesitan 8 equipos. */
-export const QUALIFY_PER_GROUP = 2
-
 export interface ScheduleRound {
-  /** Fecha del torneo, 1 a 3. */
+  /** Tournament matchday, 1 to 3. */
   matchday: 1 | 2 | 3
-  /** Turno dentro de la fecha. La fecha 3 tiene uno solo. */
+  /** Slot within the matchday. Matchday 3 has only one. */
   slot: 1 | 2
-  /** Con huso horario explícito para que no dependa de dónde corra esto. */
+  /** With an explicit time zone so it does not depend on where this runs. */
   kickoff: string
-  /** Cruces por número de equipo, en el orden en que los publicó la organización. */
+  /** Matchups by team number, in the order the organizers published them. */
   matches: [number, number][]
 }
 
 /**
- * Fixture completo de la fase de grupos.
+ * The full group-phase fixture.
  *
- * Son 5 turnos: dos el 5 de septiembre, dos el 12 y uno el 19. Cada turno tiene
- * 8 partidos (dos por grupo) y deja libre a un equipo de cada grupo, así que
- * cada equipo juega 4 partidos y descansa una vez. En total, 40 partidos: el
- * todos contra todos completo de los cuatro grupos.
+ * Five slots: two on 5 September, two on the 12th and one on the 19th. Each
+ * slot holds 8 games (two per group) and leaves one team per group idle, so
+ * every team plays 4 games and rests once. 40 games in total: the complete
+ * round robin of the four groups.
  *
- * Los equipos que quedan libres en cada turno no están escritos: salen de restar
- * los que juegan, y `byesFor` los calcula.
+ * The teams on a bye in each slot are not written down: they come from
+ * subtracting the ones that play, and `byesFor` works them out.
  */
 export const SCHEDULE: ScheduleRound[] = [
   {
@@ -378,42 +380,37 @@ const BY_NUMBER = new Map(TEAMS.map((entry) => [entry.number, entry]))
 
 export function teamByNumber(number: number): TeamSeed {
   const found = BY_NUMBER.get(number)
-  if (!found) throw new Error(`No existe el equipo ${number}`)
+  if (!found) throw new Error(`There is no team ${number}`)
   return found
 }
 
-/** El grupo al que pertenece un cruce. Los dos equipos son siempre del mismo. */
-export function groupOfMatch(pair: [number, number]): GroupName {
-  return teamByNumber(pair[0]).group
-}
-
-/** Los que descansan en ese turno: uno por grupo. */
+/** The ones resting in that slot: one per group. */
 export function byesFor(round: ScheduleRound): TeamSeed[] {
   const playing = new Set(round.matches.flat())
   return TEAMS.filter((entry) => !playing.has(entry.number))
 }
 
-/** Etiqueta de ronda que se guarda en la base junto a cada partida. */
+/** Round label stored in the database alongside each match. */
 export function roundLabel(round: ScheduleRound): string {
   return `Fecha ${round.matchday} · Turno ${round.slot}`
 }
 
-/** Todos los equipos de un grupo, en orden de número. */
+/** Every team in a group, in number order. */
 export function teamsOfGroup(group: GroupName): TeamSeed[] {
   return TEAMS.filter((entry) => entry.group === group)
 }
 
-/** El torneo se juega en horario de Argentina. */
+/** The tournament runs on Argentine time. */
 export const AR_TIME_ZONE = 'America/Argentina/Buenos_Aires'
 
 /**
- * "5 de septiembre": cuando arranca todo.
+ * "5 de septiembre": when it all starts.
  *
- * Se usa en los carteles de "todavia no hay nada" que ve un visitante. Sale de
- * CALENDAR y no escrito a mano para que no haya dos fechas distintas dando
- * vueltas si el torneo se corre.
+ * Used by the "nothing here yet" notices a visitor sees. It comes out of
+ * CALENDAR rather than being written by hand so there are never two different
+ * dates going around if the tournament shifts.
  */
-export function inicioDelTorneo(): string {
+export function tournamentStartDate(): string {
   return new Date(CALENDAR[0].date).toLocaleDateString('es-AR', {
     day: 'numeric',
     month: 'long',

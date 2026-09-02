@@ -4,12 +4,12 @@ import { createTestDb } from './helpers/db'
 import { playScoreboard } from './helpers/matches'
 
 /**
- * `set_match_bans`: cargar el draft a mano (0021_meta_y_bans.sql).
+ * `set_match_bans`: entering the draft by hand (0021_meta_y_bans.sql).
  *
- * El .rofl no guarda los baneos, asi que la unica forma de tenerlos es que
- * alguien los escriba. Esta funcion es la que recibe eso, y lo importante no es
- * que inserte —eso es facil— sino que reemplace el draft entero de forma
- * atomica y que no deje entrar grafias que despues partan el meta en dos.
+ * The .rofl does not store the bans, so the only way to have them is for
+ * somebody to type them. This function is what receives that, and what matters
+ * is not that it inserts - that is easy - but that it replaces the whole draft
+ * atomically and does not let in spellings that later split the meta in two.
  */
 
 interface Ban {
@@ -24,7 +24,7 @@ interface Resultado {
   bans?: number
 }
 
-/** Un draft completo: cinco por lado. */
+/** A complete draft: five a side. */
 const DRAFT: Ban[] = [
   { side: 100, order_index: 1, champion: 'Teemo' },
   { side: 100, order_index: 2, champion: 'Yasuo' },
@@ -38,7 +38,7 @@ const DRAFT: Ban[] = [
   { side: 200, order_index: 5, champion: 'Camille' },
 ]
 
-describe('carga de bans', () => {
+describe('entering bans', () => {
   let db: PGlite
   let matchId: string
 
@@ -69,8 +69,8 @@ describe('carga de bans', () => {
     matchId = await playScoreboard(db, {
       tournamentId: tournament.rows[0].id,
       winner: 'blue',
-      // FiddleSticks con la S grande: es la grafia del .rofl, distinta de la
-      // de ddragon. Es la trampa que prueba el test de mas abajo.
+      // FiddleSticks with the capital S: it is the .rofl's spelling, different
+      // from ddragon's. It is the trap the test further down exercises.
       blue: ['a', 'b', 'c', 'd', 'e'].map((p, i) => ({
         puuid: `azul-${p}`,
         champion: ['Garen', 'FiddleSticks', 'Lux', 'Jinx', 'Thresh'][i],
@@ -83,7 +83,7 @@ describe('carga de bans', () => {
     await db.query('delete from public.match_bans where match_id = $1', [matchId])
   })
 
-  it('guarda los diez y los devuelve en orden', async () => {
+  it('stores all ten and returns them in order', async () => {
     const resultado = await setBans(DRAFT)
 
     expect(resultado.ok).toBe(true)
@@ -95,23 +95,23 @@ describe('carga de bans', () => {
     expect(guardados[9]).toMatchObject({ side: 200, order_index: 5, champion: 'Camille' })
   })
 
-  it('llamarla dos veces no duplica', async () => {
+  it('calling it twice does not duplicate', async () => {
     await setBans(DRAFT)
     await setBans(DRAFT)
 
-    // Sin el reemplazo entero esto reventaria contra el unique de la tabla, o
-    // peor, dejaria veinte filas.
+    // Without replacing the lot this would blow up against the table's unique
+    // constraint, or worse, leave twenty rows behind.
     expect(await bansGuardados()).toHaveLength(10)
   })
 
-  it('mandar menos borra los que sobraban', async () => {
+  it('sending fewer deletes the ones left over', async () => {
     await setBans(DRAFT)
     await setBans(DRAFT.slice(0, 3))
 
     expect(await bansGuardados()).toHaveLength(3)
   })
 
-  it('un campo vacio no se guarda: un equipo puede pasar un ban', async () => {
+  it('an empty field is not stored: a team may pass on a ban', async () => {
     const resultado = await setBans([
       { side: 100, order_index: 1, champion: 'Teemo' },
       { side: 100, order_index: 2, champion: '   ' },
@@ -121,11 +121,11 @@ describe('carga de bans', () => {
     expect(await bansGuardados()).toHaveLength(1)
   })
 
-  it('respeta la grafia que ya usa la base', async () => {
-    // ddragon dice "Fiddlesticks" y el .rofl escribe "FiddleSticks". Si se
-    // guardara tal cual vino, el campeon saldria DOS VECES en champion_meta:
-    // una fila con los picks y otra con los bans, cada una con la mitad de los
-    // numeros y sin ninguna forma de darse cuenta.
+  it('honours the spelling the database already uses', async () => {
+    // ddragon says "Fiddlesticks" and the .rofl writes "FiddleSticks". Stored
+    // exactly as it came, the champion would appear TWICE in champion_meta: one
+    // row with the picks and another with the bans, each with half the numbers
+    // and no way of noticing.
     await setBans([{ side: 100, order_index: 1, champion: 'Fiddlesticks' }])
 
     const guardados = await bansGuardados()
@@ -141,7 +141,7 @@ describe('carga de bans', () => {
     expect(rows[0].bans).toBe(1)
   })
 
-  it('rechaza un lado que no existe', async () => {
+  it('rejects a side that does not exist', async () => {
     const resultado = await setBans([
       { side: 300 as 100, order_index: 1, champion: 'Teemo' },
     ])
@@ -151,16 +151,16 @@ describe('carga de bans', () => {
     expect(await bansGuardados()).toHaveLength(0)
   })
 
-  it('rechaza un orden fuera de 1 a 5', async () => {
+  it('rejects an order outside 1 to 5', async () => {
     const resultado = await setBans([{ side: 100, order_index: 7, champion: 'Teemo' }])
 
     expect(resultado.ok).toBe(false)
     expect(resultado.error).toContain('7')
   })
 
-  it('rechaza el mismo campeon dos veces', async () => {
-    // En un draft no se puede banear dos veces al mismo: casi siempre es que
-    // quien carga se salteo un casillero.
+  it('rejects the same champion twice', async () => {
+    // In a draft the same champion cannot be banned twice: nearly always it
+    // means whoever is entering them skipped a slot.
     const resultado = await setBans([
       { side: 100, order_index: 1, champion: 'Teemo' },
       { side: 200, order_index: 1, champion: 'Teemo' },
@@ -171,21 +171,21 @@ describe('carga de bans', () => {
     expect(await bansGuardados()).toHaveLength(0)
   })
 
-  it('rechaza una partida que no existe', async () => {
+  it('rejects a match that does not exist', async () => {
     const resultado = await setBans(DRAFT, '00000000-0000-0000-0000-000000000000')
 
     expect(resultado.ok).toBe(false)
     expect(resultado.error).toContain('no existe')
   })
 
-  it('un rechazo no toca lo que ya estaba cargado', async () => {
+  it('a rejection does not touch what was already entered', async () => {
     await setBans(DRAFT)
     await setBans([{ side: 100, order_index: 9, champion: 'Teemo' }])
 
     expect(await bansGuardados()).toHaveLength(10)
   })
 
-  it('anon no la puede ejecutar', async () => {
+  it('anon cannot execute it', async () => {
     await db.exec('set role anon')
     try {
       await expect(

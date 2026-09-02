@@ -2,11 +2,11 @@ import type { MetadataRoute } from 'next'
 import { siteUrl } from '@/lib/env'
 
 /**
- * El panel y el login no se indexan.
+ * The admin panel and the login page are not indexed.
  *
- * No es una medida de seguridad —eso lo hace el proxy, que pide sesión— sino
- * de higiene: que buscando "LIDE 2" no aparezca la pantalla de login antes que
- * la tabla de posiciones.
+ * It is not a security measure - the proxy does that, asking for a session -
+ * but a matter of hygiene: searching for "LIDE 2" should not turn up the login
+ * screen ahead of the standings table.
  */
 export default function robots(): MetadataRoute.Robots {
   return {

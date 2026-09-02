@@ -1,9 +1,9 @@
 /**
- * Ingesta replays desde el disco, usando exactamente el mismo camino que la
- * pantalla de subida: signed upload URL -> storage -> parseo por rangos -> RPC.
+ * Ingests replays from disk, taking exactly the same path as the upload screen:
+ * signed upload URL -> storage -> range parsing -> RPC.
  *
- * Sirve para backfills (cargar de una todos los .rofl de un torneo ya jugado) y
- * para probar el flujo completo sin browser.
+ * It serves for backfills (loading every .rofl of an already-played tournament
+ * at once) and for exercising the whole flow without a browser.
  *
  *   npm run ingest -- fixtures --auto
  *   npm run ingest -- fixtures --stage "Suizo" --round "Ronda 3"
@@ -31,9 +31,8 @@ function collectReplays(target: string): string[] {
 }
 
 /**
- * Reprocesar un backfill con mejores etiquetas tiene que corregir lo ya
- * guardado; si no, las primeras corridas quedan con datos provisorios para
- * siempre.
+ * Reprocessing a backfill with better labels has to correct what is already
+ * stored; otherwise the first runs are left with provisional data forever.
  */
 async function relabel(
   matchId: string,
@@ -60,17 +59,17 @@ async function main() {
   const stageLabel = flag(args, 'stage')
   const roundLabel = flag(args, 'round')
   const dryRun = args.includes('--dry-run')
-  // Deriva bloque, fecha y día de la ruta ("16.05 - FECHA 1/16.05 BLOQUE B/...").
+  // Derives block, matchday and day from the path ("16.05 - FECHA 1/16.05 BLOQUE B/...").
   const auto = args.includes('--auto')
 
   if (targets.length === 0) {
-    console.error('Uso: npm run ingest -- <archivo.rofl | carpeta> [--stage "Suizo"] [--round "Ronda 3"] [--dry-run]')
+    console.error('Usage: npm run ingest -- <file.rofl | folder> [--stage "Suizo"] [--round "Ronda 3"] [--dry-run]')
     process.exit(1)
   }
 
   const files = targets.flatMap(collectReplays)
   if (files.length === 0) {
-    console.error('No se encontraron archivos .rofl en esas rutas.')
+    console.error('No .rofl files found under those paths.')
     process.exit(1)
   }
 
@@ -96,7 +95,7 @@ async function main() {
       ]
         .filter(Boolean)
         .join(' · ')
-      console.log(`    ${basename(file).padEnd(42).slice(0, 42)} ${tags || '(sin etiquetas)'}`)
+      console.log(`    ${basename(file).padEnd(42).slice(0, 42)} ${tags || '(no labels)'}`)
     }
     return
   }
@@ -135,8 +134,8 @@ async function main() {
         storagePath: target.path,
         fileName: name,
         fileSize: buffer.length,
-        // El mtime es cuándo se copió el archivo, no cuándo se jugó: sólo se usa
-        // si la ruta no dice nada.
+        // The mtime is when the file was copied, not when it was played: it is
+        // only used when the path says nothing.
         lastModified: (labels.playedAt ?? statSync(path).mtime).getTime(),
         sha256,
         stageLabel: labels.stageLabel,
@@ -152,7 +151,7 @@ async function main() {
       if (result.status === 'duplicate') {
         duplicated++
         await relabel(result.matchId, labels)
-        console.log('duplicada (otro .rofl de la misma partida, guardado como prueba)')
+        console.log('duplicate (another .rofl of the same match, kept as proof)')
       } else {
         created++
         console.log(`ok  parche ${result.patch ?? '?'}  ${result.players} jugadores`)
@@ -163,7 +162,7 @@ async function main() {
     }
   }
 
-  console.log(`\n  ${created} nuevas · ${duplicated} duplicadas · ${failed} con error\n`)
+  console.log(`\n  ${created} new · ${duplicated} duplicate · ${failed} failed\n`)
 }
 
 main()

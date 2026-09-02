@@ -2,11 +2,11 @@ import { createClient } from '@supabase/supabase-js'
 import { supabaseSecretKey, supabaseUrl } from '../env'
 
 /**
- * Cliente con la clave secreta: se saltea RLS y puede escribir.
+ * Client holding the secret key: it bypasses RLS and can write.
  *
- * Solo para route handlers y server actions, nunca en codigo que llegue al
- * browser. Las escrituras del ingest pasan todas por aca porque las tablas no
- * tienen politicas de insert a proposito.
+ * Route handlers and server actions only, never in code that reaches the
+ * browser. Every ingest write goes through here because the tables deliberately
+ * have no insert policies.
  */
 export function createAdminClient() {
   return createClient(supabaseUrl(), supabaseSecretKey(), {

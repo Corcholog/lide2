@@ -1,11 +1,14 @@
 /**
- * El catálogo de estadísticas.
+ * The catalogue of stats.
  *
- * La página, y más adelante las cards de Instagram, iteran sobre esto en vez de
- * repetir markup por cada ranking: sumar una estadística es escribir su función
- * y agregar una línea acá.
+ * The page, and later on the Instagram cards, iterate over this instead of
+ * repeating markup for every ranking: adding a stat means writing its function
+ * and adding one line here.
  *
- * El orden importa, es el orden en que se muestran.
+ * The order matters — it is the order they are shown in.
+ *
+ * The ids and the titles stay in Spanish: the ids end up in shared URLs and in
+ * the file names of the published cards, and the titles are read by visitors.
  */
 
 import * as champions from './champions'
@@ -99,11 +102,11 @@ export interface StatSectionResult {
 }
 
 /**
- * Resuelve todo el catálogo sobre un recorte.
+ * Resolves the whole catalogue over one scope.
  *
- * Las estadísticas sin datos devuelven null y quedan afuera, igual que las
- * secciones que se vacían enteras: antes de la primera fecha eso es el listado
- * completo, y una grilla de tarjetas vacías no le dice nada a nadie.
+ * Stats with no data return null and drop out, and so do sections that empty
+ * out entirely: before the first matchday that is the complete listing, and a
+ * grid of empty cards tells nobody anything.
  */
 export function buildStats(data: StatsData): StatSectionResult[] {
   return SECTIONS.map((section) => ({

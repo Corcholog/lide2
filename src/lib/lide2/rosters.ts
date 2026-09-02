@@ -1,36 +1,36 @@
 /**
- * Los 113 inscriptos, tal como figuran en las planillas de la organización.
+ * The 113 signups, exactly as they appear on the organizers' sheets.
  *
- * Los nombres van **verbatim**, sin corregir. La planilla mezcla formatos —hay
- * "Apellido, Nombre" (equipo 02), "Apellido Nombre" sin coma (equipos 03 y 11) y
- * varios en mayúsculas— y adivinar cuál token es el apellido para darlos vuelta
- * es una forma barata de escribirle mal el nombre a alguien. Se guardan como
- * estan y la tabla `team_roster` tiene un `display_name` aparte para que un
- * administrador los deje prolijos sin perder el original.
+ * The names go in **verbatim**, uncorrected. The sheet mixes formats - there is
+ * "Surname, Name" (team 02), "Surname Name" with no comma (teams 03 and 11) and
+ * several in all caps - and guessing which token is the surname in order to
+ * flip them is a cheap way to misspell somebody's name. They are stored as they
+ * came and the `team_roster` table has a separate `display_name` so an admin
+ * can tidy them up without losing the original.
  *
- * La única corrección es "Maximiliano Antonio ZemelkaUNAHUR" en el equipo 09:
- * ahí la sigla de la universidad quedó pegada al nombre al copiar la planilla, y
- * no es parte del nombre.
+ * The one correction is "Maximiliano Antonio ZemelkaUNAHUR" on team 09: there
+ * the university tag got stuck to the name while copying the sheet, and it is
+ * not part of the name.
  *
- * Esto NO es lo mismo que `players`, que son cuentas de Riot detectadas de los
- * replays. Un inscripto y una cuenta se emparejan a mano desde el panel; hasta
- * entonces son dos listas separadas.
+ * This is NOT the same as `players`, which are Riot accounts detected from the
+ * replays. A signup and an account are matched by hand from the admin panel;
+ * until then they are two separate lists.
  */
 
 import type { UniversityTag } from './tournament'
 
 export interface RosterEntry {
-  /** Como figura en la planilla, sin tocar. */
+  /** As it appears on the sheet, untouched. */
   name: string
   university: UniversityTag
 }
 
-/** Atajo para los equipos donde todos son de la misma casa, que son la mayoría. */
+/** Shortcut for the teams where everybody is from the same university, which is most of them. */
 function roster(university: UniversityTag, ...names: string[]): RosterEntry[] {
   return names.map((name) => ({ name, university }))
 }
 
-/** Planteles por número de equipo. Varios anotaron suplentes. */
+/** Rosters by team number. Several signed up substitutes. */
 export const ROSTERS: Record<number, RosterEntry[]> = {
   1: roster(
     'UNLP',
@@ -150,8 +150,8 @@ export const ROSTERS: Record<number, RosterEntry[]> = {
     'Ivan Roldan',
   ),
 
-  // Los cuatro que siguen salieron de inscripciones individuales: la
-  // organización armó equipos juntando gente de distintas universidades.
+  // The four that follow came out of individual signups: the organizers built
+  // teams by putting together people from different universities.
   13: [
     { name: 'Christian Barreto', university: 'UAP' },
     { name: 'Ezequiel Zunino', university: 'UAP' },

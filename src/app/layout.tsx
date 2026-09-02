@@ -17,15 +17,15 @@ const geistMono = Geist_Mono({
 });
 
 /*
- * Titulares y numeros grandes.
+ * Headlines and large numbers.
  *
- * Es una grotesca de un solo peso, el mas pesado que hay: bloques macizos de
- * texto, sin gradaciones. Esa falta de matices es justamente lo que da el aire
- * brutalista, y contra el cuerpo en Geist el contraste es fuerte. Al ser ancha
- * conviene apretarle el tracking en los tamanos grandes.
+ * It is a single-weight grotesque, the heaviest there is: solid blocks of text,
+ * no gradations. That lack of nuance is exactly what gives the brutalist air,
+ * and against the body set in Geist the contrast is strong. Being wide, it
+ * wants tighter tracking at large sizes.
  *
- * Un solo peso quiere decir que font-bold y font-black no hacen nada sobre esta
- * familia: el peso ya viene puesto.
+ * A single weight means font-bold and font-black do nothing to this family: the
+ * weight is already fixed.
  */
 const archivoBlack = Archivo_Black({
   variable: "--font-archivo-black",
@@ -35,17 +35,17 @@ const archivoBlack = Archivo_Black({
 });
 
 /*
- * La tarjeta que arman WhatsApp, Discord, Twitter e Instagram cuando alguien
- * pega el link. Un sitio de torneo se difunde justamente así, pegando el link,
- * y sin esto sale pelado.
+ * The card WhatsApp, Discord, Twitter and Instagram build when somebody pastes
+ * the link. A tournament site spreads exactly that way, by pasted link, and
+ * without this it comes out bare.
  *
- * La imagen es src/app/opengraph-image.jpg, que Next toma por convención de
- * nombre; la genera `npm run og` una sola vez. `metadataBase` es lo que la
- * convierte en una URL absoluta, que es la única forma en que las plataformas
- * la pueden ir a buscar.
+ * The image is src/app/opengraph-image.jpg, which Next picks up by naming
+ * convention; `npm run og` generates it once. `metadataBase` is what turns it
+ * into an absolute URL, which is the only way the platforms can go and fetch
+ * it.
  *
- * El template deja que cada página ponga lo suyo adelante ("Estadísticas ·
- * LIDE 2") sin repetir el nombre del torneo en cada archivo.
+ * The template lets each page put its own part in front ("Estadísticas · LIDE
+ * 2") without repeating the tournament's name in every file.
  */
 export const metadata: Metadata = {
   metadataBase: siteUrl(),
@@ -67,16 +67,17 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    // El script de abajo pisa data-theme antes de hidratar, así que React se
-    // encuentra un atributo distinto al que renderizó: suppressHydrationWarning
-    // le dice que el DOM manda.
+    // The script below overwrites data-theme before hydration, so React finds
+    // an attribute different from the one it rendered: suppressHydrationWarning
+    // tells it the DOM wins.
     <html
       lang="es"
       data-theme={DEFAULT_THEME}
       suppressHydrationWarning
-      // overflow-x-clip: la portada del torneo se sale del contenedor centrado
-      // para ocupar el ancho de la ventana, y 100vw incluye el ancho de la barra
-      // de scroll. Sin esto sobran unos píxeles y aparece scroll horizontal.
+      // overflow-x-clip: the tournament's hero breaks out of the centred
+      // container to take the window's width, and 100vw includes the
+      // scrollbar's width. Without this a few pixels spill over and horizontal
+      // scroll appears.
       className={`${geistSans.variable} ${geistMono.variable} ${archivoBlack.variable} h-full overflow-x-clip antialiased motion-safe:scroll-smooth`}
     >
       <head>

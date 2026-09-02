@@ -6,9 +6,9 @@ export interface DetectedTeamView extends DetectedTeam {
 }
 
 /**
- * Arma las alineaciones (los 5 de cada lado de cada partida) para poder
- * detectar equipos. Se lee de match_players y no de team_members porque
- * justamente todavía no hay equipos cargados.
+ * Builds the lineups (the 5 on each side of each match) so teams can be
+ * detected. It reads from match_players and not from team_members because at
+ * this point there are precisely no teams loaded yet.
  */
 async function loadLineups(): Promise<{ lineups: Lineup[]; names: Map<string, string> }> {
   const supabase = createAdminClient()
@@ -65,8 +65,8 @@ export interface TeamToCreate {
 }
 
 /**
- * Crea los equipos y sus rosters, y revincula todas las partidas: las que ya
- * estaban cargadas pasan a mostrar nombres de equipo sin volver a subir nada.
+ * Creates the teams and their rosters, then relinks every match: the ones
+ * already loaded start showing team names without re-uploading anything.
  */
 export async function createTeams(teams: TeamToCreate[]): Promise<number> {
   const supabase = createAdminClient()
@@ -115,24 +115,24 @@ export async function addPlayerToTeam(teamId: string, playerId: string): Promise
 export interface AddAccountResult {
   ok: boolean
   error?: string
-  /** La cuenta no existía y se creó sin PUUID, hasta que aparezca en un replay. */
+  /** The account did not exist and was created without a PUUID, until it shows up in a replay. */
   created?: boolean
-  /** Partidas que la cuenta ya tenía encima. */
+  /** Matches the account already had behind it. */
   games?: number
 }
 
 /**
- * Sumar un nick al plantel aunque esa persona todavía no haya jugado.
+ * Adding a nick to a roster even when that person has not played yet.
  *
- * `players` se llena sola desde los replays, así que hasta la primera partida
- * un equipo no tiene a nadie a quien agregar: la lista de "agregar jugador" de
- * la ficha son las cuentas que ya jugaron y no tienen equipo, y antes de la
- * fecha 1 está vacía. Esto es la otra puerta, la de escribir el nick a mano.
+ * `players` fills itself from the replays, so until the first match a team has
+ * nobody to add: the "add player" list on a team's page is the accounts that
+ * have played and have no team, and before matchday 1 it is empty. This is the
+ * other door, the one where the nick is typed by hand.
  *
- * Todo lo que decide está en `add_team_account()`: si la cuenta ya existe la
- * reusa, si no la crea con una marca en lugar del PUUID (que sólo existe dentro
- * del .rofl), y no muda a nadie de equipo por su cuenta. Ver
- * `supabase/migrations/0017_alta_de_cuenta.sql`.
+ * Everything it decides lives in `add_team_account()`: if the account already
+ * exists it is reused, otherwise it is created with a marker in place of the
+ * PUUID (which only exists inside the .rofl), and nobody is moved between teams
+ * on its own initiative. See `supabase/migrations/0017_alta_de_cuenta.sql`.
  */
 export async function addAccountToTeam(
   teamId: string,
@@ -150,8 +150,8 @@ export async function addAccountToTeam(
 
   const result = data as AddAccountResult
 
-  // Revincular sólo si la cuenta traía partidas: son las que pasan a mostrar el
-  // nombre del equipo. Una cuenta recién cargada no cambia ninguna.
+  // Relink only when the account brought matches with it: those are the ones
+  // that start showing the team name. A freshly added account changes none.
   if (result.ok && (result.games ?? 0) > 0) await supabase.rpc('relink_all_matches')
 
   return result
@@ -160,28 +160,28 @@ export async function addAccountToTeam(
 export interface AssignAccountResult {
   ok: boolean
   error?: string
-  /** El inscripto que se acaba de tocar. */
+  /** The signup that was just touched. */
   name?: string
-  /** El Riot ID que quedó emparejado. */
+  /** The Riot ID that ended up matched. */
   nick?: string
-  /** Se le sacó la cuenta que tenía, en vez de darle una. */
+  /** The account they had was taken away, rather than one being given. */
   cleared?: boolean
 }
 
 /**
- * Decir de quién es una cuenta.
+ * Saying who an account belongs to.
  *
- * Lo automático —`link_roster_accounts()`— empareja sólo cuando el Riot ID de
- * la planilla coincide con el de la cuenta, y ante la duda no hace nada. Esto
- * es la puerta manual: la usa la ficha del equipo, que es la pantalla donde se
- * cargan los nicks y donde quien los carga sabe de quién es cada uno.
+ * The automatic path - `link_roster_accounts()` - only matches when the Riot ID
+ * on the signup sheet equals the account's, and when in doubt it does nothing.
+ * This is the manual door: the team page uses it, which is the screen where the
+ * nicks get entered and where whoever enters them knows whose each one is.
  *
- * Las validaciones están todas en `assign_roster_account()`: que la cuenta sea
- * del plantel de ese equipo y que no sea ya de otro inscripto. Ver
+ * Every validation lives in `assign_roster_account()`: that the account belongs
+ * to that team's roster and that it is not already somebody else's signup. See
  * `supabase/migrations/0019_asignar_cuenta.sql`.
  *
- * No hace falta revincular partidas: este vínculo no cambia qué equipo jugó
- * qué, sólo con qué universidad cuenta cada cuenta en las estadísticas.
+ * No relinking is needed: this link does not change which team played what,
+ * only which university each account counts towards in the stats.
  */
 export async function assignRosterAccount(
   rosterId: string,
@@ -199,23 +199,23 @@ export async function assignRosterAccount(
 export interface AssignRoleResult {
   ok: boolean
   error?: string
-  /** El inscripto que se acaba de tocar. */
+  /** The signup that was just touched. */
   name?: string
-  /** La línea que quedó asignada, o null si se limpió. */
+  /** The lane that ended up assigned, or null when it was cleared. */
   role?: string | null
 }
 
 /**
- * Decir a mano en qué línea juega una cuenta.
+ * Saying by hand which lane an account plays.
  *
- * `team_lineup` deduce la línea del historial de partidas, y antes de que se
- * juegue algo no tiene de dónde sacarla. Esto es la puerta manual: la usa la
- * ficha del equipo, al lado de cada nick del plantel, para los casos en que
- * quien carga los nicks ya sabe qué línea juega cada uno.
+ * `team_lineup` deduces the lane from the match history, and before anything is
+ * played it has nowhere to get it from. This is the manual door: the team page
+ * uses it, next to every nick on the roster, for the cases where whoever enters
+ * the nicks already knows which lane each one plays.
  *
- * Le gana a lo deducido —ver `assign_team_member_role()` y el comentario de
- * `supabase/migrations/0020_asignar_posicion.sql`— y se puede limpiar pasando
- * `null`, que es como se deshace una asignación equivocada.
+ * It beats the deduced value - see `assign_team_member_role()` and the comment
+ * in `supabase/migrations/0020_asignar_posicion.sql` - and it can be cleared by
+ * passing `null`, which is how a wrong assignment is undone.
  */
 export async function assignTeamMemberRole(
   teamId: string,

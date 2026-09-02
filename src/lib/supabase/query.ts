@@ -1,46 +1,46 @@
 import type { PostgrestError } from '@supabase/supabase-js'
 
 /**
- * Leer el resultado de una consulta sin tragarse el error.
+ * Reading the result of a query without swallowing the error.
  *
- * El patrón `data ?? []` es cómodo y es una trampa: una policy rota, una
- * columna renombrada o Supabase caído devuelven `data: null` con un `error` al
- * lado, y la página termina dibujando su estado vacío. Es decir que "se cayó la
- * base" y "todavía no se jugó nada" se ven exactamente igual, que es lo último
- * que uno quiere un día de partido.
+ * The `data ?? []` pattern is convenient and it is a trap: a broken policy, a
+ * renamed column or Supabase being down all return `data: null` with an `error`
+ * next to it, and the page ends up drawing its empty state. Which means "the
+ * database fell over" and "nothing has been played yet" look exactly the same,
+ * which is the last thing anyone wants on a match day.
  *
- * Acá el error se lanza y lo levanta el error.tsx del sitio, que muestra qué
- * pasó y ofrece reintentar. Se pierde el render parcial —si falla una de las
- * cuatro consultas de la home, no se ve ninguna— y es a propósito: una tabla de
- * posiciones a la que le falta una consulta no está incompleta, está mal, y
- * mostrarla igual es peor que no mostrar nada.
+ * Here the error is thrown and the site's error.tsx catches it, showing what
+ * happened and offering to retry. Partial rendering is lost — if one of the
+ * home page's four queries fails, none of them is shown — and that is on
+ * purpose: a standings table missing one query is not incomplete, it is wrong,
+ * and showing it anyway is worse than showing nothing.
  *
- * El `que` es lo que va al log del servidor. En producción el mensaje real no
- * viaja al browser, así que sin eso el `digest` del error no lleva a ningún
- * lado.
+ * `what` is what reaches the server log. In production the real message never
+ * travels to the browser, so without it the error's `digest` leads nowhere.
  */
 interface Result<T> {
   data: T | null
   error: PostgrestError | null
 }
 
-function boom(que: string, error: PostgrestError): never {
-  throw new Error(`No se pudo leer ${que}: ${error.message} (${error.code})`, { cause: error })
+function boom(what: string, error: PostgrestError): never {
+  throw new Error(`Could not read ${what}: ${error.message} (${error.code})`, { cause: error })
 }
 
-/** Las filas de un listado. Vacío es un resultado válido; un error no. */
-export function rows<T>(result: Result<T[]>, que: string): T[] {
-  if (result.error) boom(que, result.error)
+/** The rows of a listing. Empty is a valid result; an error is not. */
+export function rows<T>(result: Result<T[]>, what: string): T[] {
+  if (result.error) boom(what, result.error)
   return result.data ?? []
 }
 
 /**
- * Una fila que puede no existir (`maybeSingle`).
+ * A row that may not exist (`maybeSingle`).
  *
- * Devolver null es legítimo —un equipo que no existe da 404, no error— así que
- * acá sólo se distingue "no está" de "no se pudo preguntar".
+ * Returning null is legitimate — a team that does not exist is a 404, not an
+ * error — so all this tells apart is "it is not there" from "it could not be
+ * asked".
  */
-export function maybeRow<T>(result: Result<T>, que: string): T | null {
-  if (result.error) boom(que, result.error)
+export function maybeRow<T>(result: Result<T>, what: string): T | null {
+  if (result.error) boom(what, result.error)
   return result.data
 }

@@ -6,8 +6,8 @@ export const runtime = 'nodejs'
 export const maxDuration = 60
 
 /**
- * Parsea un replay ya subido y lo guarda. Un archivo por request: así un .rofl
- * corrupto no arrastra al resto del lote.
+ * Parses an already-uploaded replay and saves it. One file per request: that
+ * way a corrupt .rofl does not drag the rest of the batch down.
  */
 export async function POST(request: Request) {
   const user = await requireApiUser()

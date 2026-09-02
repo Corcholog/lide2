@@ -1,4 +1,4 @@
-/** Formateo compartido por el listado, el detalle y las cards. */
+/** Formatting shared by the match list, the match detail and the cards. */
 
 export function formatDuration(ms: number): string {
   const total = Math.round(ms / 1000)
@@ -27,23 +27,24 @@ export function formatKda(kills: number, deaths: number, assists: number): strin
 }
 
 /**
- * Los cinco roles, en orden de línea. Es el orden en que se lee un plantel y en
- * el que se dibuja un scoreboard.
+ * The five roles, in lane order. It is the order a lineup is read in and the
+ * one a scoreboard is drawn in.
  *
- * El soporte es `SUPPORT`. El .rofl lo llama `UTILITY`, pero eso se normaliza al
- * entrar (`normalizePosition` en el parser, y un trigger en la base por si algo
- * escribe sin pasar por ahí): del lado de acá hay un solo nombre.
+ * Support is `SUPPORT`. The .rofl calls it `UTILITY`, but that is normalized on
+ * the way in (`normalizePosition` in the parser, plus a trigger in the database
+ * in case something writes without going through it): on this side there is
+ * only ever one name.
  */
 export const ROLES = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'SUPPORT'] as const
 
-/** El .rofl trae la posición en inglés; la UI la muestra en castellano. */
+/** The .rofl gives the position in English; the UI shows it in Spanish. */
 const POSITIONS: Record<string, string> = {
   TOP: 'Top',
   JUNGLE: 'Jungla',
   MIDDLE: 'Mid',
   BOTTOM: 'ADC',
   SUPPORT: 'Soporte',
-  // Por si quedara alguna fila vieja sin normalizar: es el mismo rol, no otro.
+  // In case an old un-normalized row is left over: same role, not another one.
   UTILITY: 'Soporte',
 }
 
@@ -53,22 +54,22 @@ export function formatPosition(position: string | null): string {
 }
 
 /**
- * Cómo se nombra a un jugador en el sitio: el alias que haya cargado el panel,
- * o su nombre de Riot **sin el `#TAG`**.
+ * How a player is named across the site: the alias the admin panel set, or
+ * their Riot name **without the `#TAG`**.
  *
- * Sin el tag porque es el nombre grande, el que se lee de un vistazo: el tag va
- * al lado, en chico, y de eso se encarga `riotTag`.
+ * Without the tag because this is the big name, the one read at a glance: the
+ * tag goes next to it, small, and `riotTag` takes care of that.
  */
 export function playerName(gameName: string | null, displayName?: string | null): string {
   return displayName ?? gameName ?? 'Desconocido'
 }
 
 /**
- * El Riot ID completo, con `#TAG`.
+ * The full Riot ID, with `#TAG`.
  *
- * Es lo que hace falta para distinguir dos cuentas, porque el nombre solo puede
- * repetirse y el Riot ID entero no: por eso el panel lo usa para emparejar una
- * cuenta con un inscripto, y `riotTag` para mostrarlo en las páginas públicas.
+ * It is what it takes to tell two accounts apart, because the name on its own
+ * can repeat and the whole Riot ID cannot: that is why the admin panel uses it
+ * to match an account with a signup, and `riotTag` to show it on public pages.
  */
 export function riotId(gameName: string | null, tagLine: string | null): string {
   if (!gameName) return 'Desconocido'
@@ -76,13 +77,14 @@ export function riotId(gameName: string | null, tagLine: string | null): string 
 }
 
 /**
- * El `#TAG` que se dibuja apagado al lado del nombre, para terminar de decir de
- * qué cuenta se trata. Se ve siempre: sin sesión también, porque los que más
- * miran el plantel son los propios jugadores y ninguno tiene usuario.
+ * The `#TAG` drawn dimmed next to the name, to finish saying which account this
+ * is. It always shows, signed out too, because the people who look at a lineup
+ * most are the players themselves and none of them has an account.
  *
- * Cuando el nombre grande es un alias del panel, el tag solo no alcanza —el
- * alias no es el nick al que se le pega— y devuelve el Riot ID entero. Da null
- * cuando no hay nada que agregar: una cuenta sin tag, de un .rofl viejo.
+ * When the big name is an alias from the admin panel, the tag alone is not
+ * enough — the alias is not the nick it attaches to — and the whole Riot ID is
+ * returned instead. It gives null when there is nothing to add: an account with
+ * no tag, from an old .rofl.
  */
 export function riotTag(
   gameName: string | null,
@@ -94,11 +96,11 @@ export function riotTag(
 }
 
 /**
- * El camino inverso: de "DenisChang#LAN" a sus dos partes.
+ * The way back: from "DenisChang#LAN" to its two parts.
  *
- * El game name puede tener espacios y el tag no, así que se corta por el
- * **último** `#`. Sin `#` se devuelve sólo el nombre: la planilla puede venir
- * sin tags y eso se banca, aunque empareje peor.
+ * The game name may contain spaces and the tag may not, so it splits on the
+ * **last** `#`. With no `#` only the name is returned: the signup sheet can
+ * arrive without tags and that is tolerated, even if it matches worse.
  */
 export function parseRiotId(value: string): { gameName: string; tagLine: string | null } | null {
   const text = value.trim()

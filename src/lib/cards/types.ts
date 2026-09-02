@@ -1,14 +1,14 @@
 /**
- * Las piezas para redes.
+ * The pieces for social media.
  *
- * Una pieza no es más que un `StatBlock` —lo mismo que dibuja una tarjeta de
- * /estadisticas— con un encabezado que dice de qué recorte salió. Esa es toda
- * la idea: el catálogo de estadísticas ya sabe calcular y titular, así que las
- * cards no vuelven a decidir nada, sólo eligen cuáles se publican y las dibujan
- * a 1080 de ancho.
+ * A piece is no more than a `StatBlock` - the same thing a card on
+ * /estadisticas draws - with a header saying which scope it came from. That is
+ * the whole idea: the stats catalogue already knows how to compute and title,
+ * so the cards decide nothing again, they only pick which ones get published
+ * and draw them 1080 wide.
  *
- * Consecuencia práctica: sumar una estadística al registro la deja disponible
- * como card sin tocar nada de acá.
+ * The practical consequence: adding a stat to the registry makes it available
+ * as a card without touching anything here.
  */
 
 import type { StatBlock } from '@/lib/stats/types'
@@ -23,11 +23,10 @@ export interface FormatSpec {
 }
 
 /**
- * Los dos formatos de Instagram.
+ * The two Instagram formats.
  *
- * 4:5 es el vertical más alto que el feed no recorta, y 9:16 es la historia
- * completa. Los dos a 1080 de ancho, que es lo que Instagram sirve sin volver a
- * comprimir.
+ * 4:5 is the tallest vertical the feed does not crop, and 9:16 is the full
+ * story. Both 1080 wide, which is what Instagram serves without recompressing.
  */
 export const FORMATS: FormatSpec[] = [
   { id: 'post', label: 'Post 1080 × 1350', width: 1080, height: 1350 },
@@ -37,14 +36,15 @@ export const FORMATS: FormatSpec[] = [
 export interface Poster {
   id: string
   block: StatBlock
-  /** El renglón chico de arriba: "Fecha 2 · Fase de grupos". */
+  /** The small line at the top: "Fecha 2 · Fase de grupos". */
   kicker: string
   /**
-   * Si las filas son un ranking.
+   * Whether the rows are a ranking.
    *
-   * Casi siempre sí, y entonces van numeradas y el primero se destaca. "Los
-   * números" no lo es: son cinco cifras distintas —partidas, kills, la más
-   * larga— y ponerles 1, 2, 3 al lado afirmaría un orden que no existe.
+   * Nearly always yes, and then they are numbered and the first one stands out.
+   * "Los números" is not: it is five different figures - matches, kills, the
+   * longest one - and putting 1, 2, 3 beside them would assert an order that
+   * does not exist.
    */
   ordered: boolean
 }

@@ -5,11 +5,11 @@ function lineup(matchId: string, side: 100 | 200, puuids: string[], fileNames: s
   return { matchId, side, puuids, fileNames }
 }
 
-describe('detección de equipos', () => {
-  it('agrupa alineaciones que comparten 3 o más jugadores', () => {
+describe('team detection', () => {
+  it('groups lineups that share 3 or more players', () => {
     const teams = detectTeams([
       lineup('m1', 100, ['a', 'b', 'c', 'd', 'e'], []),
-      // Mismo equipo con un suplente: comparte 4.
+      // Same team with a substitute: it shares 4.
       lineup('m2', 100, ['a', 'b', 'c', 'd', 'x'], []),
       lineup('m1', 200, ['f', 'g', 'h', 'i', 'j'], []),
     ])
@@ -17,11 +17,11 @@ describe('detección de equipos', () => {
     expect(teams).toHaveLength(2)
     expect(teams[0].lineups).toBe(2)
     expect(teams[0].puuids.slice(0, 4).sort()).toEqual(['a', 'b', 'c', 'd'])
-    // El suplente queda último: jugó menos.
+    // The substitute goes last: they played less.
     expect(teams[0].puuids[5]).toBe('x')
   })
 
-  it('no fusiona equipos que sólo comparten dos jugadores', () => {
+  it('does not merge teams that share only two players', () => {
     const teams = detectTeams([
       lineup('m1', 100, ['a', 'b', 'c', 'd', 'e'], []),
       lineup('m2', 100, ['a', 'b', 'v', 'w', 'z'], []),
@@ -29,17 +29,17 @@ describe('detección de equipos', () => {
     expect(teams).toHaveLength(2)
   })
 
-  it('saca el nombre del número que se repite en todos sus archivos', () => {
+  it('takes the name from the number repeated across all its files', () => {
     const teams = detectTeams([
       lineup('m1', 100, ['a', 'b', 'c', 'd', 'e'], ['E1vsE4-LEIF8-FECHA1-B.rofl']),
       lineup('m2', 100, ['a', 'b', 'c', 'd', 'e'], ['WINNERS(E1vsE6)-C-LEIF8-FECHA2.rofl']),
     ])
 
-    // E1 está en las dos; E4 y E6 sólo en una.
+    // E1 is in both; E4 and E6 in only one.
     expect(teams[0].suggestedName).toBe('Equipo 1')
   })
 
-  it('entiende también los nombres escritos con palabras', () => {
+  it('understands names written out in words too', () => {
     const teams = detectTeams([
       lineup('m1', 100, ['a', 'b', 'c', 'd', 'e'], ['Fecha 3 Equipo 2 vs Equipo 9.rofl']),
       lineup('m2', 100, ['a', 'b', 'c', 'd', 'e'], ['E2vsE12-A-LEIF8-FECHA2.rofl']),
@@ -47,7 +47,7 @@ describe('detección de equipos', () => {
     expect(teams[0].suggestedName).toBe('Equipo 2')
   })
 
-  it('no confunde LEIF8 ni los match id con nombres de equipo', () => {
+  it('does not mistake LEIF8 or the match ids for team names', () => {
     const teams = detectTeams([
       lineup('m1', 100, ['a', 'b', 'c', 'd', 'e'], ['WINNERS-B-LEIF8-FECHA1.rofl']),
       lineup('m2', 100, ['a', 'b', 'c', 'd', 'e'], ['LA2-1602356940.rofl']),
@@ -55,7 +55,7 @@ describe('detección de equipos', () => {
     expect(teams[0].suggestedName).toBeNull()
   })
 
-  it('no arriesga un nombre cuando queda más de un candidato', () => {
+  it('does not risk a name when more than one candidate is left', () => {
     const teams = detectTeams([
       lineup('m1', 100, ['a', 'b', 'c', 'd', 'e'], ['E1vsE4-LEIF8-FECHA1-B.rofl']),
     ])

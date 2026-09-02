@@ -6,12 +6,12 @@ import { FORMATS, type Poster, type PosterFormat } from '@/lib/cards/types'
 import { StatPoster, exportPoster } from './StatPoster'
 
 /**
- * El lote de una fecha: cada pieza con sus datos crudos al lado.
+ * A matchday's batch: every piece with its raw data beside it.
  *
- * Las dos mitades salen del mismo `StatBlock`, y esa es la razón de que estén
- * juntas: el que baja el PNG y el que le pasa los números a un diseñador
- * publican lo mismo. Si el texto y la imagen pudieran discrepar, alguna de las
- * dos versiones saldría mal a la calle.
+ * Both halves come out of the same `StatBlock`, and that is the reason they sit
+ * together: whoever downloads the PNG and whoever hands the numbers to a
+ * designer publish the same thing. If the text and the image could disagree,
+ * one of the two versions would go out into the world wrong.
  */
 export function PosterBatch({ posters, prefix }: { posters: Poster[]; prefix: string }) {
   const [format, setFormat] = useState<PosterFormat>('post')
@@ -23,12 +23,12 @@ export function PosterBatch({ posters, prefix }: { posters: Poster[]; prefix: st
   const fileName = (poster: Poster) => `${prefix}-${poster.id}-${format}.png`
 
   /**
-   * Todas de una, en orden.
+   * All of them at once, in order.
    *
-   * De a una y esperando cada exportación: son ocho capturas de 1080 × 1350 y
-   * lanzarlas juntas traba el hilo principal lo suficiente como para que el
-   * navegador dé por colgada la pestaña. El navegador va a pedir permiso para
-   * bajar varios archivos, que es lo esperable.
+   * One at a time, awaiting each export: they are eight 1080 x 1350 captures
+   * and firing them together blocks the main thread long enough for the browser
+   * to declare the tab hung. The browser will ask permission to download
+   * several files, which is to be expected.
    */
   async function downloadAll() {
     setBusy(true)
@@ -114,8 +114,8 @@ function RawData({ block }: { block: Poster['block'] }) {
       </div>
 
       {/*
-        `pre` y no una tabla: lo que se ve acá es exactamente lo que se copia, y
-        cualquier maquetado intermedio abre la puerta a que difieran.
+        `pre` and not a table: what shows here is exactly what gets copied, and
+        any layout in between opens the door to the two diverging.
       */}
       <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words border border-line bg-canvas px-3 py-2 font-mono text-xs leading-relaxed text-fg-soft">
         {text}
@@ -133,8 +133,8 @@ function CopyButton({ label, value }: { label: string; value: string }) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      // Sin permiso de portapapeles (http, o el navegador lo bloquea): el texto
-      // está a la vista igual y se puede seleccionar a mano.
+      // No clipboard permission (http, or the browser blocks it): the text is
+      // in plain sight anyway and can be selected by hand.
       setCopied(false)
     }
   }

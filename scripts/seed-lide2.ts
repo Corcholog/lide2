@@ -1,17 +1,17 @@
 /**
- * Carga la estructura de la LIDE 2 en la base: torneo, universidades, los 20
- * equipos con su grupo, el fixture completo de la fase de grupos y el bracket de
- * playoffs encadenado.
+ * Loads LIDE 2's structure into the database: tournament, universities, the 20
+ * teams with their group, the complete group-phase fixture and the chained
+ * playoff bracket.
  *
- * Todo sale de src/lib/lide2/tournament.ts, que transcribe las planillas de la
- * organizacion. Ya no hay nada inventado: los equipos son los de verdad y los
- * cruces son los publicados.
+ * Everything comes from src/lib/lide2/tournament.ts, which transcribes the
+ * organizers' sheets. Nothing is invented any more: the teams are the real ones
+ * and the matchups are the published ones.
  *
- *   npm run seed:lide2                     estructura y fixture
- *   npm run seed:lide2 -- --clasificados   mete a los dos primeros de cada
- *                                          grupo en los cuartos (correr cuando
- *                                          termine la fase de grupos)
- *   npm run seed:lide2 -- --limpiar        deja la base como estaba
+ *   npm run seed:lide2                  structure and fixture
+ *   npm run seed:lide2 -- --qualified   puts the top two of each group into the
+ *                                       quarter-finals (run when the group
+ *                                       phase finishes)
+ *   npm run seed:lide2 -- --clean       leaves the database as it was
  */
 import { ROSTERS } from '../src/lib/lide2/rosters'
 import {
@@ -38,7 +38,7 @@ async function findTournament(): Promise<string | null> {
   return (data?.id as string) ?? null
 }
 
-/** Crea el torneo, las 13 universidades, las etapas y las 7 series del bracket. */
+/** Creates the tournament, the 13 universities, the stages and the bracket's 7 series. */
 async function createStructure(): Promise<string> {
   const { data: tournament, error } = await supabase
     .from('tournaments')
@@ -55,12 +55,12 @@ async function createStructure(): Promise<string> {
     .select('id')
     .single()
 
-  if (error) throw new Error(`torneo: ${error.message}`)
+  if (error) throw new Error(`tournament: ${error.message}`)
   const tournamentId = tournament.id as string
 
-  // El indice unico es sobre lower(tag), una expresion, y upsert no puede
-  // apuntarle: on conflict solo matchea indices por columna. Se resuelve
-  // leyendo primero, igual que con los equipos.
+  // The unique index is on lower(tag), an expression, and upsert cannot target
+  // it: on conflict only matches indexes by column. It is solved by reading
+  // first, same as with the teams.
   const { data: existing } = await supabase.from('universities').select('id,tag')
   const universityId = new Map(
     (existing ?? []).map((row) => [String(row.tag).toLowerCase(), row.id as string]),
@@ -76,14 +76,14 @@ async function createStructure(): Promise<string> {
       .insert(missing.map((university) => ({ name: university.name, tag: university.tag })))
       .select('id,tag')
 
-    if (uniError) throw new Error(`universidades: ${uniError.message}`)
+    if (uniError) throw new Error(`universities: ${uniError.message}`)
     for (const row of created ?? []) {
       universityId.set(String(row.tag).toLowerCase(), row.id as string)
     }
   }
 
-  // Etapas: una por grupo (para el calendario y el panel) y una por ronda de
-  // playoffs (las series cuelgan de estas).
+  // Stages: one per group (for the calendar and the panel) and one per playoff
+  // round (the series hang off these).
   const stages = [
     ...GROUPS.map((name, index) => ({
       tournament_id: tournamentId,
@@ -96,8 +96,9 @@ async function createStructure(): Promise<string> {
     { tournament_id: tournamentId, name: 'Gran final', kind: 'bracket', order_index: 7 },
   ]
 
-  // Las etapas no se recrean si ya estan: borrarlas cascadea a las series, y eso
-  // desvincularia las partidas de playoffs ya subidas.
+  // The stages are not recreated when they already exist: deleting them
+  // cascades to the series, and that would unlink the playoff matches already
+  // uploaded.
   const { data: alreadyThere } = await supabase
     .from('stages')
     .select('id,name')
@@ -109,10 +110,10 @@ async function createStructure(): Promise<string> {
       .insert(stages)
       .select('id,name')
 
-    if (stageError) throw new Error(`etapas: ${stageError.message}`)
+    if (stageError) throw new Error(`stages: ${stageError.message}`)
     await createBracket(new Map((created ?? []).map((row) => [row.name as string, row.id as string])))
   } else {
-    console.log('  Las etapas y el bracket ya existian: no se tocaron.')
+    console.log('  The stages and the bracket already existed: they were left alone.')
   }
 
   const teamId = await createTeams(tournamentId, universityId)
@@ -122,12 +123,12 @@ async function createStructure(): Promise<string> {
 }
 
 /**
- * El bracket se crea de atras para adelante: la final primero, porque las
- * semis la referencian, y los cuartos referencian a las semis. Cada serie sabe
- * a que serie y a que lado manda a su ganador, y eso es lo que hace que
- * advance_series() lo mueva solo cuando se sube el ultimo .rofl.
+ * The bracket is created back to front: the final first, because the semis
+ * reference it, and the quarters reference the semis. Every series knows which
+ * series and which side it sends its winner to, and that is what lets
+ * advance_series() move them on its own when the last .rofl is uploaded.
  *
- * Cruces: los dos equipos de un mismo grupo no se pueden ver hasta la final.
+ * Matchups: two teams from the same group cannot meet before the final.
  */
 async function createBracket(stageId: Map<string, string>): Promise<void> {
   const { data: final, error: finalError } = await supabase
@@ -187,19 +188,19 @@ async function createBracket(stageId: Map<string, string>): Promise<void> {
     })),
   )
 
-  if (quarterError) throw new Error(`cuartos: ${quarterError.message}`)
+  if (quarterError) throw new Error(`quarter-finals: ${quarterError.message}`)
 }
 
 /**
- * Crea o actualiza los 20 equipos y sus universidades.
+ * Creates or updates the 20 teams and their universities.
  *
- * `seed` guarda el numero oficial (1 a 20), que es como los nombra la
- * organizacion en el fixture, y `tag` el codigo de inscripcion cuando lo tienen.
- * Los cuatro equipos armados con inscripciones individuales representan a mas de
- * una universidad: university_id se queda con la mas representada, para poder
- * atribuir en las estadisticas, y la lista completa va a team_universities.
+ * `seed` stores the official number (1 to 20), which is how the organizers name
+ * them in the fixture, and `tag` the signup code where they have one. The four
+ * teams built from individual signups represent more than one university:
+ * university_id keeps the most represented one, so attribution in the stats is
+ * possible, and the full list goes to team_universities.
  *
- * Devuelve el id de cada equipo por numero, que es lo que necesita el fixture.
+ * It returns each team's id by number, which is what the fixture needs.
  */
 async function createTeams(
   tournamentId: string,
@@ -217,9 +218,9 @@ async function createTeams(
       university_id: universityId.get(UNIVERSITIES[team.universities[0]].tag.toLowerCase()) ?? null,
     }
 
-    // El indice unico es (tournament_id, lower(name)), una expresion, asi que
-    // upsert no puede apuntarle: se lee primero. De paso, volver a correr esto
-    // no pisa el logo que alguien haya cargado desde el panel.
+    // The unique index is (tournament_id, lower(name)), an expression, so
+    // upsert cannot target it: it is read first. Along the way, re-running this
+    // does not trample a logo somebody uploaded from the panel.
     const { data: existing } = await supabase
       .from('teams')
       .select('id')
@@ -240,8 +241,8 @@ async function createTeams(
 
     byNumber.set(team.number, id)
 
-    // Se reemplaza entera: si un equipo cambia de composicion, la lista vieja no
-    // tiene por que sobrevivir.
+    // It is replaced whole: if a team changes composition, the old list has no
+    // business surviving.
     await supabase.from('team_universities').delete().eq('team_id', id)
 
     const links = team.universities
@@ -264,12 +265,12 @@ async function createTeams(
 }
 
 /**
- * Escribe el plantel inscripto de un equipo.
+ * Writes a team's signed-up roster.
  *
- * Va por upsert contra (team_id, order_index) y no por borrar e insertar: si un
- * administrador ya emparejo a alguien con su cuenta de Riot, ese player_id no
- * esta en el payload y sobrevive. Lo mismo con display_name, si le dejo el
- * nombre prolijo.
+ * It goes by upsert against (team_id, order_index) and not by delete-and-insert:
+ * if an admin already matched somebody with their Riot account, that player_id
+ * is not in the payload and survives. Same with display_name, if they tidied up
+ * the name.
  */
 async function upsertRoster(
   teamId: string,
@@ -290,16 +291,16 @@ async function upsertRoster(
     .from('team_roster')
     .upsert(rows, { onConflict: 'team_id,order_index' })
 
-  if (error) throw new Error(`plantel del equipo ${number}: ${error.message}`)
+  if (error) throw new Error(`roster of team ${number}: ${error.message}`)
 }
 
 /**
- * Escribe los 40 cruces de la fase de grupos.
+ * Writes the group phase's 40 matchups.
  *
- * Un cruce existe desde que la organizacion publica el calendario, mucho antes
- * de que haya un .rofl, asi que va en `fixtures` y no en `matches`. Cuando
- * alguien suba el replay se le engancha la partida y la vista fixture_results
- * empieza a mostrar el resultado.
+ * A matchup exists from the moment the organizers publish the calendar, long
+ * before there is any .rofl, so it goes in `fixtures` and not in `matches`. When
+ * somebody uploads the replay the match is hooked to it and the fixture_results
+ * view starts showing the result.
  */
 async function createFixtures(
   tournamentId: string,
@@ -328,12 +329,14 @@ async function createFixtures(
     }),
   )
 
-  const faltan = rows.filter((row) => !row.team_a_id || !row.team_b_id)
-  if (faltan.length > 0) throw new Error(`fixture: hay ${faltan.length} cruces sin equipo`)
+  const incomplete = rows.filter((row) => !row.team_a_id || !row.team_b_id)
+  if (incomplete.length > 0) {
+    throw new Error(`fixture: there are ${incomplete.length} matchups with no team`)
+  }
 
-  // upsert contra la unica de (tournament_id, matchday, slot, team_a_id,
-  // team_b_id): repetir el seed no duplica cruces ni desengancha las partidas
-  // que ya se hayan vinculado, porque match_id no esta en el update.
+  // upsert against the unique on (tournament_id, matchday, slot, team_a_id,
+  // team_b_id): re-running the seed neither duplicates matchups nor unhooks the
+  // matches already linked, because match_id is not in the update.
   const { error } = await supabase
     .from('fixtures')
     .upsert(rows, { onConflict: 'tournament_id,matchday,slot,team_a_id,team_b_id' })
@@ -342,12 +345,13 @@ async function createFixtures(
 }
 
 /**
- * Mete a los dos primeros de cada grupo en los cuartos, segun la tabla de hoy.
+ * Puts the top two of each group into the quarter-finals, according to today's
+ * table.
  *
- * Va aparte y no dentro del seed porque depende de resultados: mientras la fase
- * de grupos no haya terminado, la tabla puede cambiar y los cuartos quedarian
- * mal. Se corre una vez, cuando cierra la ultima fecha. Es idempotente: volver a
- * correrlo simplemente vuelve a leer la tabla.
+ * It goes separately and not inside the seed because it depends on results:
+ * while the group phase has not finished, the table can change and the quarters
+ * would be wrong. It is run once, when the last matchday closes. It is
+ * idempotent: running it again simply reads the table afresh.
  */
 async function seedQuarters(tournamentId: string): Promise<void> {
   const { data: standings } = await supabase
@@ -367,9 +371,9 @@ async function seedQuarters(tournamentId: string): Promise<void> {
     .eq('round', 'Cuartos de final')
 
   for (const quarter of quarters ?? []) {
-    // "1º A" -> "1A", que es como estan armadas las claves de `qualified`.
-    // Por posicion y letra y no por texto exacto, asi sobrevive a que alguien
-    // reescriba la etiqueta.
+    // "1º A" -> "1A", which is how `qualified`'s keys are built. By position
+    // and letter and not by exact text, so it survives somebody rewriting the
+    // label.
     const key = (label: string | null) => {
       const match = label?.match(/^(\d)\D*([A-D])$/)
       return match ? `${match[1]}${match[2]}` : ''
@@ -385,13 +389,13 @@ async function seedQuarters(tournamentId: string): Promise<void> {
 }
 
 /**
- * Deja la base como estaba: borra todo lo que creo el seed y devuelve las
- * partidas de LEIF a estar sueltas.
+ * Leaves the database as it was: deletes everything the seed created and
+ * returns the LEIF matches to being loose.
  *
- * El orden importa. Si se borra el torneo antes de desvincular los equipos que
- * no creo el seed, el cascade se los lleva puestos junto con sus rosters. Y las
- * partidas se sueltan antes que nada, porque despues relink_all_matches() les
- * vuelve a deducir los equipos a partir de quienes jugaron.
+ * The order matters. Deleting the tournament before unlinking the teams the
+ * seed did not create means the cascade takes them along with their rosters.
+ * And the matches are released before anything else, because afterwards
+ * relink_all_matches() deduces their teams again from whoever played.
  */
 async function clean(tournamentId: string): Promise<void> {
   const { error: matchError } = await supabase
@@ -399,72 +403,72 @@ async function clean(tournamentId: string): Promise<void> {
     .update({ tournament_id: null, stage_label: null, blue_team_id: null, red_team_id: null })
     .eq('tournament_id', tournamentId)
 
-  if (matchError) throw new Error(`partidas: ${matchError.message}`)
+  if (matchError) throw new Error(`matches: ${matchError.message}`)
 
   const { error: relinkError } = await supabase.rpc('relink_all_matches')
   if (relinkError) {
-    console.log(`  Aviso: no se pudo revincular los equipos (${relinkError.message}).`)
-    console.log('  Las partidas quedan sueltas; se arregla desde /teams/detectar.')
+    console.log(`  Warning: could not relink the teams (${relinkError.message}).`)
+    console.log('  The matches are left loose; it is fixed from /equipos/detectar.')
   }
 
-  // Que un equipo lo haya creado el seed no se decide por el nombre: una
-  // corrida anterior pudo haber usado otros, y de hecho paso cuando los equipos
-  // eran placeholders inventados. Lo que los separa es el plantel: los que
-  // salieron de los replays tienen team_members y los del seed no.
-  const { data: delTorneo } = await supabase
+  // Whether the seed created a team is not decided by its name: an earlier run
+  // may have used others, and in fact that happened back when the teams were
+  // invented placeholders. What separates them is the roster: the ones that
+  // came out of the replays have team_members and the seed's do not.
+  const { data: ofTournament } = await supabase
     .from('teams')
     .select('id,name,team_members(count)')
     .eq('tournament_id', tournamentId)
 
-  const conPlantel: string[] = []
-  const sinPlantel: string[] = []
+  const withRoster: string[] = []
+  const withoutRoster: string[] = []
 
-  for (const team of delTorneo ?? []) {
-    const miembros = (team.team_members as { count: number }[] | null)?.[0]?.count ?? 0
-    if (miembros > 0) conPlantel.push(team.id as string)
-    else sinPlantel.push(team.id as string)
+  for (const team of ofTournament ?? []) {
+    const members = (team.team_members as { count: number }[] | null)?.[0]?.count ?? 0
+    if (members > 0) withRoster.push(team.id as string)
+    else withoutRoster.push(team.id as string)
   }
 
-  // Los que tienen plantel se desvinculan en vez de borrarse: son equipos
-  // detectados de partidas de verdad y el cascade se llevaria sus rosters.
-  if (conPlantel.length > 0) {
+  // The ones with a roster are unlinked instead of deleted: they are teams
+  // detected from real matches and the cascade would take their rosters.
+  if (withRoster.length > 0) {
     await supabase
       .from('teams')
       .update({ tournament_id: null, group_label: null, university_id: null })
-      .in('id', conPlantel)
+      .in('id', withRoster)
   }
 
-  // team_universities y fixtures se van por cascade con los equipos y el torneo,
-  // igual que stages y series.
-  if (sinPlantel.length > 0) {
-    await supabase.from('teams').delete().in('id', sinPlantel)
+  // team_universities and fixtures go by cascade with the teams and the
+  // tournament, same as stages and series.
+  if (withoutRoster.length > 0) {
+    await supabase.from('teams').delete().in('id', withoutRoster)
   }
 
   await supabase.from('tournaments').delete().eq('id', tournamentId)
 
-  // Las universidades que quedaron sin ningun equipo. Se mira asi y no por la
-  // lista de UNIVERSITIES porque una corrida vieja pudo haber cargado otras
-  // (la primera version del seed inventaba trece que no eran estas).
-  const { data: universidades } = await supabase.from('universities').select('id,tag')
-  const { data: enUso } = await supabase.from('teams').select('university_id')
+  // The universities left with no team at all. It is checked this way and not
+  // against the UNIVERSITIES list because an old run may have loaded others
+  // (the seed's first version invented thirteen that were not these).
+  const { data: universities } = await supabase.from('universities').select('id,tag')
+  const { data: inUse } = await supabase.from('teams').select('university_id')
 
-  const usadas = new Set((enUso ?? []).map((team) => team.university_id).filter(Boolean))
-  const huerfanas = (universidades ?? [])
-    .filter((university) => !usadas.has(university.id))
+  const used = new Set((inUse ?? []).map((team) => team.university_id).filter(Boolean))
+  const orphans = (universities ?? [])
+    .filter((university) => !used.has(university.id))
     .map((university) => university.id as string)
 
-  if (huerfanas.length > 0) {
-    await supabase.from('universities').delete().in('id', huerfanas)
+  if (orphans.length > 0) {
+    await supabase.from('universities').delete().in('id', orphans)
   }
 }
 
 async function main() {
-  const limpiar = process.argv.includes('--limpiar')
-  const clasificados = process.argv.includes('--clasificados')
+  const clean_ = process.argv.includes('--clean')
+  const qualified = process.argv.includes('--qualified')
 
-  if (clasificados) {
+  if (qualified) {
     const existing = await findTournament()
-    if (!existing) throw new Error('No hay torneo cargado. Corre antes: npm run seed:lide2')
+    if (!existing) throw new Error('No tournament loaded. Run first: npm run seed:lide2')
 
     await seedQuarters(existing)
 
@@ -485,14 +489,14 @@ async function main() {
     return
   }
 
-  if (limpiar) {
+  if (clean_) {
     const existing = await findTournament()
     if (!existing) {
-      console.log('\n  No hay nada que limpiar.\n')
+      console.log('\n  There is nothing to clean.\n')
       return
     }
     await clean(existing)
-    console.log('\n  Listo: torneo, equipos, fixture, planteles y universidades borrados.\n')
+    console.log('\n  Done: tournament, teams, fixture, rosters and universities deleted.\n')
     return
   }
 
@@ -504,7 +508,7 @@ async function main() {
       .select('id', { count: 'exact', head: true })
       .eq('tournament_id', tournamentId)
 
-  const [teams, matches, series, fixtures, jugados] = await Promise.all([
+  const [teams, matches, series, fixtures, played] = await Promise.all([
     count('teams'),
     count('matches'),
     count('series_results'),
@@ -516,18 +520,18 @@ async function main() {
       .eq('status', 'jugado'),
   ])
 
-  console.log(`\n  Torneo ${TOURNAMENT.name} listo (${tournamentId})`)
-  console.log(`  ${teams.count ?? 0} equipos en ${GROUPS.length} grupos`)
+  console.log(`\n  Tournament ${TOURNAMENT.name} ready (${tournamentId})`)
+  console.log(`  ${teams.count ?? 0} teams across ${GROUPS.length} groups`)
   console.log(
-    `  ${fixtures.count ?? 0} cruces de fase de grupos (${jugados.count ?? 0} con resultado)`,
+    `  ${fixtures.count ?? 0} group-phase matchups (${played.count ?? 0} with a result)`,
   )
-  const { count: inscriptos } = await supabase
+  const { count: signups } = await supabase
     .from('team_roster')
     .select('id', { count: 'exact', head: true })
 
-  console.log(`  ${inscriptos ?? 0} inscriptos en los planteles`)
-  console.log(`  ${series.count ?? 0} series de playoffs encadenadas`)
-  console.log(`  ${matches.count ?? 0} partidas asociadas`)
+  console.log(`  ${signups ?? 0} signups across the rosters`)
+  console.log(`  ${series.count ?? 0} chained playoff series`)
+  console.log(`  ${matches.count ?? 0} matches attached`)
   console.log('')
 }
 

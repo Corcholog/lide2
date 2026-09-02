@@ -2,9 +2,9 @@ import Link from 'next/link'
 import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
-import { inicioDelTorneo } from '@/lib/lide2/tournament'
-import { LogosUniversidad } from '@/components/torneo/LogoUniversidad'
-import { OrdenEquipos } from '@/components/torneo/OrdenEquipos'
+import { tournamentStartDate } from '@/lib/lide2/tournament'
+import { UniversityLogos } from '@/components/tournament/UniversityLogo'
+import { TeamOrderPicker } from '@/components/tournament/TeamOrderPicker'
 import { parseTeamOrder, sortTeams } from '@/lib/teams/order'
 import { createTeamAction, relinkAction } from './actions'
 
@@ -39,24 +39,24 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
     // El orden lo pone `sortTeams`: el winrate no es una columna de esta vista
     // y ordenar por victorias deja a un 3–3 arriba de un 2–0.
     supabase.from('team_totals').select('*'),
-    // Las siglas alcanzan: el archivo del escudo sale del tag. Ver LogoUniversidad.
+    // Las siglas alcanzan: el archivo del escudo sale del tag. Ver UniversityLogo.
     supabase
       .from('team_universities')
       .select('team_id,order_index,universities(tag)')
       .order('order_index'),
   ])
 
-  const teams = sortTeams(rows<TeamTotalsRow>(totalsRes, 'los equipos'), order)
+  const teams = sortTeams(rows<TeamTotalsRow>(totalsRes, 'the teams'), order)
 
-  const universidades = new Map<string, string[]>()
-  for (const fila of rows<{ team_id: string; universities: { tag: string } | null }>(
+  const universities = new Map<string, string[]>()
+  for (const row of rows<{ team_id: string; universities: { tag: string } | null }>(
     unisRes as never,
-    'las universidades de los equipos',
+    'the teams universities',
   )) {
-    if (!fila.universities) continue
-    universidades.set(fila.team_id, [
-      ...(universidades.get(fila.team_id) ?? []),
-      fila.universities.tag,
+    if (!row.universities) continue
+    universities.set(row.team_id, [
+      ...(universities.get(row.team_id) ?? []),
+      row.universities.tag,
     ])
   }
 
@@ -74,7 +74,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
           */}
           <p className="mt-1 text-sm text-muted">
             {user
-              ? 'Cada partida se vincula sola cuando 3 o más de sus jugadores están en el roster.'
+              ? 'Cada partida se vincula sola cuando 3 o más de sus jugadores están en el plantel.'
               : `Los ${teams.length} equipos del torneo, ${
                   order === 'winrate' ? 'del que más gana al que menos' : 'por orden alfabético'
                 }.`}
@@ -126,7 +126,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
       {/* Arriba de las cards y no en el encabezado: al lado de lo que ordena, y
           sin pelearle el lugar a los botones del panel. Con la lista vacía no
           hay nada que ordenar. */}
-      {teams.length > 0 && <OrdenEquipos order={order} />}
+      {teams.length > 0 && <TeamOrderPicker order={order} />}
 
       {teams.length === 0 ? (
         <div className="rounded-lg border border-dashed border-line-strong px-6 py-12 text-center text-fg-soft">
@@ -136,7 +136,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
           <p className="mt-1 text-sm text-faint">
             {user
               ? 'Probá con “Detectar desde las partidas”: agrupa a los jugadores por quiénes jugaron juntos.'
-              : `Los equipos se publican antes del arranque, el ${inicioDelTorneo()}.`}
+              : `Los equipos se publican antes del arranque, el ${tournamentStartDate()}.`}
           </p>
         </div>
       ) : (
@@ -152,8 +152,8 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
         */
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {teams.map((team) => {
-            const tags = universidades.get(team.team_id) ?? []
-            const derrotas = team.games - team.wins
+            const tags = universities.get(team.team_id) ?? []
+            const losses = team.games - team.wins
 
             return (
               <li key={team.team_id}>
@@ -179,7 +179,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
                         <p className="truncate text-xs text-faint">{tags.join(' / ')}</p>
                       )}
                     </div>
-                    <LogosUniversidad tags={tags} size="card" max={3} />
+                    <UniversityLogos tags={tags} size="card" max={3} />
                   </div>
 
                   {/* mt-auto: las cards de una fila miden lo mismo, asi que
@@ -190,7 +190,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
                       <dd className="tabular text-sm">
                         <span className="text-win">{team.wins}</span>
                         <span className="text-dim">–</span>
-                        <span className="text-loss">{derrotas}</span>
+                        <span className="text-loss">{losses}</span>
                       </dd>
                     </div>
                     <div className="text-right">

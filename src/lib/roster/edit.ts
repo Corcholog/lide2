@@ -1,54 +1,59 @@
 /**
- * Los cambios de plantel, antes de que empiece el torneo.
+ * Roster changes, before the tournament starts.
  *
- * La planilla de inscripción no es definitiva: alguien se baja, entra un
- * suplente, otro se anotó con el nombre mal escrito. Hasta acá el panel sólo
- * sabía emparejar inscriptos con cuentas de Riot; los inscriptos en sí venían
- * del seed y no había forma de tocarlos sin entrar al SQL editor de Supabase.
+ * The signup sheet is not final: somebody drops out, a substitute comes in,
+ * another signed up with their name misspelled. Until now the admin panel only
+ * knew how to match signups with Riot accounts; the signups themselves came
+ * from the seed and there was no way to touch them without going into the
+ * Supabase SQL editor.
  *
- * Este archivo es la parte que se puede probar sin base: leer el formulario de
- * un equipo y decidir qué se da de baja, qué se actualiza y qué se crea. Las
- * escrituras las hace `saveTeamRosterAction`.
+ * This file is the part that can be tested without a database: read a team's
+ * form and decide what gets removed, what gets updated and what gets created.
+ * `saveTeamRosterAction` does the writing.
  *
- * Dos reglas que conviene conocer antes de tocarlo:
+ * Two rules worth knowing before touching it:
  *
- * 1. EL FORMULARIO MANDA EL PLANTEL ENTERO, no el cambio. Si lo que llega no
- *    cubre exactamente las filas que hay hoy en la base, no se escribe nada:
- *    quiere decir que el plantel se editó en otra pestaña, y aplicar encima un
- *    formulario viejo daría de baja a alguien que nadie tocó.
+ * 1. THE FORM SENDS THE WHOLE ROSTER, not the change. If what arrives does not
+ *    cover exactly the rows the database holds right now, nothing is written:
+ *    it means the roster was edited in another tab, and applying a stale form
+ *    on top would remove somebody nobody touched.
  *
- * 2. `order_index` NO SE RECOMPACTA al dar de baja. Es el orden de la planilla
- *    y tiene un único por equipo, así que renumerar las filas que quedan
- *    obligaría a moverlas en dos pasos para no chocar contra ese índice a mitad
- *    de camino. Lo único que se ganaría es una numeración sin huecos, y las
- *    páginas numeran por posición en la lista y no por este campo.
+ * 2. `order_index` IS NOT RECOMPACTED on removal. It is the signup sheet's
+ *    order and it has a unique-per-team constraint, so renumbering the
+ *    remaining rows would mean moving them in two passes to avoid colliding
+ *    with that index halfway through. The only gain would be gapless
+ *    numbering, and the pages number by position in the list and not by this
+ *    field.
+ *
+ * The form field names stay in Spanish: they are the names the markup in
+ * `RosterTeam.tsx` writes, and both sides have to agree on them.
  */
 
 import { parseRiotId } from '@/lib/format'
 
-/** Una fila del formulario, tal como la manda el navegador. */
+/** One form row, exactly as the browser sends it. */
 export interface RosterFormRow {
-  /** El id del inscripto, o `nuevo-N` mientras la fila no exista en la base. */
+  /** The signup's id, or `nuevo-N` while the row does not exist in the database. */
   key: string
-  /** Si todavía no existe: se crea en vez de actualizarse. */
+  /** Whether it does not exist yet: it is created instead of updated. */
   isNew: boolean
-  /** Tildado "quitar": se da de baja al guardar. */
-  baja: boolean
-  nombre: string
+  /** The "quitar" box is ticked: it is removed on save. */
+  removed: boolean
+  fullName: string
   universityId: string
-  /** El Riot ID escrito a mano, "Nombre#TAG". */
+  /** The Riot ID typed by hand, "Name#TAG". */
   riot: string
-  /** La cuenta elegida del desplegable. */
+  /** The account picked from the dropdown. */
   playerId: string
 }
 
-/** Un inscripto tal como está hoy en la base. Sin el nombre: no hace falta. */
+/** A signup as the database holds it today. No name: it is not needed. */
 export interface RosterCurrentRow {
   id: string
   orderIndex: number
 }
 
-/** Una fila lista para escribir en `team_roster`. */
+/** A row ready to be written into `team_roster`. */
 export interface RosterWriteRow {
   team_id: string
   full_name: string
@@ -63,23 +68,22 @@ export type RosterPlan =
   | { ok: false; error: string }
   | {
       ok: true
-      /** Ids a borrar de `team_roster`. */
+      /** Ids to delete from `team_roster`. */
       remove: string[]
-      /** Los que ya existían, con su id. */
+      /** The ones that already existed, with their id. */
       update: (RosterWriteRow & { id: string })[]
-      /** Los que se agregan. Sin id: lo pone la base. */
+      /** The ones being added. No id: the database assigns it. */
       create: RosterWriteRow[]
     }
 
 /**
- * Junta las filas del formulario.
+ * Collects the form's rows.
  *
- * Cada inscripto manda un `fila-<clave>` oculto y sus campos con esa misma
- * clave detrás. El oculto es el que define qué filas hay: los `<input>` de una
- * fila tildada para dar de baja podrían no llegar, y un `<checkbox>` sin tildar
- * no llega nunca.
+ * Every signup sends a hidden `fila-<key>` plus its fields carrying that same
+ * key. The hidden one is what defines which rows exist: the `<input>`s of a row
+ * ticked for removal might not arrive, and an unticked `<checkbox>` never does.
  *
- * El orden es el del formulario, que es el de la pantalla.
+ * The order is the form's, which is the screen's.
  */
 export function readRosterForm(formData: FormData): RosterFormRow[] {
   const field = (name: string, key: string) => String(formData.get(`${name}-${key}`) ?? '').trim()
@@ -92,8 +96,8 @@ export function readRosterForm(formData: FormData): RosterFormRow[] {
     rows.push({
       key,
       isNew: String(formData.get(name)) === 'nuevo',
-      baja: formData.get(`baja-${key}`) !== null,
-      nombre: field('nombre', key),
+      removed: formData.get(`baja-${key}`) !== null,
+      fullName: field('nombre', key),
       universityId: field('universidad', key),
       riot: field('riot', key),
       playerId: field('player', key),
@@ -103,9 +107,9 @@ export function readRosterForm(formData: FormData): RosterFormRow[] {
   return rows
 }
 
-/** Una fila nueva que quedó sin tocar: el botón "Agregar" y nada más. */
-function enBlanco(row: RosterFormRow): boolean {
-  return !row.nombre && !row.riot && !row.playerId
+/** A new row nobody touched: the "Agregar" button and nothing else. */
+function isBlank(row: RosterFormRow): boolean {
+  return !row.fullName && !row.riot && !row.playerId
 }
 
 export function planRosterEdit(
@@ -113,64 +117,64 @@ export function planRosterEdit(
   form: RosterFormRow[],
   current: RosterCurrentRow[],
 ): RosterPlan {
-  const actual = new Map(current.map((row) => [row.id, row]))
+  const existing = new Map(current.map((row) => [row.id, row]))
 
   const remove: string[] = []
   const update: (RosterWriteRow & { id: string })[] = []
   const create: RosterWriteRow[] = []
-  const vistos = new Set<string>()
+  const seen = new Set<string>()
 
-  // Los nuevos van al final. Ver la regla 2 de arriba: se toma el máximo que
-  // haya y no la cantidad de filas, porque después de una baja hay huecos.
-  let siguiente = current.reduce((max, row) => Math.max(max, row.orderIndex), -1) + 1
+  // New rows go at the end. See rule 2 above: the highest index in use is taken
+  // and not the row count, because removals leave gaps behind.
+  let nextIndex = current.reduce((max, row) => Math.max(max, row.orderIndex), -1) + 1
 
   for (const row of form) {
-    if (row.isNew && enBlanco(row)) continue
+    if (row.isNew && isBlank(row)) continue
 
-    const existente = row.isNew ? null : actual.get(row.key)
+    const current_ = row.isNew ? null : existing.get(row.key)
 
     if (!row.isNew) {
-      if (!existente) {
+      if (!current_) {
         return { ok: false, error: 'El plantel cambió mientras lo editabas. Recargá la página.' }
       }
-      vistos.add(row.key)
+      seen.add(row.key)
 
-      if (row.baja) {
+      if (row.removed) {
         remove.push(row.key)
         continue
       }
     }
 
-    if (!row.nombre) {
+    if (!row.fullName) {
       return { ok: false, error: 'Hay un inscripto sin nombre. Escribilo o quitá la fila.' }
     }
 
     const riot = parseRiotId(row.riot)
-    const fila: RosterWriteRow = {
+    const write: RosterWriteRow = {
       team_id: teamId,
-      full_name: row.nombre,
+      full_name: row.fullName,
       university_id: row.universityId || null,
-      order_index: existente ? existente.orderIndex : siguiente++,
+      order_index: current_ ? current_.orderIndex : nextIndex++,
       riot_game_name: riot?.gameName ?? null,
       riot_tag_line: riot?.tagLine ?? null,
       player_id: row.playerId || null,
     }
 
-    if (existente) update.push({ ...fila, id: existente.id })
-    else create.push(fila)
+    if (current_) update.push({ ...write, id: current_.id })
+    else create.push(write)
   }
 
-  // Una cuenta es de una sola persona: hay un índice único que lo garantiza,
-  // pero elegir la misma dos veces es un error de dedo, no un error de base, y
-  // conviene decirlo antes de escribir nada.
-  const cuentas = [...update, ...create].flatMap((row) => (row.player_id ? [row.player_id] : []))
-  if (new Set(cuentas).size !== cuentas.length) {
+  // An account belongs to one person only: a unique index guarantees that, but
+  // picking the same one twice is a slip of the finger, not a database error,
+  // and it is worth saying before anything is written.
+  const accounts = [...update, ...create].flatMap((row) => (row.player_id ? [row.player_id] : []))
+  if (new Set(accounts).size !== accounts.length) {
     return { ok: false, error: 'Hay una misma cuenta elegida para dos inscriptos.' }
   }
 
-  // Ver la regla 1: el formulario tiene que cubrir el plantel entero. Si le
-  // falta una fila que existe, es un formulario viejo y no se aplica nada.
-  if (vistos.size !== current.length) {
+  // See rule 1: the form has to cover the whole roster. If a row that exists is
+  // missing from it, the form is stale and nothing is applied.
+  if (seen.size !== current.length) {
     return { ok: false, error: 'El plantel cambió mientras lo editabas. Recargá la página.' }
   }
 

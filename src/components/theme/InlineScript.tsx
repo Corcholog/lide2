@@ -1,17 +1,17 @@
 /**
- * Un `<script>` que corre mientras el navegador parsea el HTML, antes del primer
- * pintado.
+ * A `<script>` that runs while the browser parses the HTML, before the first
+ * paint.
  *
- * React avisa en desarrollo cada vez que un componente dibuja un `<script>`,
- * porque en el cliente esas etiquetas nunca se ejecutan: insertar un script por
- * DOM no lo corre. Acá eso no es un problema —el script tiene que correr una vez
- * sola, en la carga dura, y en las navegaciones internas ya no hace falta— pero
- * el aviso ensucia la consola.
+ * React warns in development every time a component draws a `<script>`, because
+ * on the client those tags never execute: inserting a script through the DOM
+ * does not run it. That is not a problem here - the script has to run exactly
+ * once, on the hard load, and internal navigations no longer need it - but the
+ * warning clutters the console.
  *
- * La salida que documenta Next: emitir `text/javascript` en el servidor y
- * `text/plain` en el cliente, de modo que el navegador lo corre al parsear y
- * React lo ignora al hidratar. `suppressHydrationWarning` es por la diferencia
- * de `type` entre los dos.
+ * The way out that Next documents: emit `text/javascript` on the server and
+ * `text/plain` on the client, so the browser runs it while parsing and React
+ * ignores it while hydrating. `suppressHydrationWarning` is for the difference
+ * in `type` between the two.
  */
 export function InlineScript({ html }: { html: string }) {
   return (

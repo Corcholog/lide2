@@ -1,43 +1,43 @@
 /**
- * Detección de equipos a partir de quiénes juegan juntos.
+ * Detecting teams from who plays alongside whom.
  *
- * Con 82 jugadores detectados y 29 partidas, asignar a mano es inviable. Los
- * equipos se deducen solos: los 5 de un lado de una partida son un equipo, y
- * dos alineaciones que comparten 3 o más jugadores son el mismo equipo (el
- * umbral tolera suplentes sin fusionar equipos distintos).
+ * With 82 detected players and 29 matches, assigning by hand is not viable.
+ * Teams are deduced on their own: the 5 on one side of a match are a team, and
+ * two lineups sharing 3 or more players are the same team (the threshold
+ * tolerates substitutes without merging different teams).
  *
- * El nombre sale del nombre de archivo: los equipos escriben "E1vsE4", así que
- * el número que aparece en TODAS las partidas de un grupo es el suyo, y el que
- * varía es el del rival.
+ * The name comes from the file name: teams write "E1vsE4", so the number that
+ * shows up in ALL of a cluster's matches is theirs, and the one that varies is
+ * the opponent's.
  */
 
 export interface Lineup {
   matchId: string
   side: 100 | 200
   puuids: string[]
-  /** Nombres de los .rofl de esa partida, de donde sale el nombre del equipo. */
+  /** Names of that match's .rofl files, which is where the team name comes from. */
   fileNames: string[]
 }
 
 export interface DetectedTeam {
-  /** Todos los jugadores vistos en el equipo, del más frecuente al menos. */
+  /** Every player seen in the team, most frequent first. */
   puuids: string[]
-  /** Cuántas alineaciones se fusionaron acá. */
+  /** How many lineups were merged into this one. */
   lineups: number
   matchIds: string[]
   suggestedName: string | null
-  /** Cuántas partidas jugó cada jugador con este equipo. */
+  /** How many matches each player played with this team. */
   appearances: Record<string, number>
 }
 
-/** Dos alineaciones son el mismo equipo si comparten al menos esta cantidad. */
+/** Two lineups are the same team when they share at least this many players. */
 const SHARED_THRESHOLD = 3
 
 /**
- * "E1vsE4", "WINNERS(E2vsE11)", "E8vsE15-LEIF8". No sirve un \b después del
- * número porque en "E1vsE4" no hay separación entre el 1 y la v; se pide que lo
- * que siga sea "vs" o algo que no sea alfanumérico. La E tiene que estar al
- * principio o después de un separador, así "LEIF8" no cuenta.
+ * "E1vsE4", "WINNERS(E2vsE11)", "E8vsE15-LEIF8". A \b after the number is no
+ * use because in "E1vsE4" there is no break between the 1 and the v; what
+ * follows is required to be "vs" or something non-alphanumeric. The E has to
+ * sit at the start or after a separator, so "LEIF8" does not count.
  */
 const TEAM_TOKEN_RE = /(?:^|[^A-Za-z0-9]|vs)E(\d{1,2})(?=vs|$|[^A-Za-z0-9])/gi
 /** "Fecha 3 Equipo 2 vs Equipo 9.rofl" */
@@ -105,8 +105,8 @@ export function detectTeams(lineups: Lineup[]): DetectedTeam[] {
 }
 
 /**
- * El número propio del equipo es el que sobrevive a intersectar los tokens de
- * todas sus partidas: el del rival cambia en cada una.
+ * A team's own number is the one that survives intersecting the tokens of all
+ * its matches: the opponent's changes every time.
  */
 function suggestName(tokensPerMatch: Set<string>[]): string | null {
   if (tokensPerMatch.length === 0) return null

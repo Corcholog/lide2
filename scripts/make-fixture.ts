@@ -1,10 +1,10 @@
 /**
- * Genera fixtures chicos y anonimizados a partir de un .rofl real, para poder
- * commitearlos y usarlos en los tests (los replays reales pesan 10-30 MB y
- * traen PUUIDs y Riot IDs de gente de verdad).
+ * Generates small, anonymized fixtures out of a real .rofl so they can be
+ * committed and used by the tests (real replays weigh 10-30 MB and carry the
+ * PUUIDs and Riot IDs of real people).
  *
  *   npm run fixture -- fixtures/LA2-1234567890.rofl
- *   npm run fixture -- --demo     (genera uno sintético, sin necesitar un replay)
+ *   npm run fixture -- --demo     (builds a synthetic one, no replay needed)
  */
 import { writeFileSync } from 'node:fs'
 import { basename } from 'node:path'
@@ -34,7 +34,7 @@ function anonymize(players: RoflPlayerStats[]): RoflPlayerStats[] {
   })
 }
 
-/** Resumen sin los 365 campos crudos por jugador, para que el snapshot sea legible. */
+/** A summary without the 365 raw fields per player, so the snapshot stays readable. */
 function summarize(match: ReturnType<typeof normalizeMatch>) {
   const { rawMetadata: _rawMetadata, players, ...rest } = match
   return {
@@ -51,12 +51,12 @@ async function main() {
   if (demo) {
     const file = buildRofl2(defaultRoster())
     writeFileSync('fixtures/demo.fixture.rofl', file)
-    console.log(`fixtures/demo.fixture.rofl (${file.length} bytes) — replay sintético de prueba`)
+    console.log(`fixtures/demo.fixture.rofl (${file.length} bytes) — synthetic test replay`)
     return
   }
 
   if (!path) {
-    console.error('Uso: npm run fixture -- <archivo.rofl> | --demo')
+    console.error('Usage: npm run fixture -- <file.rofl> | --demo')
     process.exit(1)
   }
 
@@ -86,7 +86,7 @@ async function main() {
     )
 
     console.log(`fixtures/${name}.fixture.rofl  (${(file.length / 1024).toFixed(1)} KB, ${metadata.format})`)
-    console.log(`fixtures/${name}.fixture.json  (snapshot normalizado)`)
+    console.log(`fixtures/${name}.fixture.json  (normalized snapshot)`)
   } finally {
     await source.close?.()
   }

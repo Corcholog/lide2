@@ -3,13 +3,13 @@ import { matchRosterLines } from '@/lib/roster/import'
 import { parseRiotId } from '@/lib/format'
 
 /**
- * El pegado de la lista de Riot IDs.
+ * Pasting the list of Riot IDs.
  *
- * Los nombres son los de verdad del Equipo 15, que es el caso feo: cinco
- * personas de tres universidades, con acentos y con la planilla escrita en tres
- * formatos distintos.
+ * The names are Team 15's real ones, which is the ugly case: five people from
+ * three universities, with accents and with the sheet written in three
+ * different formats.
  */
-const EQUIPO_15 = [
+const TEAM_15 = [
   { rosterId: 'r1', fullName: 'Denis Chang', teamName: 'Equipo 15' },
   { rosterId: 'r2', fullName: 'Alexis Maximiliano Costas', teamName: 'Equipo 15' },
   { rosterId: 'r3', fullName: 'Maria Teresita pereyra potel', teamName: 'Equipo 15' },
@@ -18,31 +18,31 @@ const EQUIPO_15 = [
 ]
 
 describe('parseRiotId', () => {
-  it('corta por el ultimo #, porque el nombre puede tener espacios y el tag no', () => {
+  it('splits on the last #, because the name may have spaces and the tag may not', () => {
     expect(parseRiotId('DenisChang#LAN')).toEqual({ gameName: 'DenisChang', tagLine: 'LAN' })
     expect(parseRiotId('  el gabo #ARG1 ')).toEqual({ gameName: 'el gabo', tagLine: 'ARG1' })
   })
 
-  it('sin tag devuelve solo el nombre', () => {
+  it('with no tag it returns the name alone', () => {
     expect(parseRiotId('DenisChang')).toEqual({ gameName: 'DenisChang', tagLine: null })
   })
 
-  it('lo vacio no es un Riot ID', () => {
+  it('an empty value is not a Riot ID', () => {
     expect(parseRiotId('')).toBeNull()
     expect(parseRiotId('   ')).toBeNull()
     expect(parseRiotId('#LAN')).toBeNull()
   })
 })
 
-describe('importar la lista de Riot IDs', () => {
-  it('aguanta columnas de mas y separadores distintos', () => {
+describe('importing the list of Riot IDs', () => {
+  it('survives extra columns and different separators', () => {
     const result = matchRosterLines(
       [
         'Equipo 15, Denis Chang, DenisChang#LAN',
         'Gabriel Pareja; ElGabo#ARG1',
         '15 | Alexis Maximiliano Costas | Alexis#LAS | titular',
       ].join('\n'),
-      EQUIPO_15,
+      TEAM_15,
     )
 
     expect(result.matched.map((m) => [m.rosterId, m.gameName, m.tagLine])).toEqual([
@@ -54,25 +54,25 @@ describe('importar la lista de Riot IDs', () => {
     expect(result.ambiguous).toEqual([])
   })
 
-  it('encuentra el nombre aunque venga dado vuelta o sin acentos', () => {
+  it('finds the name even reversed or without accents', () => {
     const result = matchRosterLines(
       ['pereyra potel, Maria Teresita, Tere#LAN', 'Guzman Rivadineira Fernando Luis; Fer#LAN'].join(
         '\n',
       ),
-      EQUIPO_15,
+      TEAM_15,
     )
 
     expect(result.matched.map((m) => m.rosterId)).toEqual(['r3', 'r4'])
   })
 
-  it('lo que no encuentra a nadie se reporta, no se descarta en silencio', () => {
-    const result = matchRosterLines('Juan Perez, JuanP#LAN', EQUIPO_15)
+  it('whatever finds nobody is reported, not silently discarded', () => {
+    const result = matchRosterLines('Juan Perez, JuanP#LAN', TEAM_15)
 
     expect(result.matched).toEqual([])
     expect(result.unmatched).toEqual(['Juan Perez, JuanP#LAN'])
   })
 
-  it('con dos candidatos no elige: avisa cuales colisionaron', () => {
+  it('with two candidates it does not choose: it says which collided', () => {
     const roster = [
       { rosterId: 'a', fullName: 'Gabriel Pareja', teamName: 'Equipo 15' },
       { rosterId: 'b', fullName: 'Gabriel', teamName: 'Equipo 03' },
@@ -85,10 +85,10 @@ describe('importar la lista de Riot IDs', () => {
     ])
   })
 
-  it('una misma persona no se lleva dos Riot IDs', () => {
+  it('one person does not take two Riot IDs', () => {
     const result = matchRosterLines(
       ['Denis Chang, DenisChang#LAN', 'Denis Chang, OtroNick#LAN'].join('\n'),
-      EQUIPO_15,
+      TEAM_15,
     )
 
     expect(result.matched).toHaveLength(1)
@@ -96,8 +96,8 @@ describe('importar la lista de Riot IDs', () => {
     expect(result.unmatched).toHaveLength(1)
   })
 
-  it('una linea sin nombre no alcanza', () => {
-    const result = matchRosterLines('DenisChang#LAN', EQUIPO_15)
+  it('a line with no name is not enough', () => {
+    const result = matchRosterLines('DenisChang#LAN', TEAM_15)
     expect(result.matched).toEqual([])
     expect(result.unmatched).toEqual(['DenisChang#LAN'])
   })

@@ -2,26 +2,25 @@ import type { MetadataRoute } from 'next'
 import { siteUrl } from '@/lib/env'
 
 /**
- * Las páginas públicas del sitio.
+ * The site's public pages.
  *
- * Sólo las fijas: las fichas de equipo, jugador y partida son cientos de URLs
- * que salen de la base, cambian con cada replay que se sube y no aportan nada
- * en una búsqueda. Se llega a ellas desde acá, que es lo que un crawler
- * necesita.
+ * Only the fixed ones: team, player and match pages are hundreds of URLs that
+ * come from the database, change with every replay uploaded and add nothing to
+ * a search. They are reached from here, which is what a crawler needs.
  *
- * No hay listado de jugadores: la tabla que había quedó reemplazada por la de
- * /estadisticas/tablas, que muestra lo mismo pero recortado por fecha y grupo y
- * ordenable por cualquier columna. A la ficha de cada uno se llega desde el
- * plantel de su equipo, desde el detalle de una partida y desde los rankings.
+ * There is no player listing: the table that existed was replaced by the one on
+ * /estadisticas/tablas, which shows the same thing but scoped by matchday and
+ * group and sortable by any column. Each player's page is reached from their
+ * team's roster, from a match's detail and from the rankings.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = siteUrl()
-  const rutas = ['/', '/estadisticas', '/estadisticas/tablas', '/partidas', '/equipos']
+  const routes = ['/', '/estadisticas', '/estadisticas/tablas', '/partidas', '/equipos']
 
-  return rutas.map((ruta) => ({
-    url: new URL(ruta, base).toString(),
+  return routes.map((route) => ({
+    url: new URL(route, base).toString(),
     lastModified: new Date(),
     changeFrequency: 'daily' as const,
-    priority: ruta === '/' ? 1 : 0.7,
+    priority: route === '/' ? 1 : 0.7,
   }))
 }

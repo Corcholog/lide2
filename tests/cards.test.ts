@@ -1,6 +1,6 @@
 import type { PGlite } from '@electric-sql/pglite'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { ACUMULADO, buildPosters, kickerFor, POR_FECHA } from '@/lib/cards/batch'
+import { ACCUMULATED, buildPosters, kickerFor, BY_MATCHDAY } from '@/lib/cards/batch'
 import { toCsv, toPlainText } from '@/lib/cards/export'
 import { groupTables, matchdayNumbers } from '@/lib/cards/summary'
 import { STATS } from '@/lib/stats/registry'
@@ -10,28 +10,30 @@ import { createTestDb } from './helpers/db'
 import { playScoreboard } from './helpers/matches'
 
 /**
- * El lote de piezas.
+ * The batch of pieces.
  *
- * Casi todo lo de acá son funciones puras sobre lo que devuelve la base, así
- * que se prueban sin base. Al final hay un recorrido entero contra Postgres
- * embebido, que es lo único que verifica que las vistas y el lote hablen el
- * mismo idioma: un filtro mal puesto devuelve cero filas sin dar error, y sin
- * este test el síntoma sería una página vacía el día de la primera fecha.
+ * Nearly everything here is pure functions over what the database returns, so
+ * they are tested without a database. At the end there is a full run against
+ * embedded Postgres, which is the only thing that verifies the views and the
+ * batch speak the same language: a misplaced filter returns zero rows without
+ * an error, and without this test the symptom would be an empty page on the
+ * day of the first matchday.
  */
 
 /**
- * Las diferencias de transporte entre PGlite y PostgREST.
+ * The transport differences between PGlite and PostgREST.
  *
- * PGlite habla el protocolo de Postgres, como node-postgres: `numeric` y
- * `bigint` llegan como texto (no entran en un `number` sin perder precisión) y
- * las fechas llegan como `Date`. PostgREST devuelve JSON: números y texto ISO.
+ * PGlite speaks the Postgres protocol, like node-postgres: `numeric` and
+ * `bigint` arrive as text (they do not fit a `number` without losing precision)
+ * and dates arrive as `Date`. PostgREST returns JSON: numbers and ISO text.
  *
- * El motor de estadísticas hace cuentas con esos valores (`row.kda.toFixed`,
- * `played_at.localeCompare`), así que sin esto el test falla por el transporte
- * y no por el código, que es la peor clase de test: rojo cuando todo está bien.
+ * The stats engine does arithmetic with those values (`row.kda.toFixed`,
+ * `played_at.localeCompare`), so without this the test fails because of the
+ * transport and not because of the code, which is the worst kind of test: red
+ * while everything is fine.
  *
- * Las fechas quedan como el texto crudo del protocolo en vez de ISO. Alcanza
- * para lo único que se hace con ellas acá, que es desempatar comparando.
+ * The dates are left as the protocol's raw text instead of ISO. It is enough
+ * for the only thing done with them here, which is comparing to break ties.
  */
 const COMO_POSTGREST = {
   20: Number,
@@ -44,11 +46,11 @@ const COMO_POSTGREST = {
 }
 
 /**
- * Lo mismo que `loadStats`, contra PGlite.
+ * The same as `loadStats`, against PGlite.
  *
- * Se repiten los filtros en vez de importar la función porque esa habla
- * PostgREST. Si acá y allá se separan, el test del final lo muestra: el lote
- * saldría vacío.
+ * The filters are repeated instead of importing the function because that one
+ * speaks PostgREST. If the two drift apart, the test at the end shows it: the
+ * batch would come out empty.
  */
 async function loadFromDb(db: PGlite, scope: StatScope): Promise<StatsData> {
   const total = scope.matchday === null
@@ -59,9 +61,9 @@ async function loadFromDb(db: PGlite, scope: StatScope): Promise<StatsData> {
     ? [scope.tournamentId, scope.phase]
     : [scope.tournamentId, scope.phase, scope.matchday]
 
-  // De a una y no con Promise.all: PGlite es una sola conexión y las consultas
-  // concurrentes se traban sin dar error. En producción son seis viajes en
-  // paralelo a Postgres, que sí aguanta.
+  // One at a time and not with Promise.all: PGlite is a single connection and
+  // concurrent queries hang without an error. In production it is six parallel
+  // trips to Postgres, which does cope.
   const view = async <T>(name: string) =>
     (await db.query<T>(`select * from public.${name} where ${where}`, params, { parsers: COMO_POSTGREST }))
       .rows
@@ -172,25 +174,25 @@ function data(overrides: Partial<StatsData> = {}): StatsData {
   }
 }
 
-describe('los números de la fecha', () => {
-  it('sin partidas no hay pieza', () => {
+describe("the matchday's numbers", () => {
+  it('with no matches there is no piece', () => {
     expect(matchdayNumbers(data())).toBeNull()
   })
 
-  it('cuenta partidas y kills, y saca el promedio', () => {
+  it('counts matches and kills, and works out the average', () => {
     const block = matchdayNumbers(
       data({ records: [record(), record({ match_id: 'm2', total_kills: 30 })] }),
     )!
 
-    const partidas = block.rows.find((row) => row.id === 'partidas')!
+    const matches = block.rows.find((row) => row.id === 'partidas')!
     const kills = block.rows.find((row) => row.id === 'kills')!
 
-    expect(partidas.value).toBe(2)
+    expect(matches.value).toBe(2)
     expect(kills.value).toBe(50)
     expect(kills.detail).toBe('25.0 por partida')
   })
 
-  it('la más larga y la más corta, con quiénes jugaron', () => {
+  it('the longest and the shortest, with who played them', () => {
     const block = matchdayNumbers(
       data({
         records: [
@@ -208,7 +210,7 @@ describe('los números de la fecha', () => {
     expect(corta.display).toBe('15:00')
   })
 
-  it('con una sola partida no repite la misma como más larga y más corta', () => {
+  it('with a single match it does not repeat it as both longest and shortest', () => {
     const block = matchdayNumbers(data({ records: [record()] }))!
     const ids = block.rows.map((row) => row.id)
 
@@ -216,8 +218,8 @@ describe('los números de la fecha', () => {
     expect(ids).not.toContain('mas-corta')
   })
 
-  it('la más pareja se mide por oro, no por kills', () => {
-    // La paliza en kills está pareja en oro; la otra se ganó por oro de largo.
+  it('the closest one is measured by gold, not by kills', () => {
+    // The kill blowout is level on gold; the other was won on gold by a mile.
     const block = matchdayNumbers(
       data({
         records: [
@@ -230,8 +232,8 @@ describe('los números de la fecha', () => {
     expect(block.rows.find((row) => row.id === 'mas-pareja')!.value).toBe(1_200)
   })
 
-  it('ignora las partidas sin oro para elegir la más pareja', () => {
-    // Un replay viejo puede no traer oro: cero no es "estuvo parejísimo".
+  it('ignores matches with no gold when picking the closest one', () => {
+    // An old replay may carry no gold: zero does not mean "it was razor close".
     const block = matchdayNumbers(
       data({
         records: [
@@ -244,16 +246,16 @@ describe('los números de la fecha', () => {
     expect(block.rows.find((row) => row.id === 'mas-pareja')!.value).toBe(8_000)
   })
 
-  it('la más pareja muestra el oro y no el marcador', () => {
-    // Si mostrara las kills la pieza se contradice sola: la más pareja de la
-    // fecha 1 de verdad terminó 44-25, con 1,4k de diferencia de oro.
+  it('the closest one shows the gold and not the scoreline', () => {
+    // Showing the kills would make the piece contradict itself: the real
+    // closest game of matchday 1 ended 44-25, with a 1.4k gold gap.
     const block = matchdayNumbers(
       data({ records: [record({ blue_gold: 55_000, red_gold: 50_000 })] }),
     )!
     expect(block.rows.find((row) => row.id === 'mas-pareja')!.detail).toBe('55.0k vs 50.0k')
   })
 
-  it('el acumulado no se llama "la jornada", que son tres', () => {
+  it('the accumulated total is not called "la jornada", which is three of them', () => {
     expect(matchdayNumbers(data({ records: [record()] }))!.subtitle).toBe('Lo que dejó la jornada')
     expect(matchdayNumbers(data({ scope: scope(null), records: [record()] }))!.subtitle).toBe(
       'Lo que va de la fase',
@@ -261,8 +263,8 @@ describe('los números de la fecha', () => {
   })
 })
 
-describe('las tablas de grupo', () => {
-  it('una pieza por grupo, en orden alfabético', () => {
+describe('the group tables', () => {
+  it('one piece per group, in alphabetical order', () => {
     const blocks = groupTables([
       standing({ group_label: 'Grupo B', team_id: 'x', team_name: 'Equipo 09' }),
       standing({ group_label: 'Grupo A' }),
@@ -272,7 +274,7 @@ describe('las tablas de grupo', () => {
     expect(blocks[0].id).toBe('tabla-grupo-a')
   })
 
-  it('respeta el orden de posición que resolvió la base', () => {
+  it('honours the position order the database resolved', () => {
     const block = groupTables([
       standing({ team_id: 'c', team_name: 'Equipo 03', position: 3 }),
       standing({ team_id: 'a', team_name: 'Equipo 01', position: 1 }),
@@ -282,7 +284,7 @@ describe('las tablas de grupo', () => {
     expect(block.rows.map((row) => row.name)).toEqual(['Equipo 01', 'Equipo 02', 'Equipo 03'])
   })
 
-  it('escribe el récord y la diferencia de kills con signo', () => {
+  it('writes the record and the kill difference with its sign', () => {
     const block = groupTables([standing()])[0]
 
     expect(block.rows[0].display).toBe('2-0')
@@ -290,47 +292,48 @@ describe('las tablas de grupo', () => {
     expect(block.rows[0].subtitle).toBe('UNLP')
   })
 
-  it('un equipo que no jugó dice que no jugó, no "+0 kills"', () => {
+  it('a team that did not play says so, not "+0 kills"', () => {
     const block = groupTables([standing({ games: 0, wins: 0, losses: 0, kill_diff: 0 })])[0]
     expect(block.rows[0].detail).toBe('sin jugar')
   })
 
-  it('un equipo a +1 no dice "+1 kills"', () => {
+  it('a team on +1 does not say "+1 kills"', () => {
     const block = groupTables([standing({ kill_diff: 1 })])[0]
     expect(block.rows[0].detail).toBe('+1 kill')
   })
 
-  it('los equipos de varias universidades las muestran todas', () => {
+  it('teams from several universities show all of them', () => {
     const block = groupTables([standing({ university_tags: ['UNER', 'UADE', 'UNLP'] })])[0]
     expect(block.rows[0].subtitle).toBe('UNER / UADE / UNLP')
   })
 })
 
-describe('el lote', () => {
-  it('todos los ids del lote existen en el registro', () => {
-    // La lista es editorial y se escribe a mano: un id mal tipeado no rompe
-    // nada, simplemente deja de salir esa pieza. Esto lo convierte en un error.
+describe('the batch', () => {
+  it('every id in the batch exists in the registry', () => {
+    // The list is editorial and written by hand: a mistyped id breaks nothing,
+    // that piece simply stops going out. This turns it into an error.
     const known = new Set(STATS.map((stat) => stat.id))
-    for (const id of [...POR_FECHA, ...ACUMULADO]) expect([id, known.has(id)]).toEqual([id, true])
+    for (const id of [...BY_MATCHDAY, ...ACCUMULATED]) expect([id, known.has(id)]).toEqual([id, true])
   })
 
-  it('el encabezado dice de qué recorte salió', () => {
+  it('the header says which scope it came from', () => {
     expect(kickerFor(scope(2))).toBe('Fecha 2 · Fase de grupos')
     expect(kickerFor(scope(null))).toBe('Acumulado · Fase de grupos')
   })
 
-  it('sin datos no hay ninguna pieza', () => {
+  it('with no data there is no piece at all', () => {
     expect(buildPosters(data({ scope: scope(1) }), [])).toEqual([])
   })
 
-  it('los números abren el lote', () => {
+  it('the numbers open the batch', () => {
     const posters = buildPosters(data({ records: [record()] }), [])
     expect(posters[0].id).toBe('numeros')
   })
 
-  it('los números no van numerados; los rankings y las tablas sí', () => {
-    // Numerar "partidas jugadas, kills totales, la más larga" 1-2-3 diría que
-    // una es mejor que la otra, y no son lo mismo medido: son cosas distintas.
+  it('the numbers are not numbered; the rankings and the tables are', () => {
+    // Numbering "partidas jugadas, kills totales, la más larga" 1-2-3 would
+    // say one is better than the other, and they are not the same thing
+    // measured: they are different things.
     const posters = buildPosters(data({ records: [record()] }), [standing()])
     const ordered = new Map(posters.map((poster) => [poster.id, poster.ordered]))
 
@@ -338,19 +341,19 @@ describe('el lote', () => {
     expect(ordered.get('tabla-grupo-a')).toBe(true)
   })
 
-  it('las tablas de grupo van al final, después de los rankings', () => {
+  it('the group tables go last, after the rankings', () => {
     const posters = buildPosters(data({ records: [record()] }), [standing()])
     expect(posters.at(-1)!.id).toBe('tabla-grupo-a')
   })
 
-  it('las estadísticas sin datos quedan afuera en vez de salir vacías', () => {
-    // Hay partidas pero no hay jugadores ni campeones cargados: el MVP y el
-    // meta no tienen con qué, y no tiene que aparecer una card en blanco.
+  it('stats with no data stay out instead of going out empty', () => {
+    // There are matches but no players or champions loaded: the MVP and the
+    // meta have nothing to work with, and no blank card should appear.
     const posters = buildPosters(data({ records: [record()] }), [])
     expect(posters.map((poster) => poster.id)).toEqual(['numeros'])
   })
 
-  it('todas las piezas llevan el mismo encabezado del recorte', () => {
+  it('every piece carries the same scope header', () => {
     const posters = buildPosters(data({ scope: scope(3), records: [record()] }), [standing()])
     expect(new Set(posters.map((poster) => poster.kicker))).toEqual(
       new Set(['Fecha 3 · Fase de grupos']),
@@ -358,7 +361,7 @@ describe('el lote', () => {
   })
 })
 
-describe('los datos crudos', () => {
+describe('the raw data', () => {
   const block: StatBlock = {
     id: 'mvp',
     title: 'MVP',
@@ -377,7 +380,7 @@ describe('los datos crudos', () => {
     ],
   }
 
-  it('el texto sale numerado y con la unidad puesta', () => {
+  it('the text comes out numbered and with its unit attached', () => {
     expect(toPlainText(block)).toBe(
       [
         'MVP · Los que más pesaron',
@@ -388,27 +391,27 @@ describe('los datos crudos', () => {
     )
   })
 
-  it('el CSV entrecomilla todo y escapa las comillas de adentro', () => {
+  it('the CSV quotes everything and escapes the inner quotes', () => {
     const lines = toCsv(block).split('\n')
 
     expect(lines[0]).toBe('"puesto","nombre","contexto","detalle","valor","valor_crudo"')
     expect(lines[1]).toBe('"1","Zaahen","Equipo 07","6/0/8","17.4","17.37"')
-    // La coma del nombre no parte la celda y las comillas van dobladas.
+    // The comma in the name does not split the cell and the quotes are doubled.
     expect(lines[2]).toBe('"2","Ave, ""Fénix""","","","16.4","16.4"')
   })
 
-  it('el CSV lleva el número crudo además del formateado', () => {
-    // El formateado es para leer; el crudo es para volver a ordenar en una
-    // planilla, que es lo que hace el que arma la pieza por su cuenta.
+  it('the CSV carries the raw number as well as the formatted one', () => {
+    // The formatted one is for reading; the raw one is for re-sorting in a
+    // spreadsheet, which is what whoever builds the piece on their own does.
     expect(toCsv(block)).toContain('"17.37"')
   })
 })
 
-describe('el lote contra la base de verdad', () => {
+describe('the batch against the real database', () => {
   let db: PGlite
   let tournamentId: string
 
-  /** El mismo recorte, pero con el id que existe: `scope()` usa uno de mentira. */
+  /** The same scope, but with the id that exists: `scope()` uses a fake one. */
   const dbScope = (matchday: number | null): StatScope => ({
     tournamentId,
     phase: 'grupos',
@@ -438,7 +441,7 @@ describe('el lote contra la base de verdad', () => {
     const uno = teams.rows.find((row) => row.name === 'Equipo 01')!.id
     const siete = teams.rows.find((row) => row.name === 'Equipo 07')!.id
 
-    // Dos fechas, para que el acumulado sea distinto del recorte de una.
+    // Two matchdays, so the total differs from a single matchday's scope.
     for (const matchday of [1, 2]) {
       const fixture = await db.query<{ id: string }>(
         `insert into public.fixtures
@@ -483,7 +486,7 @@ describe('el lote contra la base de verdad', () => {
     await db?.close()
   })
 
-  it('una fecha trae los números, el MVP, el quinteto y las tablas', async () => {
+  it('one matchday brings the numbers, the MVP, the five and the tables', async () => {
     const posters = buildPosters(
       await loadFromDb(db, dbScope(1)),
       await standingsFromDb(db, tournamentId),
@@ -494,39 +497,39 @@ describe('el lote contra la base de verdad', () => {
     expect(ids).toContain('mvp')
     expect(ids).toContain('quinteto')
     expect(ids).toContain('tabla-grupo-a')
-    // Sin bans cargados no hay pieza de bans, que es carga manual y opcional.
+    // With no bans entered there is no bans piece, which is manual and optional.
     expect(ids).not.toContain('bans')
   })
 
-  it('el recorte de una fecha cuenta una partida y el acumulado dos', async () => {
-    const una = buildPosters(await loadFromDb(db, dbScope(1)), [])
-    const todo = buildPosters(await loadFromDb(db, dbScope(null)), [])
+  it('a single matchday counts one match and the total counts two', async () => {
+    const single = buildPosters(await loadFromDb(db, dbScope(1)), [])
+    const all = buildPosters(await loadFromDb(db, dbScope(null)), [])
 
-    const partidas = (posters: ReturnType<typeof buildPosters>) =>
+    const matchCount = (posters: ReturnType<typeof buildPosters>) =>
       posters.find((poster) => poster.id === 'numeros')!.block.rows.find((r) => r.id === 'partidas')!
         .value
 
-    expect(partidas(una)).toBe(1)
-    expect(partidas(todo)).toBe(2)
+    expect(matchCount(single)).toBe(1)
+    expect(matchCount(all)).toBe(2)
   })
 
-  it('el acumulado suma los récords, que una sola fecha no tiene', async () => {
+  it('the total adds the records, which a single matchday does not have', async () => {
     const ids = buildPosters(await loadFromDb(db, dbScope(null)), []).map((poster) => poster.id)
 
     expect(ids).toContain('mas-larga')
     expect(ids).toContain('mas-kills')
   })
 
-  it('la pieza de los números elige bien la más larga entre las dos fechas', async () => {
-    const numeros = buildPosters(await loadFromDb(db, dbScope(null)), []).find(
+  it('the numbers piece picks the longest across both matchdays correctly', async () => {
+    const numbers = buildPosters(await loadFromDb(db, dbScope(null)), []).find(
       (poster) => poster.id === 'numeros',
     )!
 
-    expect(numeros.block.rows.find((row) => row.id === 'mas-larga')!.display).toBe('38:00')
-    expect(numeros.block.rows.find((row) => row.id === 'mas-corta')!.display).toBe('24:00')
+    expect(numbers.block.rows.find((row) => row.id === 'mas-larga')!.display).toBe('38:00')
+    expect(numbers.block.rows.find((row) => row.id === 'mas-corta')!.display).toBe('24:00')
   })
 
-  it('cada pieza tiene al menos una fila: ninguna sale en blanco', async () => {
+  it('every piece has at least one row: none comes out blank', async () => {
     const posters = buildPosters(
       await loadFromDb(db, dbScope(null)),
       await standingsFromDb(db, tournamentId),

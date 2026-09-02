@@ -2,27 +2,30 @@ import { CALENDAR } from '@/lib/lide2/tournament'
 import type { StatScope } from './types'
 
 /**
- * El recorte del torneo que se está mirando, leído de la URL.
+ * The slice of the tournament being looked at, read from the URL.
  *
- * Vive acá y no en cada página porque son dos —/estadisticas y /admin/cards— y
- * tienen que estar de acuerdo: lo que se publica en Instagram es lo mismo que
- * dice el sitio, y si cada una interpretara `?fecha=` a su manera podrían
- * terminar mostrando fechas distintas con el mismo link.
+ * It lives here and not in each page because there are two of them —
+ * /estadisticas and /admin/cards — and they have to agree: what gets posted to
+ * Instagram is what the site says, and if each one read `?fecha=` its own way
+ * they could end up showing different matchdays behind the same link.
+ *
+ * The query-string keys stay in Spanish (`?fecha=`, `?equipo=`): they are part
+ * of the links people paste around.
  */
 
 /**
- * Las fechas elegibles.
+ * The selectable matchdays.
  *
- * Salen del calendario y no de una lista aparte para que no se desincronicen:
- * si se agrega una fecha, aparece sola. Ojo con la diferencia entre fecha y
- * turno: la 1 y la 2 se juegan en dos turnos cada una, así que "fecha" no es lo
- * mismo que "partido".
+ * They come from the calendar and not from a separate list so the two cannot
+ * drift apart: add a matchday and it shows up on its own. Mind the difference
+ * between matchday and slot: matchdays 1 and 2 are played in two slots each,
+ * so "matchday" is not the same as "match".
  */
 export const MATCHDAYS = CALENDAR.filter((milestone) => milestone.phase === 'grupos').map(
   (milestone, index) => ({ matchday: index + 1, label: milestone.label }),
 )
 
-/** `?fecha=2`, o el acumulado si no viene o no se entiende. */
+/** `?fecha=2`, or the accumulated total when it is missing or unreadable. */
 export function parseScope(
   value: string | string[] | undefined,
   tournamentId: string,
@@ -32,4 +35,24 @@ export function parseScope(
   const valid = MATCHDAYS.some((entry) => entry.matchday === matchday)
 
   return { tournamentId, phase: 'grupos', matchday: valid ? matchday : null }
+}
+
+/**
+ * `?equipo=<uuid>`, validated against the teams in the tournament.
+ *
+ * This is the other half of the same query string, which is why it sits next
+ * to `parseScope` instead of in a module of its own.
+ *
+ * An id that is not on the list is ignored rather than filtered on: pasting
+ * any random uuid would return an empty list, and that reads as "this team
+ * played nothing" when what actually happened is that the team does not exist.
+ */
+export function parseTeamFilter(
+  value: string | string[] | undefined,
+  validTeamIds: Iterable<string>,
+): string | null {
+  const id = Array.isArray(value) ? value[0] : value
+  if (!id) return null
+
+  return new Set(validTeamIds).has(id) ? id : null
 }

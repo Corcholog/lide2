@@ -4,16 +4,16 @@ import { createTestDb } from './helpers/db'
 import { playScoreboard } from './helpers/matches'
 
 /**
- * El motor de estadisticas, sobre Postgres embebido.
+ * The stats engine, over embedded Postgres.
  *
- * Se arman dos equipos de un grupo y dos fechas de partidos a mano. Un
- * scoreboard inventado es mas riguroso que datos reales para esto: se puede
- * poner exactamente el caso que se quiere verificar (el soporte que no mata a
- * nadie, el top que no muere pero no participa, el equipo con tres
- * universidades) en vez de esperar a que aparezca.
+ * Two teams from one group and two matchdays' worth of games are built by hand.
+ * An invented scoreboard is stricter than real data for this: the exact case to
+ * be verified can be set up (the support who kills nobody, the top who never
+ * dies but never participates, the team with three universities) instead of
+ * waiting for it to turn up.
  *
- * El Equipo 15 es el caso dificil de la LIDE 2 de verdad: salio de
- * inscripciones individuales y mezcla UNER, UADE y UNLP.
+ * Team 15 is the hard case from the real LIDE 2: it came out of individual
+ * signups and mixes UNER, UADE and UNLP.
  */
 
 const BLUE = ['b-top', 'b-jgl', 'b-mid', 'b-adc', 'b-sup']
@@ -33,7 +33,7 @@ interface PlayerRow {
   university_tag: string | null
 }
 
-describe('estadisticas', () => {
+describe('stats', () => {
   let db: PGlite
   let tournamentId: string
   let stageId: string
@@ -68,7 +68,7 @@ describe('estadisticas', () => {
       university.set(tag, rows[0].id)
     }
 
-    // Equipo 01: todos de UNLP. Equipo 15: mezclado, principal UNER.
+    // Team 01: all from UNLP. Team 15: mixed, main one UNER.
     for (const [name, tag] of [
       ['Equipo 01', 'UNLP'],
       ['Equipo 15', 'UNER'],
@@ -94,12 +94,12 @@ describe('estadisticas', () => {
     await db?.close()
   })
 
-  describe('el MVP premia el aporte y no el no jugarse nada', () => {
+  describe('the MVP rewards contribution and not playing it safe', () => {
     let matchId: string
 
     beforeAll(async () => {
-      // 20 kills del lado ganador. El soporte no mata a nadie pero estuvo en
-      // 16 de las 20; el top gana su linea, no muere nunca y participa en 4.
+      // 20 kills for the winning side. The support kills nobody but was in on
+      // 16 of the 20; the top wins their lane, never dies and joins 4.
       matchId = await playScoreboard(db, {
         tournamentId,
         blueTeamId: team.get('Equipo 01'),
@@ -124,7 +124,7 @@ describe('estadisticas', () => {
       })
     })
 
-    it('el soporte con 0 kills le gana al top que no murio', async () => {
+    it('the support on 0 kills beats the top who never died', async () => {
       const { rows } = await db.query<{ riot_game_name: string; position: string }>(
         `select riot_game_name, position from public.match_player_scores
           where match_id = $1 and match_rank = 1`,
@@ -135,7 +135,7 @@ describe('estadisticas', () => {
       expect(rows[0].riot_game_name).toBe('b-sup')
     })
 
-    it('el top con 4/0/0 queda por debajo del mid que participo del doble', async () => {
+    it('the top on 4/0/0 lands below the mid who joined twice as much', async () => {
       const { rows } = await db.query<{ riot_game_name: string; match_rank: number }>(
         `select riot_game_name, match_rank from public.match_player_scores
           where match_id = $1 order by match_rank`,
@@ -146,7 +146,7 @@ describe('estadisticas', () => {
       expect(rank.get('b-mid')!).toBeLessThan(rank.get('b-top')!)
     })
 
-    it('no hay dos jugadores con el mismo puesto', async () => {
+    it('no two players share the same place', async () => {
       const { rows } = await db.query<{ n: string }>(
         `select count(distinct match_rank) as n from public.match_player_scores where match_id = $1`,
         [matchId],
@@ -155,12 +155,12 @@ describe('estadisticas', () => {
     })
   })
 
-  describe('el contexto sale del fixture y no del nombre del archivo', () => {
+  describe('the context comes from the fixture and not the file name', () => {
     let matchId: string
 
     beforeAll(async () => {
-      // Etiquetas equivocadas a proposito: asi queda un .rofl guardado en la
-      // carpeta que no era.
+      // Deliberately wrong labels: this is how a .rofl filed in the wrong
+      // folder ends up.
       matchId = await playScoreboard(db, {
         tournamentId,
         blueTeamId: team.get('Equipo 15'),
@@ -181,7 +181,7 @@ describe('estadisticas', () => {
       )
     })
 
-    it('el cruce publicado le gana a la etiqueta del archivo', async () => {
+    it("the published matchup beats the file's label", async () => {
       const { rows } = await db.query<{
         phase: string
         group_label: string
@@ -200,7 +200,7 @@ describe('estadisticas', () => {
       })
     })
 
-    it('sin fixture, la fecha sale de la etiqueta', async () => {
+    it('with no fixture, the matchday comes from the label', async () => {
       const { rows } = await db.query<{ matchday: number; group_label: string }>(
         `select matchday, group_label from public.match_context c
            join public.matches m on m.id = c.match_id
@@ -210,14 +210,14 @@ describe('estadisticas', () => {
       expect(rows[0]).toMatchObject({ matchday: 1, group_label: 'Grupo A' })
     })
 
-    it('la tabla de grupos cuenta la partida aunque el archivo dijera otro grupo', async () => {
+    it('the group table counts the match even when the file said another group', async () => {
       const { rows } = await db.query<{ team_name: string; games: number; wins: number }>(
         `select team_name, games, wins from public.group_standings
           where tournament_id = $1 order by team_name`,
         [tournamentId],
       )
 
-      // Dos partidos, uno ganado por cada equipo, los dos en el Grupo A.
+      // Two games, one won by each team, both in Group A.
       expect(rows.map((r) => [r.team_name, Number(r.games), Number(r.wins)])).toEqual([
         ['Equipo 01', 2, 1],
         ['Equipo 15', 2, 1],
@@ -225,8 +225,8 @@ describe('estadisticas', () => {
     })
   })
 
-  describe('acumulados por fecha y de toda la fase', () => {
-    it('la fila de la fecha y la del acumulado son distintas y no se pisan', async () => {
+  describe('totals by matchday and for the whole phase', () => {
+    it('the matchday row and the total row are different and do not collide', async () => {
       const { rows } = await db.query<PlayerRow>(
         `select player_name, games, kills, matchday, is_total
            from public.player_phase_totals
@@ -235,18 +235,18 @@ describe('estadisticas', () => {
         [tournamentId],
       )
 
-      const fecha1 = rows.find((r) => !r.is_total && Number(r.matchday) === 1)!
-      const fecha2 = rows.find((r) => !r.is_total && Number(r.matchday) === 2)!
+      const matchday1 = rows.find((r) => !r.is_total && Number(r.matchday) === 1)!
+      const matchday2 = rows.find((r) => !r.is_total && Number(r.matchday) === 2)!
       const total = rows.find((r) => r.is_total)!
 
-      expect(Number(fecha1.kills)).toBe(8)
-      expect(Number(fecha2.kills)).toBe(0)
+      expect(Number(matchday1.kills)).toBe(8)
+      expect(Number(matchday2.kills)).toBe(0)
       expect(Number(total.games)).toBe(2)
       expect(Number(total.kills)).toBe(8)
       expect(total.matchday).toBeNull()
     })
 
-    it('el equipo suma sus dos partidos en el acumulado', async () => {
+    it('the team adds up its two games in the total', async () => {
       const { rows } = await db.query<{ games: number; wins: number; losses: number }>(
         `select games, wins, losses from public.team_phase_totals
           where tournament_id = $1 and is_total and team_id = $2`,
@@ -258,8 +258,8 @@ describe('estadisticas', () => {
       expect(Number(rows[0].losses)).toBe(1)
     })
 
-    it('el MVP de la fase pide mas partidas que el de una fecha', async () => {
-      const fecha = await db.query<{ n: string }>(
+    it("the phase MVP asks for more games than a matchday's", async () => {
+      const matchdayRow = await db.query<{ n: string }>(
         `select count(*) as n from public.tournament_mvp
           where tournament_id = $1 and not is_total and matchday = 1`,
         [tournamentId],
@@ -269,27 +269,27 @@ describe('estadisticas', () => {
         [tournamentId],
       )
 
-      // Con dos partidos jugados nadie llega al minimo de la fase entera (3),
-      // pero en una fecha alcanza con haber jugado.
-      expect(Number(fecha.rows[0].n)).toBe(10)
+      // With two games played nobody reaches the whole phase's minimum (3),
+      // but within one matchday having played at all is enough.
+      expect(Number(matchdayRow.rows[0].n)).toBe(10)
       expect(Number(fase.rows[0].n)).toBe(0)
     })
   })
 
-  describe('universidades', () => {
-    it('sin emparejar inscriptos, todo el equipo va a su universidad principal', async () => {
+  describe('universities', () => {
+    it('with no signups matched, the whole team goes to its main university', async () => {
       const { rows } = await db.query<{ university_tag: string; players: string }>(
         `select university_tag, players from public.university_totals
           where tournament_id = $1 and is_total order by university_tag`,
         [tournamentId],
       )
 
-      // Equipo 01 -> UNLP, Equipo 15 -> UNER (la principal), nadie en UADE.
+      // Team 01 -> UNLP, Team 15 -> UNER (the main one), nobody in UADE.
       expect(rows.map((r) => r.university_tag)).toEqual(['UNER', 'UNLP'])
       expect(rows.map((r) => Number(r.players))).toEqual([5, 5])
     })
 
-    it('al emparejar a un jugador, sus numeros se mudan a la universidad que declaro', async () => {
+    it('matching a player moves their numbers to the university they declared', async () => {
       const player = await db.query<{ id: string }>(
         `select id from public.players where puuid = $1`,
         [RED[0]],
@@ -314,8 +314,8 @@ describe('estadisticas', () => {
     })
   })
 
-  describe('meta y records', () => {
-    it('sin bans cargados no hay presencia', async () => {
+  describe('meta and records', () => {
+    it('with no bans entered there is no presence', async () => {
       const { rows } = await db.query<{ presence: number | null; matches_with_bans: number }>(
         `select presence, matches_with_bans from public.champion_stats
           where tournament_id = $1 and is_total limit 1`,
@@ -326,7 +326,7 @@ describe('estadisticas', () => {
       expect(Number(rows[0].matches_with_bans)).toBe(0)
     })
 
-    it('los bans cargados a mano solo miden las partidas que los tienen', async () => {
+    it('the hand-entered bans only measure the matches that have them', async () => {
       const match = await db.query<{ match_id: string }>(
         `select match_id from public.match_context where tournament_id = $1 and matchday = 1`,
         [tournamentId],

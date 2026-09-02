@@ -15,9 +15,9 @@
     "ingest": "tsx --env-file=.env.local scripts/ingest-local.ts",
     "storage:audit": "tsx --env-file=.env.local scripts/storage-audit.ts",
     "seed:lide2": "tsx --env-file=.env.local scripts/seed-lide2.ts",
-    "bans:prueba": "tsx --env-file=.env.local scripts/bans-de-prueba.ts",
-    "datos:locales": "tsx --env-file=.env.local scripts/datos-locales.ts",
-    "datos:prueba": "tsx --env-file=.env.local scripts/datos-de-prueba.ts",
+    "seed:bans": "tsx --env-file=.env.local scripts/seed-bans.ts",
+    "ingest:no-upload": "tsx --env-file=.env.local scripts/ingest-no-upload.ts",
+    "seed:results": "tsx --env-file=.env.local scripts/seed-results.ts",
     "og": "tsx scripts/og-image.ts"
   },
   "dependencies": {

@@ -51,11 +51,17 @@ configurar en Supabase.
 Next.js con App Router, Supabase (Postgres + Auth + Storage) y Tailwind. El panel de administración
 vive bajo `/admin` y pide sesión; todo lo demás es público.
 
-- `src/app/(app)/` — las páginas. La portada arma sola la tabla, el fixture y el bracket.
+- `src/app/(app)/` — las páginas. La portada sólo consulta y compone; cada sección se dibuja sola
+  desde `src/components/home/`.
 - `src/lib/stats/` — el catálogo de estadísticas. Sumar un ranking es escribir su función y agregar
   una línea en `registry.ts`; la página lo dibuja sola.
-- `src/components/torneo/` — los pedazos con estado del sitio público.
+- `src/components/` — los componentes, agrupados por dominio (`home/`, `stats/`, `match/`,
+  `tournament/`, `admin/`).
 - `supabase/migrations/` — el esquema, en orden. Se aplican de a una y nunca se editan hacia atrás.
+
+El código está en inglés —nombres, comentarios y todo— y lo que se ve o se comparte, en castellano:
+los textos de la interfaz, las rutas (`/equipos`, `/partidas`) y los parámetros de la URL
+(`?fecha=2`, `?orden=winrate`). El esquema de la base ya estaba en inglés.
 
 ## Decisiones que conviene conocer antes de tocar el código
 
@@ -73,5 +79,5 @@ vive bajo `/admin` y pide sesión; todo lo demás es público.
   cada movimiento del mouse re-renderizaría las cuarenta filas.
 - **Los logos de las universidades traen el fondo adentro del archivo.** Vienen de cada universidad
   con fondos blancos, transparentes y de color; sobre el tema oscuro unos quedaban como un recuadro
-  blanco y los escudos de tinta negra directamente no se veían. `scripts/normalizar-logos.ts` los
+  blanco y los escudos de tinta negra directamente no se veían. `scripts/normalize-logos.ts` los
   deja a todos de 256x256 sobre blanco.

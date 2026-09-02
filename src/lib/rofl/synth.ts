@@ -1,13 +1,13 @@
 import type { RoflPlayerStats } from './types'
 
 /**
- * Constructor de archivos .rofl sintéticos.
+ * Builder of synthetic .rofl files.
  *
- * Se usa en los tests y en scripts/make-fixture.ts para generar fixtures chicos
- * y anonimizados a partir de un replay real (los .rofl de verdad pesan 10-30 MB
- * y traen PUUIDs reales, así que no se commitean).
+ * Used by the tests and by scripts/make-fixture.ts to generate small,
+ * anonymized fixtures out of a real replay (real .rofl files weigh 10-30 MB and
+ * carry real PUUIDs, so they are not committed).
  */
-export const ROFL_SIGNATURE = [0x52, 0x49, 0x4f, 0x54, 0x00, 0x00]
+const ROFL_SIGNATURE = [0x52, 0x49, 0x4f, 0x54, 0x00, 0x00]
 export const ROFL2_SIGNATURE = [0x52, 0x49, 0x4f, 0x54, 0x02, 0x00]
 
 export interface BuildOptions {
@@ -15,9 +15,9 @@ export interface BuildOptions {
   gameVersion?: string
   lastGameChunkId?: number
   lastKeyFrameId?: number
-  /** Bytes de relleno que simulan el payload encriptado del replay real. */
+  /** Filler bytes standing in for the real replay's encrypted payload. */
   payloadSize?: number
-  /** Permite forzar un statsJson arbitrario (vacío, corrupto, etc.). */
+  /** Lets a test force an arbitrary statsJson (empty, corrupt, and so on). */
   statsJson?: string
 }
 
@@ -44,7 +44,7 @@ export function player(overrides: Partial<RoflPlayerStats> = {}): RoflPlayerStat
   }
 }
 
-/** 10 jugadores, 5 por lado; el lado 100 gana. */
+/** 10 players, 5 a side; side 100 wins. */
 export function defaultRoster(): RoflPlayerStats[] {
   const champions = ['Ahri', 'Lee Sin', 'Jinx', 'Thresh', 'Ornn']
   return [100, 200].flatMap((team) =>
@@ -75,7 +75,7 @@ function buildMetadata(players: RoflPlayerStats[], options: BuildOptions): Buffe
   return Buffer.from(JSON.stringify(metadata), 'utf8')
 }
 
-/** Arma un .rofl sintético con el formato nuevo (metadata al final del archivo). */
+/** Builds a synthetic .rofl in the new format (metadata at the end of the file). */
 export function buildRofl2(players: RoflPlayerStats[], options: BuildOptions = {}): Buffer {
   const header = Buffer.alloc(288)
   Buffer.from(ROFL2_SIGNATURE).copy(header, 0)
@@ -89,7 +89,7 @@ export function buildRofl2(players: RoflPlayerStats[], options: BuildOptions = {
   return Buffer.concat([header, payload, metadata, footer])
 }
 
-/** Arma un .rofl sintético con el formato viejo (metadata en el header). */
+/** Builds a synthetic .rofl in the old format (metadata inside the header). */
 export function buildRofl1(players: RoflPlayerStats[], options: BuildOptions = {}): Buffer {
   const header = Buffer.alloc(288)
   Buffer.from(ROFL_SIGNATURE).copy(header, 0)

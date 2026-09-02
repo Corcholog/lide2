@@ -10,27 +10,27 @@ import type { RosterStatusRow, TeamAccountRow } from '@/types/db'
 export const dynamic = 'force-dynamic'
 
 /**
- * Los planteles: quiénes están anotados en cada equipo y qué cuenta de Riot es
- * cada uno.
+ * The rosters: who is signed up for each team and which Riot account each one
+ * is.
  *
- * QUIÉNES. La planilla de inscripción es de antes de que empiece el torneo y no
- * es definitiva: se cae gente, entra un suplente, un nombre vino mal escrito.
- * Cada fila se edita, se da de baja y se agregan las que hagan falta; el
- * plantel de un equipo se guarda entero de una vez.
+ * WHO. The signup sheet predates the tournament and is not final: people drop
+ * out, a substitute comes in, a name arrived misspelled. Every row can be
+ * edited or removed and new ones added; a team's roster is saved whole, at
+ * once.
  *
- * QUÉ CUENTA. Emparejar a cada inscripto con su cuenta de Riot sirve para una
- * cosa: la universidad. Dieciséis de los 20 equipos son de una sola casa, y ahí
- * el respaldo (la universidad del equipo) ya es exacto. Los cuatro armados con
- * inscripciones individuales —13, 15, 16 y 17— tienen 2 de cada 5 mal
- * atribuidos. Y hay dos universidades, UADE y UNCuyo, que tienen un solo
- * inscripto cada una y las dos adentro de equipos mezclados: sin este
- * emparejado no aparecen en ninguna tabla.
+ * WHICH ACCOUNT. Matching each signup with their Riot account buys one thing:
+ * the university. Sixteen of the 20 teams come from a single one, and there the
+ * fallback (the team's university) is already exact. The four built from
+ * individual signups - 13, 15, 16 and 17 - have 2 out of every 5 misattributed.
+ * And there are two universities, UADE and UNCuyo, with a single signup each
+ * and both inside mixed teams: without this matching they appear in no table at
+ * all.
  *
- * Los nombres de esta pantalla son legales, de un formulario de inscripción. No
- * salen de acá: `team_roster` es la única tabla que se queda detrás del login
- * ahora que el sitio está abierto al público.
+ * The names on this screen are legal names, from a signup form. They never
+ * leave here: `team_roster` is the only table that stays behind the login now
+ * that the site is open to the public.
  */
-export default async function PlantelesPage() {
+export default async function RostersPage() {
   await requireUser()
 
   const supabase = await createClient()
@@ -40,9 +40,9 @@ export default async function PlantelesPage() {
     .eq('slug', TOURNAMENT.slug)
     .maybeSingle()
 
-  // Los equipos salen de `teams` y no de los inscriptos: un equipo al que se le
-  // dieron de baja los cinco tiene que seguir teniendo su tarjeta, que es el
-  // único lugar desde donde se le puede volver a cargar gente.
+  // The teams come from `teams` and not from the signups: a team whose five
+  // were all removed still has to keep its card, which is the only place from
+  // which people can be added back.
   const [teamsRes, rosterRes, accountsRes, universitiesRes] = await Promise.all([
     supabase.from('teams').select('id,name,group_label').order('name'),
     supabase.from('roster_status').select('*').order('team_name').order('order_index'),
@@ -54,9 +54,9 @@ export default async function PlantelesPage() {
     teamsRes,
     'los equipos',
   )
-  const roster = rows<RosterStatusRow>(rosterRes, 'los inscriptos')
-  const accounts = rows<TeamAccountRow>(accountsRes, 'las cuentas enlazadas')
-  const universities = rows<UniversityOption>(universitiesRes, 'las universidades')
+  const roster = rows<RosterStatusRow>(rosterRes, 'the signups')
+  const accounts = rows<TeamAccountRow>(accountsRes, 'the linked accounts')
+  const universities = rows<UniversityOption>(universitiesRes, 'the universities')
 
   const byTeam = new Map<string, RosterStatusRow[]>()
   for (const row of roster) {
@@ -83,7 +83,7 @@ export default async function PlantelesPage() {
           </p>
         </div>
         <Link
-          href="/admin/asignar"
+          href="/admin/assign"
           className="border-2 border-line-strong px-4 py-2 text-sm transition-colors hover:border-accent"
         >
           Asignar partidas

@@ -4,12 +4,12 @@ import { createAdminClient } from '../supabase/admin'
 import { buildIngestPayload } from './payload'
 
 export interface IngestRequest {
-  /** Ruta del objeto ya subido al storage. */
+  /** Path of the object already uploaded to storage. */
   storagePath: string
-  /** Nombre original del archivo: de ahi sale el match id cuando no lo renombraron. */
+  /** The file's original name: the match id comes from it when it was not renamed. */
   fileName: string
   fileSize: number
-  /** lastModified del archivo: la mejor estimacion de cuando se jugo. */
+  /** The file's lastModified: the best guess at when it was played. */
   lastModified?: number | null
   sha256?: string | null
   stageLabel?: string | null
@@ -30,10 +30,10 @@ export type IngestResult =
   | { ok: false; fileName: string; code: string; message: string }
 
 /**
- * Parsea un replay ya subido al storage y lo guarda.
+ * Parses a replay already uploaded to storage and saves it.
  *
- * Se procesa un archivo por request a proposito: si uno falla, los demas del
- * lote siguen su curso y el error queda acotado a esa fila de la UI.
+ * One file per request on purpose: when one fails, the rest of the batch runs
+ * its course and the error stays confined to that row of the UI.
  */
 export async function ingestReplay(request: IngestRequest): Promise<IngestResult> {
   const { fileName, storagePath } = request
@@ -41,9 +41,9 @@ export async function ingestReplay(request: IngestRequest): Promise<IngestResult
   try {
     const storage = await getStorage()
 
-    // El tamano se lee del storage y no del cliente: el parser calcula offsets
-    // desde el final del archivo y un numero mal informado lo manda a leer
-    // cualquier cosa.
+    // The size is read from storage and not from the client: the parser
+    // computes offsets from the end of the file, and a misreported number sends
+    // it off to read anything at all.
     const stat = await storage.stat(storagePath)
     const size = stat?.size ?? request.fileSize
 
@@ -93,14 +93,14 @@ export async function ingestReplay(request: IngestRequest): Promise<IngestResult
       return await recordFailure(request, error.code, error.message, error.details)
     }
 
-    const message = error instanceof Error ? error.message : 'Error desconocido'
+    const message = error instanceof Error ? error.message : 'Error desconocido'  // texto de UI
     return await recordFailure(request, 'UNEXPECTED', message)
   }
 }
 
 /**
- * El archivo queda en el storage aunque el parseo falle: es la prueba del
- * resultado, y ademas permite reintentar sin pedirselo de nuevo al equipo.
+ * The file stays in storage even when parsing fails: it is the proof of the
+ * result, and it also allows a retry without asking the team for it again.
  */
 async function recordFailure(
   request: IngestRequest,
@@ -120,7 +120,7 @@ async function recordFailure(
         created_by: request.userId ?? null,
       })
   } catch {
-    // Que no se pueda registrar el fallo no debe tapar el fallo original.
+    // Failing to record the failure must not bury the original one.
   }
 
   return { ok: false, fileName: request.fileName, code, message }

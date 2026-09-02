@@ -1,11 +1,11 @@
 /**
- * Trae de la base todo lo que necesita un recorte del torneo.
+ * Pulls from the database everything one scope of the tournament needs.
  *
- * Cinco consultas y no una por estadística. Las vistas ya devuelven los totales
- * agregados —113 jugadores, 20 equipos, 13 universidades— así que traerlos
- * enteros y ordenar en memoria cuesta menos que veinte viajes a Postgres, y
- * deja cada estadística como una función pura sobre datos ya cargados: se
- * pueden testear sin base.
+ * Five queries and not one per stat. The views already return the aggregated
+ * totals — 113 players, 20 teams, 13 universities — so fetching them whole and
+ * sorting in memory costs less than twenty round trips to Postgres, and it
+ * leaves every stat as a pure function over data that is already loaded: they
+ * can be tested without a database.
  */
 
 import type { createClient } from '@/lib/supabase/server'
@@ -20,25 +20,25 @@ import type {
   UniversityTotalsRow,
 } from '@/types/db'
 import { maybeRow, rows } from '@/lib/supabase/query'
-import { matchFilter, scopeFilter } from './filtros'
+import { matchFilter, scopeFilter } from './filters'
 import type { StatScope, StatsData } from './types'
 
 type Supabase = Awaited<ReturnType<typeof createClient>>
 
 export async function resolveTournamentId(supabase: Supabase): Promise<string | null> {
-  const torneo = maybeRow<{ id: string }>(
+  const tournament = maybeRow<{ id: string }>(
     await supabase.from('tournaments').select('id').eq('slug', TOURNAMENT.slug).maybeSingle(),
-    'el torneo',
+    'the tournament',
   )
 
-  return torneo?.id ?? null
+  return tournament?.id ?? null
 }
 
 export async function loadStats(supabase: Supabase, scope: StatScope): Promise<StatsData> {
   const filter = scopeFilter(scope)
 
-  // La versión de assets se resuelve antes que el resto: la necesitan tanto los
-  // nombres de los campeones como las URLs de sus íconos.
+  // The asset version is resolved before the rest: both the champion names and
+  // their icon URLs need it.
   const version = await assetVersion(null)
 
   const [players, teams, universities, champions, records, mvp, names] = await Promise.all([
@@ -48,27 +48,27 @@ export async function loadStats(supabase: Supabase, scope: StatScope): Promise<S
     supabase.from('champion_stats').select('*').match(filter),
     supabase.from('match_records').select('*').match(matchFilter(scope)),
     supabase.from('tournament_mvp').select('*').match(filter),
-    // Un recorte cruza parches, y los nombres son los mismos en todos: el
-    // último alcanza. Es el único pedido que no va a la base, y el único que
-    // puede fallar sin arrastrar al resto.
+    // A scope spans patches, and the names are the same across all of them: the
+    // latest one is enough. It is the only request that does not go to the
+    // database, and the only one that can fail without dragging the rest down.
     championNames(version),
   ])
 
   /*
-   * Si una de las seis falla, falla todo.
+   * If one of the six fails, everything fails.
    *
-   * Un recorte al que le falta una consulta no está incompleto, está mal: la
-   * página mostraría el meta sin el MVP, o los récords sin las universidades,
-   * sin decir en ningún lado que falta algo.
+   * A scope missing one query is not incomplete, it is wrong: the page would
+   * show the meta without the MVP, or the records without the universities,
+   * without saying anywhere that something is missing.
    */
   return {
     scope,
-    players: rows<PlayerPhaseTotalsRow>(players, 'los totales por jugador'),
-    teams: rows<TeamPhaseTotalsRow>(teams, 'los totales por equipo'),
-    universities: rows<UniversityTotalsRow>(universities, 'los totales por universidad'),
-    champions: rows<ChampionStatRow>(champions, 'las estadísticas de campeones'),
-    records: rows<MatchRecordRow>(records, 'los récords de partida'),
-    mvp: rows<TournamentMvpRow>(mvp, 'el MVP del torneo'),
+    players: rows<PlayerPhaseTotalsRow>(players, 'the per-player totals'),
+    teams: rows<TeamPhaseTotalsRow>(teams, 'the per-team totals'),
+    universities: rows<UniversityTotalsRow>(universities, 'the per-university totals'),
+    champions: rows<ChampionStatRow>(champions, 'the champion stats'),
+    records: rows<MatchRecordRow>(records, 'the match records'),
+    mvp: rows<TournamentMvpRow>(mvp, 'the tournament MVP'),
     championNames: names,
     assetVersion: version,
   }

@@ -1,16 +1,16 @@
 'use client'
 
 /**
- * El último recurso: falló el layout raíz.
+ * The last resort: the root layout failed.
  *
- * Reemplaza el documento entero, así que no llegan acá ni globals.css ni las
- * fuentes ni el `data-theme` del sitio. Por eso todo va en estilos inline y en
- * los hexadecimales del tema oscuro escritos a mano: es el único archivo del
- * proyecto donde duplicar colores es correcto, porque los tokens no existen.
+ * It replaces the whole document, so neither globals.css nor the fonts nor the
+ * site's `data-theme` reach here. That is why everything is inline styles and
+ * the dark theme's hex values written by hand: it is the one file in the
+ * project where duplicating colours is right, because the tokens do not exist.
  *
- * Casi nunca se ve —el error.tsx de adentro atrapa todo lo que pasa en una
- * página— pero si algo revienta antes, esto es la diferencia entre una pantalla
- * del torneo y la pantalla de error cruda de Next.
+ * It is almost never seen - the error.tsx inside catches everything that
+ * happens in a page - but if something blows up earlier, this is the difference
+ * between a screen of the tournament's and Next's raw error screen.
  */
 export default function GlobalError({
   error,

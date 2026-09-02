@@ -6,22 +6,26 @@ import { riotId } from '@/lib/format'
 import type { RosterStatusRow, TeamAccountRow } from '@/types/db'
 
 /**
- * El plantel de un equipo: quiénes están anotados y qué cuenta es cada uno.
+ * A team's roster: who is signed up and which account each one is.
  *
- * Un solo formulario y un solo botón para las cinco o siete filas. Guardar de a
- * uno son cinco viajes al servidor y cinco recargas de la página para completar
- * un plantel, y además el alta y la baja tienen que viajar juntas: el servidor
- * compara el formulario entero contra el plantel de la base y rechaza el
- * conjunto si no coincide (ver `planRosterEdit`).
+ * One form and one button for the five or seven rows. Saving one at a time is
+ * five round trips to the server and five page reloads to complete a roster,
+ * and on top of that additions and removals have to travel together: the server
+ * compares the whole form against the roster in the database and rejects the
+ * lot if they do not match (see `planRosterEdit`).
  *
- * Las bajas y las altas no se aplican hasta guardar. "Quitar" tacha la fila y
- * la manda marcada; "Agregar" dibuja una fila que todavía no existe en la base.
- * Así una baja mal tildada se deshace con otro clic y no con un undo.
+ * Removals and additions are not applied until save. "Quitar" strikes the row
+ * through and sends it marked; "Agregar" draws a row that does not exist in the
+ * database yet. That way a mis-ticked removal is undone with another click and
+ * not with an undo.
  *
- * Cada inscripto tiene dos formas de quedar emparejado, y conviven a propósito:
- * el Riot ID escrito (que sirve aunque esa persona todavía no haya jugado nunca,
- * y se resuelve solo cuando aparezca) y el desplegable de cuentas (que sirve
- * cuando el Riot ID declarado no coincide con el que usó de verdad).
+ * Every signup has two ways of getting matched, and they coexist on purpose:
+ * the typed Riot ID (which works even if that person has never played, and
+ * resolves itself when they turn up) and the accounts dropdown (which works
+ * when the declared Riot ID does not match the one they actually used).
+ *
+ * The form field names stay in Spanish: `readRosterForm` reads them by those
+ * exact names.
  */
 
 export interface UniversityOption {
@@ -30,11 +34,11 @@ export interface UniversityOption {
   name: string
 }
 
-const CAMPO =
+const FIELD =
   'border-2 border-line-strong bg-raised px-2 py-1.5 text-sm focus:border-accent'
 
-/** Las cinco columnas de una fila, iguales en el encabezado y en cada inscripto. */
-const COLUMNAS =
+/** A row's five columns, the same in the header and in every signup. */
+const COLUMNS =
   'sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_auto]'
 
 export function RosterTeam({
@@ -66,7 +70,7 @@ export function RosterTeam({
           {team.groupLabel && <span className="ml-2 text-faint">{team.groupLabel}</span>}
         </h3>
         <p className="text-xs text-muted">
-          <span className="text-faint">{rows.length} inscriptos · </span>
+          <span className="text-faint">{rows.length} signups · </span>
           <span className={linked === rows.length && rows.length > 0 ? 'text-ok' : ''}>
             {linked}/{rows.length} emparejados
           </span>
@@ -75,14 +79,14 @@ export function RosterTeam({
       </header>
 
       {/*
-        La `key` son los inscriptos que hay hoy, así que un alta o una baja
-        guardada remonta la lista y se lleva puestas las marcas de la tanda
-        anterior: las filas nuevas ya existen en la base y volvieron por `rows`,
-        y volver a mandarlas las guardaría dos veces. Un guardado que falla no
-        cambia la key y deja todo como estaba, que es lo que hace falta para
-        corregir y reintentar.
+        The `key` is the signups that exist today, so a saved addition or
+        removal remounts the list and clears the previous round's marks: the new
+        rows already exist in the database and came back through `rows`, and
+        sending them again would save them twice. A save that fails does not
+        change the key and leaves everything as it was, which is what it takes
+        to fix and retry.
       */}
-      <Filas
+      <Rows
         key={rows.map((row) => row.roster_id).join(',')}
         rows={rows}
         accounts={accounts}
@@ -103,34 +107,34 @@ export function RosterTeam({
             {state.error}
           </p>
         )}
-        {state?.ok && <p className="text-sm text-ok">{resumen(state)}</p>}
+        {state?.ok && <p className="text-sm text-ok">{summarize(state)}</p>}
       </footer>
     </form>
   )
 }
 
-/** Qué pasó al guardar, sin enumerar los ceros. */
-function resumen(state: RosterActionResult): string {
-  const partes = [
+/** What happened on save, without listing the zeroes. */
+function summarize(state: RosterActionResult): string {
+  const parts = [
     state.added ? `${state.added} de alta` : null,
     state.removed ? `${state.removed} de baja` : null,
     state.linked ? `${state.linked} emparejados` : null,
   ].filter(Boolean)
 
-  return partes.length > 0 ? `Guardado · ${partes.join(' · ')}` : 'Guardado'
+  return parts.length > 0 ? `Guardado · ${parts.join(' · ')}` : 'Guardado'
 }
 
 /**
- * Qué decir debajo del desplegable. Una cuenta emparejada con 0 partidas no es
- * un error: es un nick cargado a mano que todavía no jugó (ver 0017).
+ * What to say below the dropdown. An account matched with 0 games is not an
+ * error: it is a nick entered by hand that has not played yet (see 0017).
  */
-function nota(row: RosterStatusRow): string | null {
+function noteFor(row: RosterStatusRow): string | null {
   if (!row.player_id) return null
   return row.games > 0 ? `${row.games} partidas` : 'todavía no jugó'
 }
 
-/** Las filas del plantel, con lo que se agregó y lo que se quitó todavía sin guardar. */
-function Filas({
+/** The roster's rows, with whatever was added and removed but not yet saved. */
+function Rows({
   rows,
   accounts,
   universities,
@@ -139,19 +143,19 @@ function Filas({
   accounts: TeamAccountRow[]
   universities: UniversityOption[]
 }) {
-  const prefijo = useId()
-  const [nuevos, setNuevos] = useState<string[]>([])
-  const [bajas, setBajas] = useState<string[]>([])
+  const prefix = useId()
+  const [added, setAdded] = useState<string[]>([])
+  const [removed, setRemoved] = useState<string[]>([])
 
-  const dadosDeBaja = new Set(bajas)
+  const markedForRemoval = new Set(removed)
 
   return (
     <>
-      {/* Los rótulos van una vez arriba de todo y no en cada fila. En pantalla
-          angosta la fila se apila y no corresponderían a nada, así que se
-          esconden y manda el `sr-only` que lleva cada campo. */}
+      {/* The labels go once at the very top and not on every row. On a narrow
+          screen the row stacks and they would correspond to nothing, so they
+          hide and the `sr-only` each field carries takes over. */}
       <div
-        className={`hidden gap-2 border-b-2 border-line px-4 py-2 text-[11px] uppercase tracking-wide text-faint sm:grid ${COLUMNAS}`}
+        className={`hidden gap-2 border-b-2 border-line px-4 py-2 text-[11px] uppercase tracking-wide text-faint sm:grid ${COLUMNS}`}
       >
         <span>Nombre</span>
         <span>Universidad</span>
@@ -162,47 +166,47 @@ function Filas({
 
       <ul className="divide-y divide-line">
         {rows.map((row) => (
-          <Fila
+          <Row
             key={row.roster_id}
-            clave={row.roster_id}
-            nombre={row.display_name ?? row.full_name}
+            rowKey={row.roster_id}
+            fullName={row.display_name ?? row.full_name}
             universityId={row.university_id}
             riot={
               row.declared_game_name ? riotId(row.declared_game_name, row.declared_tag_line) : ''
             }
             playerId={row.player_id}
-            nota={nota(row)}
+            note={noteFor(row)}
             accounts={accounts}
             universities={universities}
-            baja={dadosDeBaja.has(row.roster_id)}
+            removed={markedForRemoval.has(row.roster_id)}
             onToggle={() =>
-              setBajas((previas) =>
-                previas.includes(row.roster_id)
-                  ? previas.filter((id) => id !== row.roster_id)
-                  : [...previas, row.roster_id],
+              setRemoved((previous) =>
+                previous.includes(row.roster_id)
+                  ? previous.filter((id) => id !== row.roster_id)
+                  : [...previous, row.roster_id],
               )
             }
           />
         ))}
 
-        {nuevos.map((clave) => (
-          <Fila
-            key={clave}
-            clave={clave}
-            nuevo
-            nombre=""
+        {added.map((key) => (
+          <Row
+            key={key}
+            rowKey={key}
+            isNew
+            fullName=""
             universityId={null}
             riot=""
             playerId={null}
-            nota="alta sin guardar"
+            note="alta sin guardar"
             accounts={accounts}
             universities={universities}
-            baja={false}
-            onToggle={() => setNuevos((previos) => previos.filter((id) => id !== clave))}
+            removed={false}
+            onToggle={() => setAdded((previous) => previous.filter((id) => id !== key))}
           />
         ))}
 
-        {rows.length === 0 && nuevos.length === 0 && (
+        {rows.length === 0 && added.length === 0 && (
           <li className="px-4 py-6 text-center text-sm text-faint">
             Este equipo no tiene inscriptos cargados.
           </li>
@@ -212,56 +216,56 @@ function Filas({
       <div className="border-t-2 border-dashed border-line px-4 py-2">
         <button
           type="button"
-          onClick={() => setNuevos((previos) => [...previos, `nuevo-${prefijo}-${previos.length}`])}
+          onClick={() => setAdded((previous) => [...previous, `nuevo-${prefix}-${previous.length}`])}
           className="text-xs uppercase tracking-wide text-muted transition-colors hover:text-accent"
         >
-          + Agregar inscripto
+          + Agregar signup
         </button>
       </div>
     </>
   )
 }
 
-function Fila({
-  clave,
-  nuevo,
-  nombre,
+function Row({
+  rowKey,
+  isNew,
+  fullName,
   universityId,
   riot,
   playerId,
-  nota,
+  note,
   accounts,
   universities,
-  baja,
+  removed,
   onToggle,
 }: {
-  clave: string
-  nuevo?: boolean
-  nombre: string
+  rowKey: string
+  isNew?: boolean
+  fullName: string
   universityId: string | null
   riot: string
   playerId: string | null
-  nota: string | null
+  note: string | null
   accounts: TeamAccountRow[]
   universities: UniversityOption[]
-  baja: boolean
+  removed: boolean
   onToggle: () => void
 }) {
   return (
-    <li className={`grid gap-2 px-4 py-3 ${COLUMNAS} ${baja ? 'bg-danger-dim' : ''}`}>
-      {/* Este oculto es el que define qué filas manda el formulario: los campos
-          de una fila pueden llegar vacíos, pero éste viaja siempre. */}
-      <input type="hidden" name={`fila-${clave}`} value={nuevo ? 'nuevo' : 'existente'} />
-      {baja && <input type="hidden" name={`baja-${clave}`} value="1" />}
+    <li className={`grid gap-2 px-4 py-3 ${COLUMNS} ${removed ? 'bg-danger-dim' : ''}`}>
+      {/* This hidden field is what defines which rows the form sends: a row's
+          fields can arrive empty, but this one always travels. */}
+      <input type="hidden" name={`fila-${rowKey}`} value={isNew ? 'nuevo' : 'existente'} />
+      {removed && <input type="hidden" name={`baja-${rowKey}`} value="1" />}
 
       <label className="flex flex-col gap-1">
         <span className="text-[11px] uppercase tracking-wide text-faint sm:sr-only">Nombre</span>
         <input
-          name={`nombre-${clave}`}
-          defaultValue={nombre}
+          name={`nombre-${rowKey}`}
+          defaultValue={fullName}
           placeholder="Nombre y apellido"
           autoComplete="off"
-          className={`${CAMPO} ${baja ? 'line-through opacity-60' : ''}`}
+          className={`${FIELD} ${removed ? 'line-through opacity-60' : ''}`}
         />
       </label>
 
@@ -270,9 +274,9 @@ function Fila({
           Universidad
         </span>
         <select
-          name={`universidad-${clave}`}
+          name={`universidad-${rowKey}`}
           defaultValue={universityId ?? ''}
-          className={`${CAMPO} ${baja ? 'opacity-60' : ''}`}
+          className={`${FIELD} ${removed ? 'opacity-60' : ''}`}
         >
           <option value="">sin universidad</option>
           {universities.map((university) => (
@@ -288,12 +292,12 @@ function Fila({
           Riot ID de la planilla
         </span>
         <input
-          name={`riot-${clave}`}
+          name={`riot-${rowKey}`}
           defaultValue={riot}
           placeholder="Nombre#TAG"
           spellCheck={false}
           autoComplete="off"
-          className={`${CAMPO} ${baja ? 'opacity-60' : ''}`}
+          className={`${FIELD} ${removed ? 'opacity-60' : ''}`}
         />
       </label>
 
@@ -302,9 +306,9 @@ function Fila({
           Nick del plantel
         </span>
         <select
-          name={`player-${clave}`}
+          name={`player-${rowKey}`}
           defaultValue={playerId ?? ''}
-          className={`${CAMPO} ${baja ? 'opacity-60' : ''}`}
+          className={`${FIELD} ${removed ? 'opacity-60' : ''}`}
         >
           <option value="">
             {accounts.length === 0 ? 'no hay nicks cargados' : 'sin emparejar'}
@@ -316,7 +320,7 @@ function Fila({
             </option>
           ))}
         </select>
-        {nota && <span className="text-[11px] text-faint">{nota}</span>}
+        {note && <span className="text-[11px] text-faint">{note}</span>}
       </label>
 
       <div className="flex items-start sm:pt-[26px]">
@@ -324,12 +328,12 @@ function Fila({
           type="button"
           onClick={onToggle}
           className={`w-14 border-2 px-2 py-1 text-xs transition-colors ${
-            baja
+            removed
               ? 'border-danger/60 text-danger hover:border-danger'
               : 'border-line-strong text-muted hover:border-danger hover:text-danger'
           }`}
         >
-          {baja ? 'Volver' : 'Quitar'}
+          {removed ? 'Volver' : 'Quitar'}
         </button>
       </div>
     </li>

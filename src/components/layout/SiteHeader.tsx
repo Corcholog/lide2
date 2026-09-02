@@ -6,22 +6,22 @@ import { useEffect, useRef, useState } from 'react'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
 
 /**
- * La barra del sitio.
+ * The site's bar.
  *
- * En un teléfono no entraba: el logo, los cinco links, el botón de tema y el
- * de entrar suman unos 540px de ancho contra los 312 útiles de una pantalla de
- * 360. Y como <html> lleva `overflow-x-clip` —que está para que la portada
- * pueda salirse del contenedor sin generar scroll horizontal— lo que sobraba no
- * se podía scrollear: se cortaba y desaparecía. O sea que desde un teléfono no
- * había manera de llegar a Estadísticas ni al cambio de tema.
+ * It did not fit on a phone: the logo, the five links, the theme button and the
+ * sign-in one add up to about 540px of width against the 312 usable on a 360
+ * screen. And because <html> carries `overflow-x-clip` - which is there so the
+ * home page can break out of the container without producing horizontal scroll
+ * - whatever overflowed could not be scrolled to: it was clipped and vanished.
+ * Which is to say there was no way to reach Estadísticas or the theme switch
+ * from a phone.
  *
- * Desde `md` se ve la barra de siempre; abajo, los links se guardan detrás del
- * botón de menú y el panel se despliega bajo la barra.
+ * From `md` up the usual bar shows; below it, the links tuck behind the menu
+ * button and the panel drops down under the bar.
  *
- * Es un componente cliente porque el menú tiene estado. La acción de cerrar
- * sesión llega como prop desde el layout, que es un componente servidor: una
- * server action se puede pasar así y el <form> la sigue ejecutando en el
- * servidor.
+ * It is a client component because the menu holds state. The sign-out action
+ * arrives as a prop from the layout, which is a server component: a server
+ * action can be passed like that and the <form> still runs it on the server.
  */
 
 export interface NavLink {
@@ -35,7 +35,7 @@ export function SiteHeader({
   signOut,
 }: {
   links: NavLink[]
-  /** El mail de quien tiene la sesión abierta, o null si no hay ninguna. */
+  /** The email of whoever has a session open, or null when there is none. */
   email: string | null
   signOut: () => Promise<void>
 }) {
@@ -44,13 +44,13 @@ export function SiteHeader({
   const header = useRef<HTMLElement>(null)
 
   /*
-   * Navegar cierra el menú. Sin esto queda abierto sobre la página nueva,
-   * porque el App Router no desmonta el layout al cambiar de ruta.
+   * Navigating closes the menu. Without this it stays open over the new page,
+   * because the App Router does not unmount the layout on a route change.
    *
-   * Se ajusta durante el render y no en un `useEffect`: con el efecto, React
-   * pinta primero el menú abierto sobre la página nueva y recién después lo
-   * cierra, o sea un parpadeo y un render de más. Comparar contra la ruta
-   * anterior es el patrón que recomienda React para esto.
+   * It is adjusted during render and not in a `useEffect`: with the effect,
+   * React first paints the open menu over the new page and only then closes it,
+   * which is a flicker and one render too many. Comparing against the previous
+   * route is the pattern React recommends for this.
    */
   const [lastPath, setLastPath] = useState(pathname)
   if (pathname !== lastPath) {
@@ -64,8 +64,8 @@ export function SiteHeader({
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false)
     }
-    // Un clic afuera cierra. Va en `pointerdown` y no en `click` para que
-    // responda antes de que el elemento de abajo haga lo suyo.
+    // A click outside closes it. It goes on `pointerdown` and not on `click`
+    // so it responds before the element underneath does its own thing.
     const onOutside = (event: PointerEvent) => {
       if (!header.current?.contains(event.target as Node)) setOpen(false)
     }
@@ -78,7 +78,7 @@ export function SiteHeader({
     }
   }, [open])
 
-  /** La sección en la que se está. `/` es el logo, así que no cuenta acá. */
+  /** The section you are in. `/` is the logo, so it does not count here. */
   const isCurrent = (href: string) => pathname === href || pathname.startsWith(`${href}/`)
 
   return (
@@ -92,9 +92,9 @@ export function SiteHeader({
         </Link>
 
         {/*
-          Sin link a "Torneo": la home ES el torneo, y el logo de la izquierda ya
-          lleva ahí. Un item de nav que apunta a la página donde ya estás es una
-          invitación a hacer clic para nada.
+          No "Torneo" link: the home page IS the tournament, and the logo on the
+          left already leads there. A nav item pointing at the page you are
+          already on is an invitation to click for nothing.
         */}
         <nav aria-label="Secciones" className="hidden flex-1 gap-4 text-sm md:flex">
           {links.map((link) => (
@@ -134,9 +134,9 @@ export function SiteHeader({
       </div>
 
       {open && (
-        // Sin cortina que oscurezca la página: la barra no está fijada, así que
-        // una cortina `fixed` se quedaría tapando todo mientras el menú se va
-        // scrolleando hacia arriba. El clic afuera ya cierra.
+        // No scrim darkening the page: the bar is not pinned, so a `fixed`
+        // scrim would sit there covering everything while the menu scrolls up
+        // and away. The click outside already closes it.
         <div
           id="menu-del-sitio"
           className="absolute inset-x-0 top-full border-b-2 border-line bg-surface shadow-hard md:hidden"
@@ -168,11 +168,12 @@ export function SiteHeader({
 }
 
 /**
- * Quién está adentro y cómo salir. Entrar no: eso es /login, a mano.
+ * Who is signed in and how to get out. Not how to get in: that is /login, by
+ * hand.
  *
- * El mail es lo único que cambia entre los dos lugares: en el menú tiene una
- * fila entera y se muestra siempre, y en la barra compite con los links, así
- * que aparece recién cuando hay lugar de sobra.
+ * The email is the only thing that differs between the two places: in the menu
+ * it gets a whole row and always shows, and in the bar it competes with the
+ * links, so it only appears once there is room to spare.
  */
 function Session({
   email,
@@ -184,15 +185,15 @@ function Session({
   inMenu?: boolean
 }) {
   /*
-   * Sin sesion no se dibuja nada, ni siquiera un "Entrar".
+   * With no session nothing is drawn, not even a "Sign in".
    *
-   * El sitio es para ver el torneo y la unica persona que necesita entrar sabe
-   * que existe /login y va sola. Un boton de acceso en la barra le sugiere al
-   * resto que hay algo mas atras y que se estan perdiendo de algo, cuando lo
-   * unico que hay atras es el panel de carga.
+   * The site is for watching the tournament and the only person who needs to
+   * sign in knows /login exists and goes there alone. A sign-in button in the
+   * bar suggests to everybody else that there is something more behind it and
+   * that they are missing out, when all that is behind it is the upload panel.
    *
-   * /login sigue existiendo y andando; lo que se saca es el cartel, no la
-   * puerta. robots.ts ya la tenia en disallow.
+   * /login still exists and still works; what is removed is the sign, not the
+   * door. robots.ts already had it under disallow.
    */
   if (!email) return null
 
@@ -216,11 +217,11 @@ function Session({
 }
 
 /**
- * Las tres rayas, que al abrirse se vuelven una cruz.
+ * The three bars, which fold into a cross when open.
  *
- * Un solo SVG con las mismas tres líneas transformadas, y no dos íconos
- * distintos: así la transición se ve como que el ícono se pliega, que es lo que
- * dice qué hace el botón.
+ * One SVG with the same three lines transformed, and not two different icons:
+ * that way the transition reads as the icon folding, which is what says what
+ * the button does.
  */
 function MenuIcon({ open }: { open: boolean }) {
   return (
