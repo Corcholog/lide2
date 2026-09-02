@@ -57,6 +57,7 @@ export const MIGRATIONS = [
   '0019_asignar_cuenta.sql',
   '0020_asignar_posicion.sql',
   '0021_meta_y_bans.sql',
+  '0022_logo_script_path.sql',
 ]
 
 /**
