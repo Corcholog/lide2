@@ -1,13 +1,13 @@
 /**
- * Récords a nivel partida.
+ * Match-level records.
  *
- * Se consultan con el mismo recorte que todo lo demás, así que las mismas cinco
- * funciones dan "la más larga de la fecha 2" y "la más larga de toda la fase":
- * cambia el recorte, no la estadística.
+ * They are queried with the same scope as everything else, so the same five
+ * functions give "the longest of matchday 2" and "the longest of the whole
+ * phase": what changes is the scope, not the stat.
  */
 
 import { formatDuration, formatNumber } from '@/lib/format'
-import { rutaPartida } from '@/lib/rutas'
+import { matchPath } from '@/lib/routes'
 import { block, rankRows } from './rank'
 import type { StatBlock, StatsData } from './types'
 import type { MatchRecordRow } from '@/types/db'
@@ -29,7 +29,7 @@ function matchRanking(
   return rankRows(data.records, {
     id: (row) => row.match_id,
     name: versus,
-    href: (row) => rutaPartida(row.match_id),
+    href: (row) => matchPath(row.match_id),
     subtitle: (row) => [row.round_label, row.group_label].filter(Boolean).join(' · ') || null,
     detail:
       options.detail ??
@@ -68,11 +68,11 @@ export function mostCombinedKills(data: StatsData): StatBlock | null {
 }
 
 /**
- * La más pareja: la menor diferencia de oro al final.
+ * The closest one: the smallest gold gap at the end.
  *
- * Por oro y no por kills porque la diferencia de oro es la que dice si el
- * partido estuvo abierto hasta el final; se puede ganar 20-5 y estar parejo en
- * oro, y al revés.
+ * By gold and not by kills because the gold gap is what says whether the game
+ * was open until the end; you can win 20-5 and be level on gold, and the other
+ * way round.
  */
 export function closestGame(data: StatsData): StatBlock | null {
   const rows = matchRanking(data, {

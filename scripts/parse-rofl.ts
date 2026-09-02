@@ -1,8 +1,8 @@
 /**
- * Prueba aislada del parser de .rofl, sin base de datos ni servidor.
+ * An isolated run of the .rofl parser, with no database and no server.
  *
- *   npm run parse:rofl -- fixtures/tu-partida.rofl
- *   npm run parse:rofl -- fixtures/tu-partida.rofl --json > salida.json
+ *   npm run parse:rofl -- fixtures/your-match.rofl
+ *   npm run parse:rofl -- fixtures/your-match.rofl --json > out.json
  */
 import { basename } from 'node:path'
 import { fileSource, normalizeMatch, parseRofl, RoflParseError, type RoflSource } from '../src/lib/rofl'
@@ -24,7 +24,7 @@ function pad(value: string | number, width: number, align: 'left' | 'right' = 'l
   return align === 'left' ? clipped.padEnd(width) : clipped.padStart(width)
 }
 
-/** Envuelve una source contando bytes, para verificar que no bajamos el archivo entero. */
+/** Wraps a source counting bytes, to verify the whole file is never fetched. */
 function countingSource(source: RoflSource): RoflSource & { bytesRead: number } {
   const wrapped = {
     size: source.size,
@@ -46,7 +46,7 @@ async function main() {
   const showRawKeys = args.includes('--raw')
 
   if (!path) {
-    console.error('Uso: npm run parse:rofl -- <archivo.rofl> [--json] [--raw]')
+    console.error('Usage: npm run parse:rofl -- <file.rofl> [--json] [--raw]')
     process.exit(1)
   }
 
@@ -64,13 +64,13 @@ async function main() {
 
 
     console.log('')
-    console.log(`  Archivo    ${path}`)
-    console.log(`  Formato    ${match.format}   parche ${match.patch ?? '?'} (${match.gameVersion ?? 'sin versión en el header'})`)
-    console.log(`  Duración   ${formatDuration(match.gameLengthMs)}`)
-    console.log(`  Match id   ${match.riotMatchId ?? '(no se pudo derivar del nombre del archivo)'}`)
-    console.log(`  Ganador    lado ${match.winningSide ?? '?'}${match.endedInSurrender ? ' (rendición)' : ''}`)
-    console.log(`  Huella     ${match.fingerprint.slice(0, 16)}…`)
-    console.log(`  Leído      ${formatBytes(source.bytesRead)} de ${formatBytes(source.size)}`)
+    console.log(`  File       ${path}`)
+    console.log(`  Format     ${match.format}   patch ${match.patch ?? '?'} (${match.gameVersion ?? 'no version in the header'})`)
+    console.log(`  Duration   ${formatDuration(match.gameLengthMs)}`)
+    console.log(`  Match id   ${match.riotMatchId ?? '(could not be derived from the file name)'}`)
+    console.log(`  Winner     side ${match.winningSide ?? '?'}${match.endedInSurrender ? ' (surrender)' : ''}`)
+    console.log(`  Fingerprint ${match.fingerprint.slice(0, 16)}…`)
+    console.log(`  Read       ${formatBytes(source.bytesRead)} of ${formatBytes(source.size)}`)
     console.log('')
 
     for (const side of [100, 200] as const) {
@@ -79,12 +79,12 @@ async function main() {
 
       const kills = team.reduce((acc, p) => acc + p.kills, 0)
       const gold = team.reduce((acc, p) => acc + p.goldEarned, 0)
-      const label = side === 100 ? 'AZUL' : 'ROJO'
-      const result = team[0]?.win ? 'VICTORIA' : 'DERROTA'
+      const label = side === 100 ? 'BLUE' : 'RED'
+      const result = team[0]?.win ? 'WIN' : 'LOSS'
 
-      console.log(`  ${label}  ${result}   ${kills} kills   ${(gold / 1000).toFixed(1)}k oro`)
+      console.log(`  ${label}  ${result}   ${kills} kills   ${(gold / 1000).toFixed(1)}k gold`)
       console.log(
-        `  ${pad('Jugador', 24)}${pad('Campeón', 14)}${pad('Pos', 8)}${pad('KDA', 10, 'right')}${pad('CS', 6, 'right')}${pad('Oro', 8, 'right')}${pad('Daño', 9, 'right')}${pad('Visión', 8, 'right')}`,
+        `  ${pad('Player', 24)}${pad('Champion', 14)}${pad('Pos', 8)}${pad('KDA', 10, 'right')}${pad('CS', 6, 'right')}${pad('Gold', 8, 'right')}${pad('Damage', 9, 'right')}${pad('Vision', 8, 'right')}`,
       )
 
       for (const p of team) {
@@ -103,14 +103,14 @@ async function main() {
 
     if (showRawKeys) {
       const keys = Object.keys(match.players[0]?.raw ?? {}).sort()
-      console.log(`  ${keys.length} campos en statsJson:`)
+      console.log(`  ${keys.length} fields in statsJson:`)
       console.log(keys.map((k) => `    ${k}`).join('\n'))
       console.log('')
     }
   } catch (error) {
     if (error instanceof RoflParseError) {
       console.error(`\n  ERROR [${error.code}] ${error.message}\n`)
-      if (error.details) console.error('  detalles:', error.details, '\n')
+      if (error.details) console.error('  details:', error.details, '\n')
       process.exit(2)
     }
     throw error

@@ -9,23 +9,23 @@ import { createClient } from '@/lib/supabase/server'
 import type { RosterStatusRow } from '@/types/db'
 
 /**
- * Los planteles: quiénes están anotados y qué cuenta de Riot es cada uno.
+ * The rosters: who is signed up and which Riot account each one is.
  *
- * Dos cosas distintas que viven en el mismo formulario porque se hacen en el
- * mismo momento:
+ * Two different things living in the same form because they are done at the
+ * same moment:
  *
- *   - QUIÉNES. Alta, baja y modificación de inscriptos (saveTeamRosterAction).
- *     La planilla de inscripción no es definitiva: hasta que arranque el torneo
- *     se cae gente, entran suplentes y se corrigen nombres.
- *   - QUÉ CUENTA. El emparejado con `players`, por tres caminos del más cómodo
- *     al más manual: pegar la lista que mande la organización
- *     (importRosterAction), escribir el Riot ID de a uno, o elegir a mano una de
- *     las cuentas que ya jugaron en ese equipo (los dos últimos, mismo
- *     formulario que el alta).
+ *   - WHO. Adding, removing and editing signups (saveTeamRosterAction). The
+ *     signup sheet is not final: until the tournament starts people drop out,
+ *     substitutes come in and names get corrected.
+ *   - WHICH ACCOUNT. The matching against `players`, by three routes from the
+ *     most convenient to the most manual: pasting the list the organizers send
+ *     (importRosterAction), typing the Riot ID one at a time, or picking by
+ *     hand one of the accounts that already played for that team (the last two
+ *     share the form with the additions).
  *
- * Quien decide qué cuenta es de quién es siempre una persona. Lo único
- * automático es la coincidencia exacta de Riot ID, que la hace
- * `link_roster_accounts()` en la base.
+ * Whoever decides which account belongs to whom is always a person. The only
+ * automatic part is the exact Riot ID match, which `link_roster_accounts()`
+ * does in the database.
  */
 
 function refresh() {
@@ -37,28 +37,28 @@ function refresh() {
 export interface RosterActionResult {
   ok: boolean
   error?: string
-  /** Inscriptos que se volvieron a escribir. */
+  /** Signups that were rewritten. */
   saved?: number
-  /** Inscriptos dados de alta. */
+  /** Signups added. */
   added?: number
-  /** Inscriptos dados de baja. */
+  /** Signups removed. */
   removed?: number
-  /** Inscriptos que quedaron emparejados con una cuenta real. */
+  /** Signups that ended up matched with a real account. */
   linked?: number
   imported?: RosterImportResult
 }
 
 /**
- * Guarda el plantel de un equipo entero de una.
+ * Saves a team's whole roster at once.
  *
- * Un solo botón para las cinco o siete filas, y para las tres operaciones a la
- * vez: guardar de a un campo son cinco viajes al servidor y cinco
- * revalidaciones para completar un plantel.
+ * One button for the five or seven rows, and for all three operations at the
+ * same time: saving one field at a time is five round trips to the server and
+ * five revalidations to complete one roster.
  *
- * El formulario manda el plantel completo —una fila por inscripto, más las que
- * se hayan agregado en pantalla— y acá se compara contra lo que hay en la base.
- * `planRosterEdit` decide qué se borra, qué se actualiza y qué se crea, y
- * rechaza el formulario entero si no coincide con el plantel de hoy.
+ * The form sends the complete roster - one row per signup, plus any added on
+ * screen - and here it is compared against what is in the database.
+ * `planRosterEdit` decides what gets deleted, updated and created, and rejects
+ * the whole form if it does not match today's roster.
  */
 export async function saveTeamRosterAction(
   _prev: RosterActionResult | null,
@@ -71,18 +71,18 @@ export async function saveTeamRosterAction(
 
   const supabase = createAdminClient()
 
-  // Se lee el plantel de hoy en vez de confiar en lo que manda el navegador:
-  // el formulario pudo haberse dibujado antes de otra edición, y el `id` es lo
-  // único que decide a quién se le escribe encima. Sin los nombres: lo que va a
-  // quedar guardado es lo que escribió el usuario, así que no hacen falta.
-  const { data: actual, error: readError } = await supabase
+  // Today's roster is read rather than trusting what the browser sends: the
+  // form may have been drawn before another edit, and the `id` is the only
+  // thing that decides who gets written over. Without the names: what ends up
+  // stored is what the user typed, so they are not needed.
+  const { data: stored, error: readError } = await supabase
     .from('team_roster')
     .select('id,order_index')
     .eq('team_id', teamId)
 
   if (readError) return { ok: false, error: readError.message }
 
-  const current: RosterCurrentRow[] = (actual ?? []).map((row) => ({
+  const current: RosterCurrentRow[] = (stored ?? []).map((row) => ({
     id: row.id as string,
     orderIndex: row.order_index as number,
   }))
@@ -95,9 +95,9 @@ export async function saveTeamRosterAction(
     if (error) return { ok: false, error: error.message }
   }
 
-  // Se limpian las cuentas antes de asignarlas: si dos filas se intercambian la
-  // cuenta, escribirlas de a una chocaría contra el índice único de player_id a
-  // mitad de camino.
+  // The accounts are cleared before being assigned: if two rows swap accounts,
+  // writing them one at a time would collide with the unique index on player_id
+  // halfway through.
   if (plan.update.length > 0) {
     const { error } = await supabase
       .from('team_roster')
@@ -118,8 +118,8 @@ export async function saveTeamRosterAction(
     if (error) return { ok: false, error: error.message }
   }
 
-  // Y se intenta cerrar lo que se acaba de escribir contra las cuentas que ya
-  // existan: si la persona ya jugó, queda emparejada en el acto.
+  // And what was just written is matched against whatever accounts already
+  // exist: if that person has played, they are paired up on the spot.
   const { data: linked } = await supabase.rpc('link_roster_accounts', { p_team_id: teamId })
 
   refresh()
@@ -134,11 +134,11 @@ export async function saveTeamRosterAction(
 }
 
 /**
- * Pega la lista entera y la reparte sola.
+ * Paste the whole list and let it distribute itself.
  *
- * Se lee con la sesión del usuario y no con la clave de servicio: `team_roster`
- * tiene nombres legales y esta acción los trae todos, así que conviene que pase
- * por el RLS igual que el resto del sitio.
+ * It reads with the user's session and not with the service key: `team_roster`
+ * holds legal names and this action fetches all of them, so it is better that
+ * it goes through RLS like the rest of the site.
  */
 export async function importRosterAction(
   _prev: RosterActionResult | null,

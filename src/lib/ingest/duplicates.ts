@@ -1,12 +1,12 @@
 import { createAdminClient } from '../supabase/admin'
 
 /**
- * Busca un archivo ya guardado con exactamente los mismos bytes.
+ * Looks for an already-stored file with exactly the same bytes.
  *
- * Es distinto de la deduplicación por huella de partida: acá se detecta el
- * mismo archivo subido dos veces (mismo sha256), y sirve para evitar la subida
- * antes de gastar la cuota. La huella, en cambio, une los dos .rofl distintos
- * que graban los clientes de los dos equipos de una misma partida.
+ * This is different from deduplication by match fingerprint: here what gets
+ * caught is the same file uploaded twice (same sha256), and it saves the upload
+ * before the quota is spent. The fingerprint, in contrast, joins the two
+ * different .rofl files the clients of the two teams record for one match.
  */
 export async function findFileBySha256(sha256: string): Promise<{ matchId: string } | null> {
   const { data, error } = await createAdminClient()

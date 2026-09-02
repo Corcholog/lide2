@@ -6,10 +6,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
 export const runtime = 'nodejs'
 
 /**
- * Descarga del .rofl original (la prueba del resultado).
+ * Downloading the original .rofl (the proof of the result).
  *
- * El bucket es privado: se genera una signed URL de corta duración y se redirige.
- * Si la partida tiene varios archivos (el de cada equipo), se sirve el primero.
+ * The bucket is private: a short-lived signed URL is generated and redirected
+ * to. If the match has several files (one per team), the first is served.
  */
 export async function GET(_request: Request, { params }: RouteContext<'/api/matches/[id]/download'>) {
   const user = await requireApiUser()

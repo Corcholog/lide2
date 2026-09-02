@@ -4,9 +4,9 @@ import { AddAccount } from '@/components/admin/AddAccount'
 import { AssignAccount } from '@/components/admin/AssignAccount'
 import { AssignRole } from '@/components/admin/AssignRole'
 import {
-  LogoUniversidad,
-  LogosUniversidad,
-} from '@/components/torneo/LogoUniversidad'
+  UniversityLogo,
+  UniversityLogos,
+} from '@/components/tournament/UniversityLogo'
 import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { maybeRow, rows } from '@/lib/supabase/query'
@@ -14,7 +14,7 @@ import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { formatNumber, formatPosition, playerName, riotTag } from '@/lib/format'
 import type { PlayerTotalsRow, TeamAccountRow, TeamLineupRow } from '@/types/db'
 import { addPlayerAction, deleteTeamAction, removePlayerAction } from '../actions'
-import { rutaJugador } from '@/lib/rutas'
+import { playerPath } from '@/lib/routes'
 
 export const dynamic = 'force-dynamic'
 
@@ -43,8 +43,8 @@ export async function generateMetadata({ params }: PageProps<'/equipos/[id]'>) {
   const { id } = await params
   const { data } = await (await createClient()).from('teams').select('name').eq('id', id).maybeSingle()
 
-  const nombre = (data?.name as string) ?? 'Equipo'
-  return { title: nombre, description: `Plantel, récord y números de ${nombre} en la ${TOURNAMENT.name}.` }
+  const name = (data?.name as string) ?? 'Equipo'
+  return { title: name, description: `Plantel, récord y números de ${name} en la ${TOURNAMENT.name}.` }
 }
 
 export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
@@ -58,7 +58,7 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
     supabase.from('teams').select('id,name,tag').eq('id', id).maybeSingle(),
     // El plantel son casilleros y no cuentas: los cinco roles están siempre, el
     // banco sale de cuántos anotó el equipo y el nick aparece cuando la persona
-    // jugó y quedó emparejada. Ver 0014_plantel.sql.
+    // jugó y quedó emparejada. Ver 0014_roster.sql.
     supabase.from('team_lineup').select('*').eq('team_id', id).order('slot'),
     supabase.from('player_totals').select('*').order('games', { ascending: false }),
     supabase
@@ -83,18 +83,18 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
       : Promise.resolve({ data: [], error: null }),
   ])
 
-  const team = maybeRow<{ id: string; name: string; tag: string | null }>(teamRes, 'el equipo')
+  const team = maybeRow<{ id: string; name: string; tag: string | null }>(teamRes, 'the team')
   if (!team) notFound()
 
-  const universidades = rows<{ universities: { tag: string; name: string } | null }>(
+  const universities = rows<{ universities: { tag: string; name: string } | null }>(
     unisRes as never,
     'las universidades del equipo',
-  ).flatMap((fila) => (fila.universities ? [fila.universities] : []))
+  ).flatMap((row) => (row.universities ? [row.universities] : []))
 
-  const lineup = rows<TeamLineupRow>(lineupRes, 'el plantel')
-  const roster = rows<RosterRow>(rosterRes as never, 'los inscriptos')
-  const accounts = rows<TeamAccountRow>(accountsRes as never, 'las cuentas del equipo')
-  const totals = rows<PlayerTotalsRow>(totalsRes, 'los totales por jugador')
+  const lineup = rows<TeamLineupRow>(lineupRes, 'the lineup')
+  const roster = rows<RosterRow>(rosterRes as never, 'the signups')
+  const accounts = rows<TeamAccountRow>(accountsRes as never, 'the team accounts')
+  const totals = rows<PlayerTotalsRow>(totalsRes, 'the per-player totals')
   const memberIds = new Set(lineup.flatMap((slot) => (slot.player_id ? [slot.player_id] : [])))
   const confirmados = memberIds.size
 
@@ -110,13 +110,13 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
 
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex items-center gap-3">
-          <LogosUniversidad tags={universidades.map((u) => u.tag)} size="xl" max={3} />
+          <UniversityLogos tags={universities.map((u) => u.tag)} size="xl" max={3} />
           <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight">{team.name}</h1>
             {/* "Equipo 15" no dice de quien es: el nombre largo si. */}
-            {universidades.length > 0 && (
+            {universities.length > 0 && (
               <p className="mt-1 text-sm text-muted">
-                {universidades.map((u) => u.name).join(' · ')}
+                {universities.map((u) => u.name).join(' · ')}
               </p>
             )}
           </div>
@@ -162,7 +162,7 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
                 </span>
                 {entry.universities?.tag && (
                   <span className="flex shrink-0 items-center gap-1.5">
-                    <LogoUniversidad tag={entry.universities.tag} size="xs" />
+                    <UniversityLogo tag={entry.universities.tag} size="xs" />
                     <span className="text-xs text-faint">{entry.universities.tag}</span>
                   </span>
                 )}
@@ -224,7 +224,7 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
                      plantel son dos líneas iguales sin él. */
                   <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
                     <Link
-                      href={rutaJugador(slot.player_id)}
+                      href={playerPath(slot.player_id)}
                       className="truncate font-medium transition-colors hover:text-accent"
                     >
                       {playerName(slot.name)}

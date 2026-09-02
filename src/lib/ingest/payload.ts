@@ -1,13 +1,13 @@
 import type { NormalizedMatch, NormalizedPlayer } from '../rofl'
 
 /**
- * Construccion del payload de `ingest_match(jsonb)`.
+ * Building the payload for `ingest_match(jsonb)`.
  *
- * Las claves son literalmente los nombres de columna de `matches` y
- * `match_players`: la funcion de Postgres arma las filas con
- * jsonb_populate_record, asi que el contrato entre TS y SQL es el nombre del
- * campo. Cualquier clave que no exista como columna se ignora en silencio, por
- * eso hay un test contra el esquema real (tests/db.test.ts).
+ * The keys are literally the column names of `matches` and `match_players`: the
+ * Postgres function builds the rows with jsonb_populate_record, so the contract
+ * between TS and SQL is the field name. Any key that does not exist as a column
+ * is silently ignored, which is why there is a test against the real schema
+ * (tests/db.test.ts).
  */
 
 export interface IngestFile {
@@ -16,25 +16,25 @@ export interface IngestFile {
   file_size: number
   sha256?: string | null
   storage_provider?: string
-  /** PUUID del jugador cuyo cliente grabo el replay, si se conoce. */
+  /** PUUID of the player whose client recorded the replay, when it is known. */
   client_puuid?: string | null
   uploaded_by?: string | null
 }
 
 export interface IngestOptions {
   /**
-   * El .rofl que la originó, si está guardado en algún lado.
+   * The .rofl the match came from, if it is stored anywhere.
    *
-   * Opcional porque `ingest_match` siempre lo trató así (`if v_file is not
-   * null`): se puede guardar una partida sin su archivo. Lo usa el backfill
-   * local, que parsea desde el disco para no subir cientos de MB al bucket por
-   * datos de prueba. Sin archivo no hay fila en `match_files`, o sea que la
-   * partida no se puede descargar ni deduplicar por sha256 —para eso queda el
-   * `fingerprint`, que es la identidad de verdad—.
+   * Optional because `ingest_match` always treated it that way (`if v_file is
+   * not null`): a match can be saved without its file. The local backfill uses
+   * that, parsing from disk so hundreds of MB of test data never reach the
+   * bucket. With no file there is no `match_files` row, which means the match
+   * can neither be downloaded nor deduplicated by sha256 - the `fingerprint` is
+   * left for that, and it is the real identity anyway.
    */
   file?: IngestFile
   tournamentId?: string | null
-  /** Formato suizo: etapa ("Suizo", "Playoffs") y ronda ("Ronda 3"). */
+  /** Swiss format: stage ("Suizo", "Playoffs") and round ("Ronda 3"). */
   stageLabel?: string | null
   roundLabel?: string | null
   createdBy?: string | null
@@ -141,10 +141,10 @@ export function buildIngestPayload(match: NormalizedMatch, options: IngestOption
     created_by: options.createdBy ?? null,
 
     /*
-      Sin archivo la clave NO va, en vez de ir en null: `ingest_match` hace
-      `payload->'file'` y pregunta `is not null`, y un null de JSON pasa esa
-      prueba —es un jsonb 'null', no un NULL de SQL— con lo que termina
-      intentando insertar una fila de `match_files` con storage_path vacío.
+      With no file the key is left OUT rather than set to null: `ingest_match`
+      does `payload->'file'` and asks `is not null`, and a JSON null passes that
+      test - it is a jsonb 'null', not a SQL NULL - so it ends up trying to
+      insert a `match_files` row with an empty storage_path.
     */
     ...(options.file
       ? {
@@ -161,22 +161,3 @@ export function buildIngestPayload(match: NormalizedMatch, options: IngestOption
     players: match.players.map(playerRow),
   }
 }
-
-/** Nombres de columna que el payload escribe, para chequear contra el esquema. */
-export const MATCH_COLUMNS = [
-  'tournament_id',
-  'stage_label',
-  'round_label',
-  'fingerprint',
-  'riot_match_id',
-  'format',
-  'game_version',
-  'patch',
-  'game_length_ms',
-  'played_at',
-  'winning_side',
-  'ended_in_surrender',
-  'ended_in_early_surrender',
-  'raw_metadata',
-  'created_by',
-] as const

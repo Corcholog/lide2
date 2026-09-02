@@ -1,21 +1,26 @@
 import { RoflParseError, type RoflFormat, type RoflMetadata, type RoflPlayerStats } from './types'
 import { bufferSource, type RoflSource } from './source'
 
+/*
+ * The thrown messages stay in Spanish on purpose: they travel out through
+ * `IngestResult.message` and are read as-is in the upload panel.
+ */
+
 /**
- * Header de tamaño fijo en ambos formatos: 6 bytes de firma + 256 de firma
- * criptográfica + 26 de la tabla de longitudes (que sólo usa el formato viejo).
+ * Fixed-size header in both formats: 6 signature bytes + 256 of cryptographic
+ * signature + 26 of the length table (which only the old format uses).
  */
 export const ROFL_HEADER_BYTES = 288
 
-/** "RIOT" + 0x00 0x00 — formato viejo, metadata en el header. */
+/** "RIOT" + 0x00 0x00 - old format, metadata inside the header. */
 const SIGNATURE_ROFL = Buffer.from([0x52, 0x49, 0x4f, 0x54, 0x00, 0x00])
-/** "RIOT" + 0x02 0x00 — formato nuevo (>= 14.11), metadata al final del archivo. */
+/** "RIOT" + 0x02 0x00 - new format (>= 14.11), metadata at the end of the file. */
 const SIGNATURE_ROFL2 = Buffer.from([0x52, 0x49, 0x4f, 0x54, 0x02, 0x00])
 
 const GAME_VERSION_OFFSET = 15
 const GAME_VERSION_LENGTH = 14
 const LENGTHS_OFFSET = 262
-/** Los últimos 4 bytes del archivo: uint32 LE con el largo de la metadata. */
+/** The last 4 bytes of the file: uint32 LE holding the metadata length. */
 const FOOTER_BYTES = 4
 const MAX_METADATA_BYTES = 8 * 1024 * 1024
 
@@ -24,9 +29,9 @@ const EMPTY_STATS_MESSAGE =
   '13.20 y 14.10; los replays grabados en ese rango no tienen datos recuperables.'
 
 /**
- * Recorta el padding de un campo de texto leido del binario: son de largo fijo
- * y vienen rellenados con NUL (0x00). charCodeAt <= 32 cubre NUL, espacios,
- * tabs y saltos de linea, sin necesidad de escapes de control en el fuente.
+ * Trims the padding off a text field read from the binary: they are fixed
+ * length and come padded with NUL (0x00). charCodeAt <= 32 covers NUL, spaces,
+ * tabs and newlines, with no need for control escapes in the source.
  */
 function trimPadding(value: string): string {
   let last = value.length
@@ -70,7 +75,7 @@ export function detectFormat(header: Buffer): RoflFormat {
   )
 }
 
-/** Versión del build del juego, ej. "15.16.700.4321". Sólo presente en ROFL2. */
+/** The game build version, e.g. "15.16.700.4321". Only present in ROFL2. */
 export function readGameVersion(header: Buffer): string | null {
   const raw = trimPadding(
     header.subarray(GAME_VERSION_OFFSET, GAME_VERSION_OFFSET + GAME_VERSION_LENGTH).toString('utf8'),
@@ -79,7 +84,7 @@ export function readGameVersion(header: Buffer): string | null {
   return /^\d+\.\d+/.test(raw) ? raw : null
 }
 
-/** Tabla de offsets del formato viejo, 26 bytes a partir del byte 262. */
+/** The old format's offset table, 26 bytes starting at byte 262. */
 export function readLengths(header: Buffer): RoflLengths {
   const b = header.subarray(LENGTHS_OFFSET, LENGTHS_OFFSET + 26)
   return {
@@ -112,7 +117,7 @@ export async function parseRofl(source: RoflSource): Promise<RoflMetadata> {
   return decodeMetadata(metadataBuffer, format, gameVersion)
 }
 
-/** Atajo para tests y para el CLI cuando ya se tiene el archivo en memoria. */
+/** Shortcut for the tests and the CLI when the file is already in memory. */
 export function parseRoflBuffer(buf: Buffer): Promise<RoflMetadata> {
   return parseRofl(bufferSource(buf))
 }

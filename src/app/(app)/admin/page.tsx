@@ -7,13 +7,13 @@ import { TOURNAMENT } from '@/lib/lide2/tournament'
 export const dynamic = 'force-dynamic'
 
 /**
- * El panel, en el orden en que se usa un día de partido.
+ * The panel, in the order it gets used on a match day.
  *
- * Subir → asignar → (si hace falta) emparejar → publicar. Los números al lado
- * de cada paso son lo que queda por hacer en ese paso: si dicen cero, ese día
- * está listo. Los dos últimos no son obligatorios: emparejar sólo corrige la
- * tabla de universidades, y publicar es lo que se hace después, no lo que hace
- * falta para que el sitio esté bien.
+ * Upload -> assign -> (if needed) match up -> publish. The numbers beside each
+ * step are what is left to do at that step: when they read zero, that day is
+ * done. The last two are not mandatory: matching up only corrects the
+ * university table, and publishing is what happens afterwards, not what it
+ * takes for the site to be right.
  */
 export default async function AdminPage() {
   await requireUser()
@@ -37,8 +37,8 @@ export default async function AdminPage() {
           .is('match_id', null)
       : Promise.resolve({ count: 0 }),
     supabase.from('roster_status').select('player_id'),
-    // Partidas sin ningún ban cargado. `ban_count` viene de match_summaries
-    // (0021) justamente para que esto sea un count y no traer toda la tabla.
+    // Matches with no bans entered. `ban_count` comes from match_summaries
+    // (0021) precisely so this can be a count and not a full table fetch.
     tournamentId
       ? supabase
           .from('match_summaries')
@@ -48,7 +48,7 @@ export default async function AdminPage() {
       : Promise.resolve({ count: 0 }),
   ])
 
-  const roster = rows<{ player_id: string | null }>(rosterRes, 'los inscriptos')
+  const roster = rows<{ player_id: string | null }>(rosterRes, 'the signups')
   const sinEmparejar = roster.filter((row) => row.player_id === null).length
   const sinDraft = draftRes.count ?? 0
 

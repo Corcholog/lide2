@@ -2,9 +2,9 @@ import Link from 'next/link'
 import { LoginForm } from '@/components/auth/LoginForm'
 
 /*
- * Sin esto la pestaña mostraba el título por defecto del torneo entero, que en
- * una pantalla de entrada no dice nada. El template del layout raíz le agrega
- * el "· LIDE 2" atrás.
+ * Without this the tab showed the whole tournament's default title, which says
+ * nothing on a sign-in screen. The root layout's template appends the
+ * "· LIDE 2" behind it.
  */
 export const metadata = { title: 'Entrar' }
 
@@ -12,12 +12,12 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
   const params = await searchParams
 
   /*
-   * A dónde vuelve después de entrar. Sale de la URL, así que lo puede escribir
-   * cualquiera: tiene que ser una ruta de este sitio y nada más.
+   * Where it returns to after signing in. It comes from the URL, so anybody can
+   * write it: it has to be a route of this site and nothing else.
    *
-   * No alcanza con que empiece en "/": "//otrositio.com" también empieza así y
-   * el navegador lo lee como una URL absoluta sin protocolo, o sea que
-   * mandaría a alguien recién logueado a un dominio ajeno.
+   * Starting with "/" is not enough: "//othersite.com" starts that way too and
+   * the browser reads it as an absolute URL with no protocol, which would send
+   * somebody who just signed in to a foreign domain.
    */
   const raw = typeof params.next === 'string' ? params.next : null
   const next = raw && raw.startsWith('/') && !raw.startsWith('//') ? raw : '/'
@@ -31,9 +31,10 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
       <LoginForm next={next} />
 
       {/*
-        Esta página está fuera del grupo (app), así que no hereda el layout: no
-        tiene barra ni pie. Sin este link, quien cae acá por un link viejo o por
-        equivocación sólo puede salir con el botón de atrás del navegador.
+        This page sits outside the (app) group, so it does not inherit the
+        layout: it has no bar and no footer. Without this link, whoever lands
+        here through an old link or by mistake can only leave with the browser's
+        back button.
       */}
       <Link
         href="/"

@@ -1,14 +1,14 @@
 /**
- * Variables de entorno, con mensajes claros cuando falta alguna.
+ * Environment variables, with clear messages when one is missing.
  *
- * Supabase renombro las claves: los proyectos nuevos traen `publishable` y
- * `secret`, los viejos `anon` y `service_role`. Se aceptan los dos nombres.
+ * Supabase renamed the keys: new projects come with `publishable` and `secret`,
+ * older ones with `anon` and `service_role`. Both names are accepted.
  */
 
 function required(name: string, value: string | undefined): string {
   if (!value) {
     throw new Error(
-      `Falta la variable de entorno ${name}. Copiá .env.example a .env.local y completá los valores del proyecto de Supabase.`,
+      `Missing environment variable ${name}. Copy .env.example to .env.local and fill in the values from the Supabase project.`,
     )
   }
   return value
@@ -18,7 +18,7 @@ export function supabaseUrl(): string {
   return required('NEXT_PUBLIC_SUPABASE_URL', process.env.NEXT_PUBLIC_SUPABASE_URL)
 }
 
-/** Clave publica: viaja al browser, no da acceso a nada sin sesion + RLS. */
+/** Public key: it travels to the browser and unlocks nothing without a session + RLS. */
 export function supabasePublishableKey(): string {
   return required(
     'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
@@ -27,8 +27,8 @@ export function supabasePublishableKey(): string {
 }
 
 /**
- * Clave secreta: se saltea RLS. Solo del lado del servidor, nunca en un
- * componente cliente ni en una variable NEXT_PUBLIC_.
+ * Secret key: it bypasses RLS. Server side only, never in a client component
+ * nor in a NEXT_PUBLIC_ variable.
  */
 export function supabaseSecretKey(): string {
   return required(
@@ -40,16 +40,18 @@ export function supabaseSecretKey(): string {
 export const REPLAYS_BUCKET = process.env.SUPABASE_REPLAYS_BUCKET ?? 'replays'
 
 /**
- * De dónde cuelga el sitio. Sirve para una sola cosa, pero importante: resolver
- * las URLs absolutas de las tarjetas que arma WhatsApp, Discord y Twitter
- * cuando alguien pega el link. Con una URL relativa no hay vista previa.
+ * Where the site hangs from. It serves one purpose, but an important one:
+ * resolving the absolute URLs of the preview cards WhatsApp, Discord and
+ * Twitter build when somebody pastes the link. With a relative URL there is no
+ * preview at all.
  *
- * Vercel la expone sola; en otro lado se pone a mano. El default de desarrollo
- * no sirve para compartir nada, pero deja el sitio andando sin configurarla.
+ * Vercel exposes it on its own; anywhere else it is set by hand. The
+ * development default is no good for sharing anything, but it keeps the site
+ * running without configuring it.
  */
 export function siteUrl(): URL {
-  const explicita = process.env.NEXT_PUBLIC_SITE_URL
-  if (explicita) return new URL(explicita)
+  const explicit = process.env.NEXT_PUBLIC_SITE_URL
+  if (explicit) return new URL(explicit)
 
   const vercel = process.env.VERCEL_PROJECT_PRODUCTION_URL ?? process.env.VERCEL_URL
   if (vercel) return new URL(`https://${vercel}`)
@@ -57,5 +59,5 @@ export function siteUrl(): URL {
   return new URL('http://localhost:3000')
 }
 
-/** Techo del plan free de Supabase; tambien se valida en el browser antes de subir. */
+/** Ceiling of the Supabase free plan; also validated in the browser before uploading. */
 export const MAX_REPLAY_BYTES = 50 * 1024 * 1024

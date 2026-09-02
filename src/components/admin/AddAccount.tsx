@@ -4,14 +4,14 @@ import { useActionState } from 'react'
 import { addAccountAction, type AccountResult } from '@/app/(app)/equipos/actions'
 
 /**
- * Cargar un nick a mano en el plantel de un equipo.
+ * Adding a nick to a team's roster by hand.
  *
- * La otra forma de sumar a alguien —la lista de abajo— son las cuentas que ya
- * jugaron y todavía no tienen equipo. Antes de la fecha 1 esa lista está vacía
- * para todos los equipos, porque `players` se llena desde los replays: no hay
- * forma de completar un plantel hasta que se juegue algo. Escribiendo el nick
- * la cuenta se crea igual, sin PUUID, y se engancha sola con su primer replay
- * (ver `adopt_manual_accounts()` en 0017_alta_de_cuenta.sql).
+ * The other way of adding somebody - the list below - is the accounts that have
+ * played and do not have a team yet. Before matchday 1 that list is empty for
+ * every team, because `players` fills itself from the replays: there is no way
+ * to complete a roster until something is played. Typing the nick creates the
+ * account anyway, without a PUUID, and it hooks itself up with its first replay
+ * (see `adopt_manual_accounts()` in 0017_alta_de_cuenta.sql).
  */
 export function AddAccount({ teamId }: { teamId: string }) {
   const [state, formAction, pending] = useActionState<AccountResult | null, FormData>(
@@ -24,11 +24,11 @@ export function AddAccount({ teamId }: { teamId: string }) {
       <input type="hidden" name="teamId" value={teamId} />
 
       {/*
-        React vacía los campos de un `<form action>` cuando la acción termina,
-        haya salido bien o mal, y los deja en su `defaultValue`. De ahí que el
-        campo vuelva vacío cuando la cuenta quedó cargada y con lo que se
-        escribió cuando no: si el error es "escribilo con #TAG", lo que hace
-        falta es corregir esas cuatro letras y no volver a tipear todo.
+        React clears the fields of a `<form action>` when the action finishes,
+        whether it went well or not, leaving them at their `defaultValue`. Hence
+        the field comes back empty when the account was saved and holding what
+        was typed when it was not: if the error is "type it with #TAG", what is
+        needed is fixing those four letters and not retyping everything.
       */}
       <input
         name="riot"
@@ -53,13 +53,13 @@ export function AddAccount({ teamId }: { teamId: string }) {
           {state.error}
         </p>
       )}
-      {state?.ok && <p className="text-sm text-ok">{resumen(state)}</p>}
+      {state?.ok && <p className="text-sm text-ok">{summarize(state)}</p>}
     </form>
   )
 }
 
-/** Qué pasó: si la cuenta ya existía, importa que traiga partidas encima. */
-function resumen(state: AccountResult): string {
+/** What happened: if the account already existed, the games it brings matter. */
+function summarize(state: AccountResult): string {
   const nick = state.nick ?? 'La cuenta'
   if (state.created) return `${nick} al plantel. Se engancha sola cuando juegue.`
 

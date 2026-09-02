@@ -1,11 +1,11 @@
 /* eslint-disable @next/next/no-img-element */
 
 /**
- * Íconos de Riot servidos por /api/ddragon.
+ * Riot icons served through /api/ddragon.
  *
- * Va con <img> y no con next/image a propósito: son cientos de sprites chicos y
- * de tamaño fijo, la optimización no aporta nada, y el markup plano es lo que
- * necesita html-to-image para exportar la card de Instagram.
+ * It uses <img> and not next/image on purpose: they are hundreds of small
+ * fixed-size sprites, optimization adds nothing, and flat markup is what
+ * html-to-image needs to export the Instagram card.
  */
 export function GameIcon({
   src,

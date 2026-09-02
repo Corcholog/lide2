@@ -1,14 +1,14 @@
 import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { formatDuration, formatNumber } from '@/lib/format'
-import { inicioDelTorneo, TOURNAMENT } from '@/lib/lide2/tournament'
+import { tournamentStartDate, TOURNAMENT } from '@/lib/lide2/tournament'
 import { loadStats, resolveTournamentId } from '@/lib/stats/query'
 import { buildStats } from '@/lib/stats/registry'
-import { StatCard } from '@/components/estadisticas/StatCard'
-import { ScopeNav } from '@/components/estadisticas/ScopeNav'
-import { VistaNav } from '@/components/estadisticas/VistaNav'
-import { SectionNav } from '@/components/torneo/SectionNav'
-import { Empty } from '@/components/estadisticas/Empty'
+import { StatCard } from '@/components/stats/StatCard'
+import { ScopeNav } from '@/components/stats/ScopeNav'
+import { ViewNav } from '@/components/stats/ViewNav'
+import { SectionNav } from '@/components/tournament/SectionNav'
+import { Empty } from '@/components/stats/Empty'
 import { parseScope } from '@/lib/stats/scope'
 
 export const metadata = {
@@ -26,11 +26,11 @@ export default async function StatsPage({ searchParams }: PageProps<'/estadistic
 
   if (!tournamentId) {
     /*
-      Sin torneo en la base no hay nada que mostrar, pero el motivo le importa a
-      una sola persona. A quien administra le sirve el comando exacto; a un
-      visitante, un comando de terminal en pantalla es ruido —y encima delata
-      que algo esta a medio armar—. Para el es simplemente que todavia no se
-      publico.
+      With no tournament in the database there is nothing to show, but the
+      reason matters to exactly one person. An admin can use the exact command;
+      to a visitor, a terminal command on screen is noise - and on top of that
+      it gives away that something is half-built. For them it is simply that
+      nothing has been published yet.
     */
     return user ? (
       <Empty
@@ -40,7 +40,7 @@ export default async function StatsPage({ searchParams }: PageProps<'/estadistic
     ) : (
       <Empty
         title="Todavía no hay estadísticas"
-        detail={`La ${TOURNAMENT.name} arranca el ${inicioDelTorneo()}. En cuanto se juegue la primera fecha, esta página se llena sola.`}
+        detail={`La ${TOURNAMENT.name} arranca el ${tournamentStartDate()}. En cuanto se juegue la primera fecha, esta página se llena sola.`}
       />
     )
   }
@@ -65,7 +65,7 @@ export default async function StatsPage({ searchParams }: PageProps<'/estadistic
       </header>
 
       <div className="flex flex-col gap-2">
-        <VistaNav activa="rankings" query={{ fecha: scope.matchday }} />
+        <ViewNav active="rankings" query={{ fecha: scope.matchday }} />
         <ScopeNav base="/estadisticas" matchday={scope.matchday} />
       </div>
 
@@ -88,13 +88,13 @@ export default async function StatsPage({ searchParams }: PageProps<'/estadistic
           </dl>
 
           {/*
-            La barra de secciones, la misma de la portada.
+            The section bar, the same one the home page uses.
 
-            Son treinta y tres rankings en cinco bloques: sin esto, llegar al
-            meta es scrollear a ciegas por todos los individuales. La barra se
-            ancla arriba al scrollear y marca en cuál estás, y las secciones que
-            se quedaron sin datos no aparecen porque salen de `sections`, que ya
-            viene filtrado.
+            It is thirty-three rankings across five blocks: without this,
+            reaching the meta means scrolling blindly past every individual one.
+            The bar docks to the top on scroll and marks which one you are in,
+            and sections left without data do not appear because they come from
+            `sections`, which arrives already filtered.
           */}
           <SectionNav sections={sections.map(({ id, label }) => ({ id, label }))} />
 

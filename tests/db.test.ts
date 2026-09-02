@@ -28,7 +28,7 @@ async function fixturePayload(overrides: { sha256: string }): Promise<IngestPayl
   }
 }
 
-describe('esquema e ingesta (Postgres embebido)', () => {
+describe('schema and ingest (embedded Postgres)', () => {
   let db: PGlite
   let payload: IngestPayload
   let matchId: string
@@ -42,7 +42,7 @@ describe('esquema e ingesta (Postgres embebido)', () => {
     await db?.close()
   })
 
-  it('el payload no escribe ninguna clave que no exista como columna', async () => {
+  it('the payload writes no key that does not exist as a column', async () => {
     const matchColumns = await columnsOf(db, 'matches')
     const playerColumns = await columnsOf(db, 'match_players')
 
@@ -53,7 +53,7 @@ describe('esquema e ingesta (Postgres embebido)', () => {
     expect(playerKeys.filter((k) => !playerColumns.has(k))).toEqual([])
   })
 
-  it('ingesta la partida entera de una', async () => {
+  it('ingests the whole match in one go', async () => {
     const { rows } = await db.query<{ ingest_match: { status: string; match_id: string } }>(
       'select public.ingest_match($1::jsonb)',
       [JSON.stringify(payload)],
@@ -78,7 +78,7 @@ describe('esquema e ingesta (Postgres embebido)', () => {
     expect(Number(players.rows[0].n)).toBe(10)
     expect(Number(players.rows[0].kills)).toBe(42)
 
-    // Los 365 campos crudos quedan guardados para stats que todavia no promovimos.
+    // The 365 raw fields are kept for stats not promoted to columns yet.
     const raw = await db.query<{ keys: number }>(
       `select count(*)::int as keys
          from public.match_players mp, jsonb_object_keys(mp.raw)
@@ -88,7 +88,7 @@ describe('esquema e ingesta (Postgres embebido)', () => {
     expect(raw.rows[0].keys).toBeGreaterThan(300)
   })
 
-  it('da de alta los 10 jugadores detectados', async () => {
+  it('registers the 10 detected players', async () => {
     const { rows } = await db.query<{ n: string }>('select count(*) as n from public.players')
     expect(Number(rows[0].n)).toBe(10)
 
@@ -98,7 +98,7 @@ describe('esquema e ingesta (Postgres embebido)', () => {
     expect(Number(linked.rows[0].n)).toBe(10)
   })
 
-  it('el segundo .rofl de la misma partida se guarda como prueba, no como partida nueva', async () => {
+  it('the second .rofl of the same match is stored as proof, not as a new match', async () => {
     const otherTeamFile = await fixturePayload({ sha256: 'bbb' })
     const { rows } = await db.query<{ ingest_match: { status: string; match_id: string } }>(
       'select public.ingest_match($1::jsonb)',
@@ -114,7 +114,7 @@ describe('esquema e ingesta (Postgres embebido)', () => {
     expect(Number(files.rows[0].n)).toBe(2)
   })
 
-  it('las vistas calculan totales por lado y el MVP', async () => {
+  it('the views compute per-side totals and the MVP', async () => {
     const teams = await db.query<{ side: number; kills: string; win: boolean }>(
       'select side, kills::text, win from public.match_team_stats where match_id = $1 order by side',
       [matchId],
@@ -126,7 +126,7 @@ describe('esquema e ingesta (Postgres embebido)', () => {
       'select champion, kills, score_pct::text from public.match_player_scores where match_id = $1 and match_rank = 1',
       [matchId],
     )
-    // Yasuo 17/4/9 con 45k de dano en la partida real
+    // Yasuo 17/4/9 with 45k damage in the real match
     expect(mvp.rows[0].champion).toBe('Yasuo')
     expect(mvp.rows[0].kills).toBe(17)
     expect(Number(mvp.rows[0].score_pct)).toBe(1)
@@ -140,10 +140,10 @@ describe('esquema e ingesta (Postgres embebido)', () => {
     expect(Number(summary.rows[0].file_count)).toBe(2)
   })
 
-  it('acumula por jugador aunque todavia no haya equipos cargados', async () => {
+  it('accumulates per player even with no teams loaded yet', async () => {
     const { rows } = await db.query<{ games: string; kda: string; mvp_count: string }>(
-      // Por player_id y ya no por puuid: el puuid dejo de salir de la base
-      // cuando el sitio se abrio al publico (0013_publico.sql).
+      // By player_id and no longer by puuid: the puuid stopped leaving the
+      // database when the site opened to the public (0013_publico.sql).
       `select pt.games::text, pt.kda::text, pt.mvp_count::text
          from public.player_totals pt
          join public.match_players mp on mp.player_id = pt.player_id
@@ -153,7 +153,7 @@ describe('esquema e ingesta (Postgres embebido)', () => {
     expect(Number(rows[0].mvp_count)).toBe(1)
   })
 
-  it('vincula los equipos por mayoria de PUUIDs cuando se carga el roster', async () => {
+  it('links the teams by PUUID majority once the roster is loaded', async () => {
     await db.exec(`
       insert into public.teams (id, name)
       values ('11111111-1111-1111-1111-111111111111', 'Equipo Rojo');

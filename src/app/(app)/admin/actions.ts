@@ -3,22 +3,25 @@
 import { revalidatePath } from 'next/cache'
 import { requireUser } from '@/lib/auth'
 import { setMatchBans, type BanInput, type SaveBansResult } from '@/lib/bans/service'
-import { championIndex, resolveChampion } from '@/lib/champions/catalogo'
+import { championIndex, resolveChampion } from '@/lib/champions/catalog'
 import { assetVersion, championCatalog, roflKey } from '@/lib/ddragon'
 import { getStorage } from '@/lib/storage'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
- * Enganchar una partida subida con su cruce del fixture.
+ * Hooking an uploaded match up with its fixture matchup.
  *
- * Toda la lógica está en `assign_match_to_fixture()` y no acá: valida el cruce,
- * resuelve la orientación, actualiza la partida y da de alta a los jugadores
- * nuevos, todo en una llamada. Si eso se hiciera con cinco updates desde acá, un
- * error a la mitad dejaría la partida enganchada al cruce pero sin equipos.
+ * All the logic lives in `assign_match_to_fixture()` and not here: it validates
+ * the matchup, resolves the orientation, updates the match and registers the
+ * new players, all in one call. Doing that with five updates from here would
+ * mean an error halfway leaves the match attached to the matchup but without
+ * teams.
  *
- * La firma con `prevState` adelante es la que pide `useActionState`, que es lo
- * que permite mostrar el error del servidor al lado del formulario en vez de
- * tirar una excepción.
+ * The signature with `prevState` in front is what `useActionState` requires,
+ * which is what allows showing the server's error next to the form instead of
+ * throwing an exception.
+ *
+ * The messages returned stay in Spanish: they are read as-is in the panel.
  */
 
 function refresh() {
@@ -35,9 +38,9 @@ function refresh() {
 export interface AssignResult {
   ok: boolean
   error?: string
-  /** Jugadores que se dieron de alta en un equipo por primera vez. */
+  /** Players registered in a team for the first time. */
   learned?: number
-  /** Los que ya jugaban en otro equipo: no se mueven solos. */
+  /** The ones already playing for another team: they are not moved on their own. */
   conflicts?: string[]
 }
 
@@ -85,18 +88,18 @@ export async function unassignMatchAction(
 }
 
 /**
- * Cargar el draft de una partida a mano.
+ * Entering a match's draft by hand.
  *
- * Los diez campos llegan como `ban-<lado>-<orden>`; los vacíos se saltean, que
- * es como se carga una partida donde un equipo pasó un ban.
+ * The ten fields arrive as `ban-<side>-<slot>`; empty ones are skipped, which
+ * is how a match where a team passed on a ban gets entered.
  *
- * LA TRADUCCIÓN ES ACÁ. En el formulario se escribe el nombre que se ve
- * ("Wukong"), y lo que se guarda es la clave que usa el .rofl ("MonkeyKing"),
- * porque es contra eso que `champion_meta` cruza los picks. Un campeón que no
- * se puede resolver corta el guardado nombrando el texto: guardarlo tal cual
- * dejaría una fila fantasma en el meta que nadie va a poder explicar después.
+ * THE TRANSLATION HAPPENS HERE. The form takes the display name ("Wukong"), and
+ * what gets stored is the key the .rofl uses ("MonkeyKing"), because that is
+ * what `champion_meta` joins the picks against. A champion that cannot be
+ * resolved aborts the save naming the text: storing it as typed would leave a
+ * ghost row in the meta that nobody will be able to explain later.
  */
-export async function guardarBansAction(
+export async function saveBansAction(
   _prev: SaveBansResult | null,
   formData: FormData,
 ): Promise<SaveBansResult> {
@@ -109,14 +112,14 @@ export async function guardarBansAction(
   const bans: BanInput[] = []
 
   for (const side of [100, 200] as const) {
-    for (let orden = 1; orden <= 5; orden++) {
-      const texto = String(formData.get(`ban-${side}-${orden}`) ?? '').trim()
-      if (!texto) continue
+    for (let slot = 1; slot <= 5; slot++) {
+      const typed = String(formData.get(`ban-${side}-${slot}`) ?? '').trim()
+      if (!typed) continue
 
-      const champion = resolveChampion(index, texto)
-      if (!champion) return { ok: false, error: `"${texto}" no es ningún campeón.` }
+      const champion = resolveChampion(index, typed)
+      if (!champion) return { ok: false, error: `"${typed}" no es ningún campeón.` }
 
-      bans.push({ side, orderIndex: orden, champion: roflKey(champion) })
+      bans.push({ side, orderIndex: slot, champion: roflKey(champion) })
     }
   }
 
@@ -133,22 +136,24 @@ export async function guardarBansAction(
 export interface DeleteResult {
   ok: boolean
   error?: string
-  /** Archivos .rofl que tenía la partida. */
+  /** .rofl files the match had. */
   files?: number
-  /** Cuentas que se fueron con ella: sólo existían por esta partida. */
+  /** Accounts that went with it: they only existed because of this match. */
   players?: string[]
 }
 
 /**
- * Borrar una partida subida por error.
+ * Deleting a match uploaded by mistake.
  *
- * El orden es a propósito: primero los .rofl del bucket y después la base. Si
- * el bucket falla, la base queda intacta y se puede reintentar; al revés
- * quedarían archivos de 15 MB sin ninguna fila que los nombre, invisibles hasta
- * que alguien mire el storage. Es el mismo orden que `scripts/purge-leif.ts`.
+ * The order is deliberate: the bucket's .rofl files first and the database
+ * after. If the bucket fails, the database is untouched and it can be retried;
+ * the other way round would leave 15 MB files with no row naming them,
+ * invisible until somebody looks at the storage. It is the same order as
+ * `scripts/purge-leif.ts`.
  *
- * Todo lo demás lo decide `delete_match()`: qué se va por cascade y qué cuentas
- * eran sólo de esta partida. Ver `supabase/migrations/0016_borrar_partida.sql`.
+ * `delete_match()` decides everything else: what goes by cascade and which
+ * accounts existed only for this match. See
+ * `supabase/migrations/0016_borrar_partida.sql`.
  */
 export async function deleteMatchAction(
   _prev: DeleteResult | null,
@@ -172,8 +177,8 @@ export async function deleteMatchAction(
     try {
       await storage.remove(file.storage_path as string)
     } catch (error) {
-      const detalle = error instanceof Error ? error.message : 'error desconocido'
-      return { ok: false, error: `No se pudo borrar el replay del bucket: ${detalle}` }
+      const detail = error instanceof Error ? error.message : 'error desconocido'
+      return { ok: false, error: `No se pudo borrar el replay del bucket: ${detail}` }
     }
   }
 

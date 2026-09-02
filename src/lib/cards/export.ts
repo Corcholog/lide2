@@ -1,15 +1,19 @@
 /**
- * Los datos crudos de una pieza, para copiar.
+ * A piece's raw data, ready to copy.
  *
- * Es la mitad del panel que importa cuando la card no alcanza: alguien que
- * arma la pieza en Figma no quiere el PNG, quiere los nombres bien escritos y
- * los números con su unidad. Sale del mismo `StatBlock` que dibuja la card, así
- * que no hay forma de que el texto diga una cosa y la imagen otra.
+ * It is the half of the panel that matters when the card is not enough:
+ * somebody building the piece in Figma does not want the PNG, they want the
+ * names spelled right and the numbers with their units. It comes out of the
+ * same `StatBlock` that draws the card, so there is no way for the text to say
+ * one thing and the image another.
+ *
+ * The CSV headers stay in Spanish: the file is handed to whoever designs the
+ * piece.
  */
 
 import type { StatBlock } from '@/lib/stats/types'
 
-/** Nombre, equipo y contexto en un renglón: "Zaahen — Equipo 07 · 6/0/8". */
+/** Name, team and context on one line: "Zaahen — Equipo 07 · 6/0/8". */
 function line(name: string, subtitle?: string | null, detail?: string | null): string {
   const context = [subtitle, detail].filter(Boolean).join(' · ')
   return context ? `${name} — ${context}` : name
@@ -25,10 +29,10 @@ export function toPlainText(block: StatBlock): string {
 }
 
 /**
- * Una celda de CSV.
+ * One CSV cell.
  *
- * Se entrecomilla siempre y no sólo cuando hace falta: los nombres de equipo
- * traen comas y barras, y una regla condicional es una más para equivocarse.
+ * Always quoted and not only when needed: team names carry commas and slashes,
+ * and a conditional rule is one more thing to get wrong.
  */
 function cell(value: string | number | null): string {
   return `"${String(value ?? '').replace(/"/g, '""')}"`

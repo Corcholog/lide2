@@ -1,20 +1,22 @@
 /**
- * En qué orden se listan los equipos en /equipos.
+ * The order teams are listed in on /equipos.
  *
- * Dos órdenes y nada más, porque responden a dos preguntas distintas:
- * alfabético es "¿dónde está el mío?" —con veinte equipos que se llaman
- * "Equipo 01".."Equipo 20", buscar el propio es lo que más se hace— y winrate
- * es "¿quién va ganando?". El primero es el default: sirve aunque no se haya
- * jugado nada, y el otro no.
+ * Two orders and no more, because they answer two different questions:
+ * alphabetical is "where is mine?" - with twenty teams called "Equipo
+ * 01".."Equipo 20", finding your own is what people do most - and win rate is
+ * "who is winning?". The first one is the default: it works even when nothing
+ * has been played, and the other one does not.
  *
- * Va acá y no en el `order by` de la consulta porque el winrate no es una
- * columna: `team_totals` trae `wins` y `games` sueltos, y ordenar por victorias
- * pone a un 3–3 por encima de un 2–0.
+ * It lives here and not in the query's `order by` because the win rate is not a
+ * column: `team_totals` brings `wins` and `games` separately, and sorting by
+ * wins puts a 3-3 above a 2-0.
+ *
+ * The two values stay in Spanish: they are what travels in `?orden=`.
  */
 
 export type TeamOrder = 'alfabetico' | 'winrate'
 
-/** Lo que necesita saber de un equipo para ordenarlo. */
+/** What has to be known about a team in order to sort it. */
 export interface OrderableTeam {
   name: string
   games: number
@@ -22,43 +24,43 @@ export interface OrderableTeam {
 }
 
 /**
- * El orden pedido por la URL. Cualquier cosa que no sea `winrate` —vacío, una
- * palabra inventada, el `?orden=` repetido— cae en el default.
+ * The order the URL asked for. Anything that is not `winrate` - empty, a
+ * made-up word, a repeated `?orden=` - falls back to the default.
  */
 export function parseTeamOrder(value: string | string[] | undefined): TeamOrder {
   return value === 'winrate' ? 'winrate' : 'alfabetico'
 }
 
 /**
- * Alfabético de verdad: `localeCompare` con `numeric` para que "Equipo 2" vaya
- * antes que "Equipo 10". Hoy los nombres vienen con cero adelante y el orden de
- * texto alcanzaría, pero eso es una convención del seed, no una garantía.
+ * Properly alphabetical: `localeCompare` with `numeric` so "Equipo 2" comes
+ * before "Equipo 10". Today the names carry a leading zero and plain text order
+ * would do, but that is a convention of the seed, not a guarantee.
  */
-function porNombre(a: OrderableTeam, b: OrderableTeam): number {
+function byName(a: OrderableTeam, b: OrderableTeam): number {
   return a.name.localeCompare(b.name, 'es', { numeric: true, sensitivity: 'base' })
 }
 
 /**
- * Ordena sin tocar el arreglo original.
+ * Sorts without touching the original array.
  *
- * En winrate, un equipo que todavía no jugó va último y no primero: 0 de 0 no
- * es 0%, es que no se sabe —la card muestra "—"— y arrancar la lista con los
- * que no jugaron nada es justo lo contrario de lo que se viene a ver. Entre dos
- * con el mismo porcentaje va antes el que jugó más partidas, porque un 100% en
- * tres partidas dice más que un 100% en una.
+ * Under win rate, a team that has not played yet goes last and not first: 0 out
+ * of 0 is not 0%, it is unknown - the card shows an em dash - and opening the
+ * list with the teams that played nothing is the exact opposite of what people
+ * came to see. Between two on the same percentage, whoever played more games
+ * comes first, because 100% across three games says more than 100% across one.
  */
 export function sortTeams<T extends OrderableTeam>(teams: T[], order: TeamOrder): T[] {
-  if (order === 'alfabetico') return [...teams].sort(porNombre)
+  if (order === 'alfabetico') return [...teams].sort(byName)
 
   return [...teams].sort((a, b) => {
     if (a.games === 0 || b.games === 0) {
       if (a.games !== b.games) return a.games === 0 ? 1 : -1
-      return porNombre(a, b)
+      return byName(a, b)
     }
 
     const winrate = b.wins / b.games - a.wins / a.games
     if (winrate !== 0) return winrate
     if (b.games !== a.games) return b.games - a.games
-    return porNombre(a, b)
+    return byName(a, b)
   })
 }

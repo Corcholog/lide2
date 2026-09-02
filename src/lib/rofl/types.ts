@@ -1,26 +1,26 @@
 /**
- * Tipos del parser de archivos .rofl (replays de League of Legends).
+ * Types for the .rofl parser (League of Legends replays).
  *
- * Referencias del formato:
- *  - https://github.com/fraxiinus/roflxd.cs  (Rofl2Reader / RoflReader) — offsets y firmas
- *  - https://github.com/gzordrai/rofl-parser.js (MIT) — lógica original portada acá
+ * Format references:
+ *  - https://github.com/fraxiinus/roflxd.cs  (Rofl2Reader / RoflReader) - offsets and signatures
+ *  - https://github.com/gzordrai/rofl-parser.js (MIT) - the original logic, ported here
  */
 
-/** ROFL = formato viejo (< 14.9). ROFL2 = formato nuevo (>= 14.11). */
+/** ROFL = old format (< 14.9). ROFL2 = new format (>= 14.11). */
 export type RoflFormat = 'ROFL' | 'ROFL2'
 
 export type RoflErrorCode =
-  /** No empieza con la firma "RIOT" o el archivo no es un replay. */
+  /** Does not start with the "RIOT" signature, or the file is not a replay. */
   | 'NOT_A_ROFL'
-  /** El archivo es más chico que el header, o los offsets caen fuera del archivo. */
+  /** The file is smaller than the header, or the offsets fall outside it. */
   | 'TRUNCATED_FILE'
-  /** Parche entre 13.20 y 14.10: Riot no guardó stats en esos replays. */
+  /** Patch between 13.20 and 14.10: Riot stored no stats in those replays. */
   | 'METADATA_EMPTY'
-  /** La metadata existe pero no es JSON válido. */
+  /** The metadata exists but is not valid JSON. */
   | 'MALFORMED_METADATA'
-  /** El JSON parseó pero no tiene la forma esperada (10 jugadores con PUUID y campeón). */
+  /** The JSON parsed but does not have the expected shape (10 players with PUUID and champion). */
   | 'UNSUPPORTED_STATS'
-  /** No se pudo leer el archivo desde el storage. */
+  /** The file could not be read from storage. */
   | 'STORAGE_UNAVAILABLE'
 
 export class RoflParseError extends Error {
@@ -36,18 +36,18 @@ export class RoflParseError extends Error {
 }
 
 /**
- * Un jugador tal cual viene en `statsJson`: ~180 claves en SCREAMING_CASE y
- * **todos los valores como string** (incluso los números, algunos en notación
- * científica: "1.234E+07").
+ * One player exactly as `statsJson` gives them: ~180 keys in SCREAMING_CASE and
+ * **every value as a string** (numbers included, some in scientific notation:
+ * "1.234E+07").
  */
 export type RoflPlayerStats = Record<string, string>
 
-/** Metadata cruda del replay, ya con `statsJson` parseado. */
+/** Raw replay metadata, with `statsJson` already parsed. */
 export interface RoflMetadata {
   format: RoflFormat
-  /** Ej. "15.16.700.4321". Null en archivos viejos que no lo declaran. */
+  /** E.g. "15.16.700.4321". Null in old files that do not declare it. */
   gameVersion: string | null
-  /** Duración en milisegundos. */
+  /** Duration in milliseconds. */
   gameLengthMs: number
   lastGameChunkId: number
   lastKeyFrameId: number

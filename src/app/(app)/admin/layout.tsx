@@ -1,11 +1,11 @@
 import type { Metadata } from 'next'
 
 /**
- * El panel no sale en buscadores ni en las vistas previas de los links.
+ * The panel does not show up in search engines or in link previews.
  *
- * El proxy ya lo protege pidiendo sesión; esto es para que una URL del panel
- * pegada en un chat no genere una tarjeta con el título del torneo, que
- * confundiría con una página pública.
+ * The proxy already protects it by asking for a session; this is so a panel URL
+ * pasted into a chat does not generate a card with the tournament's title,
+ * which would read as a public page.
  */
 export const metadata: Metadata = {
   title: { default: 'Panel', template: '%s · Panel' },

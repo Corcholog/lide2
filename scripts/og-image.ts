@@ -1,83 +1,85 @@
 /**
- * Genera la imagen que se ve cuando alguien pega el link del sitio.
+ * Generates the image that shows when somebody pastes the site's link.
  *
  *   npm run og
  *
- * Se genera una vez y se commitea como src/app/opengraph-image.jpg, que es el
- * nombre que Next busca solo. Estática y no `ImageResponse` a propósito: la
- * imagen no depende de ningún dato, así que generarla en cada request sería
- * pagar en runtime por algo que no cambia nunca. Además así se puede mirar el
- * resultado antes de subirlo.
+ * It is generated once and committed as src/app/opengraph-image.jpg, which is
+ * the name Next looks for on its own. Static and not `ImageResponse` on
+ * purpose: the image depends on no data, so generating it on every request
+ * would be paying at runtime for something that never changes. It also means
+ * the result can be looked at before it goes up.
  *
- * El texto va en Arial Black porque el SVG lo dibuja la máquina que corre esto,
- * no el navegador, y la Archivo Black del sitio sólo existe como webfont. Son
- * las dos grotescas pesadas del mismo palo y a este tamaño la diferencia no se
- * ve; si algún día molesta, la salida es meter el .ttf en el repo.
+ * The text is set in Arial Black because the SVG is drawn by the machine that
+ * runs this, not by the browser, and the site's Archivo Black only exists as a
+ * webfont. They are the two heavy grotesques of the same family and at this
+ * size the difference does not show; if it ever bothers anyone, the way out is
+ * putting the .ttf in the repo.
  */
 import { writeFileSync } from 'node:fs'
 import sharp from 'sharp'
 import { TOURNAMENT, SLOGAN_PARTS } from '../src/lib/lide2/tournament'
 
-/** Lo que piden Facebook, WhatsApp, Discord y Twitter: 1200 x 630. */
+/** What Facebook, WhatsApp, Discord and Twitter ask for: 1200 x 630. */
 const WIDTH = 1200
 const HEIGHT = 630
 
 const HERO = 'public/lide2-hero.jpg'
-const SALIDA = 'src/app/opengraph-image.jpg'
+const OUTPUT = 'src/app/opengraph-image.jpg'
 
-const ROJO = '#ff4353'
-/** El mismo --fg del tema oscuro, que es el que usa el titulo. */
-const CLARO = '#e9e9ee'
-const FONDO = '#0a0a0b'
+const RED = '#ff4353'
+/** The same --fg as the dark theme, which is what the title uses. */
+const LIGHT = '#e9e9ee'
+const BACKGROUND = '#0a0a0b'
 
-/** `&` y `<` rompen el SVG, y los nombres salen de un archivo de datos. */
+/** `&` and `<` break the SVG, and the names come from a data file. */
 function xml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
 /*
- * El slogan en dos colores, igual que la portada: el articulo en claro y el
- * sustantivo en rojo, que es donde esta el peso de la frase (ver el Hero en
- * src/app/(app)/page.tsx). Antes salia entero en rojo, asi que la miniatura que
- * se ve al pegar el link no coincidia con lo primero que se ve al entrar.
+ * The slogan in two colours, same as the hero: the article light and the noun
+ * red, which is where the phrase's weight is (see the Hero in
+ * src/components/home/Hero.tsx). It used to come out entirely red, so the
+ * thumbnail seen when pasting the link did not match the first thing seen on
+ * arrival.
  *
- * Va armado como tspans y con xml:space="preserve" en una sola linea: sin eso
- * el SVG colapsa los saltos de linea y la indentacion, y las palabras salen
- * pegadas o con aire de mas. Por eso este string ya trae marcado y no se lo
- * puede volver a pasar por xml() al interpolarlo.
+ * It is assembled as tspans and with xml:space="preserve" on one line: without
+ * that the SVG collapses the newlines and the indentation, and the words come
+ * out stuck together or with too much air. That is why this string already
+ * carries markup and cannot be run through xml() again when interpolated.
  */
 const slogan = SLOGAN_PARTS.map(
   ({ article, noun }) =>
-    `<tspan fill="${CLARO}">${xml(article.toUpperCase())} </tspan>` +
-    `<tspan fill="${ROJO}">${xml(noun.toUpperCase())}.</tspan>`,
+    `<tspan fill="${LIGHT}">${xml(article.toUpperCase())} </tspan>` +
+    `<tspan fill="${RED}">${xml(noun.toUpperCase())}.</tspan>`,
 ).join(' ')
 
 /*
- * Las capas, de abajo hacia arriba: la foto recortada, un degradado que la
- * apaga desde la izquierda —que es donde apoya el texto— y el texto.
+ * The layers, bottom to top: the cropped photo, a gradient dimming it from the
+ * left - which is where the text rests - and the text.
  *
- * El recorte apunta al mismo lugar que la portada del sitio (52% 20%), así que
- * la miniatura y la página muestran la misma parte del arte.
+ * The crop points at the same place as the site's hero (52% 20%), so the
+ * thumbnail and the page show the same part of the artwork.
  */
-const capaTexto = Buffer.from(`
+const textLayer = Buffer.from(`
 <svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="lavado" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%"   stop-color="${FONDO}" stop-opacity="0.97"/>
-      <stop offset="45%"  stop-color="${FONDO}" stop-opacity="0.82"/>
-      <stop offset="100%" stop-color="${FONDO}" stop-opacity="0.15"/>
+    <linearGradient id="wash" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="${BACKGROUND}" stop-opacity="0.97"/>
+      <stop offset="45%"  stop-color="${BACKGROUND}" stop-opacity="0.82"/>
+      <stop offset="100%" stop-color="${BACKGROUND}" stop-opacity="0.15"/>
     </linearGradient>
-    <linearGradient id="pie" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"   stop-color="${FONDO}" stop-opacity="0"/>
-      <stop offset="100%" stop-color="${FONDO}" stop-opacity="0.85"/>
+    <linearGradient id="foot" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="${BACKGROUND}" stop-opacity="0"/>
+      <stop offset="100%" stop-color="${BACKGROUND}" stop-opacity="0.85"/>
     </linearGradient>
   </defs>
 
-  <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#lavado)"/>
-  <rect y="${HEIGHT - 200}" width="${WIDTH}" height="200" fill="url(#pie)"/>
+  <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#wash)"/>
+  <rect y="${HEIGHT - 200}" width="${WIDTH}" height="200" fill="url(#foot)"/>
 
   <g font-family="Arial Black, Arial Bold, Impact, sans-serif">
-    <text x="72" y="150" font-size="22" letter-spacing="6" fill="${ROJO}">
+    <text x="72" y="150" font-size="22" letter-spacing="6" fill="${RED}">
       ${xml(TOURNAMENT.organizer.toUpperCase())}
     </text>
 
@@ -98,9 +100,9 @@ const capaTexto = Buffer.from(`
   </g>
 
   <!--
-    Que diga que no es el sitio oficial. Es la pieza que más se comparte y la
-    que más lejos llega del contexto: sin esto, un link suelto en un Discord
-    pasa por comunicación de la organización.
+    Saying it is not the official site. It is the most shared piece and the one
+    that travels furthest from its context: without this, a loose link in a
+    Discord passes for a message from the organizers.
   -->
   <g font-family="Arial, Helvetica, sans-serif">
     <rect x="${WIDTH - 286}" y="52" width="214" height="42" fill="#0a0a0b" fill-opacity="0.55"
@@ -112,17 +114,17 @@ const capaTexto = Buffer.from(`
 `)
 
 async function main() {
-  const foto = await sharp(HERO)
+  const photo = await sharp(HERO)
     .resize(WIDTH, HEIGHT, { fit: 'cover', position: sharp.strategy.attention })
     .toBuffer()
 
-  const png = await sharp(foto)
-    .composite([{ input: capaTexto, top: 0, left: 0 }])
+  const png = await sharp(photo)
+    .composite([{ input: textLayer, top: 0, left: 0 }])
     .jpeg({ quality: 88, mozjpeg: true })
     .toBuffer()
 
-  writeFileSync(SALIDA, png)
-  console.log(`${SALIDA} · ${WIDTH}x${HEIGHT} · ${Math.round(png.length / 1024)} KB`)
+  writeFileSync(OUTPUT, png)
+  console.log(`${OUTPUT} · ${WIDTH}x${HEIGHT} · ${Math.round(png.length / 1024)} KB`)
 }
 
 main().catch((error) => {

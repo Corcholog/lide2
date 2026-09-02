@@ -13,72 +13,72 @@ import {
 } from '@/lib/lide2/tournament'
 
 /**
- * El fixture y los planteles vienen transcriptos a mano de las planillas de la
- * organización, así que lo que se verifica acá es la transcripción: que los
- * cruces cierren un todos contra todos, que nadie juegue dos veces en el mismo
- * turno y que los totales den los mismos números que anunció la organización.
+ * The fixture and the rosters are transcribed by hand from the organizers'
+ * sheets, so what gets verified here is the transcription: that the matchups
+ * add up to a complete round robin, that nobody plays twice in the same slot
+ * and that the totals give the same numbers the organizers announced.
  *
- * Los tres cruces —anuncio, planilla de grupos y planilla de fixture— fueron
- * hechos por gente distinta, así que si dan lo mismo es buena señal.
+ * The three sources - the announcement, the groups sheet and the fixture sheet
+ * - were produced by different people, so if they agree that is a good sign.
  */
-describe('estructura de la LIDE 2', () => {
-  it('tiene 20 equipos numerados del 1 al 20, sin repetir', () => {
+describe('LIDE 2 structure', () => {
+  it('has 20 teams numbered 1 to 20, with no repeats', () => {
     expect(TEAMS).toHaveLength(TOURNAMENT.teams)
     const numbers = TEAMS.map((team) => team.number).sort((a, b) => a - b)
     expect(numbers).toEqual(Array.from({ length: 20 }, (_, i) => i + 1))
   })
 
-  it('reparte 5 equipos en cada uno de los 4 grupos', () => {
+  it('puts 5 teams in each of the 4 groups', () => {
     expect(GROUPS).toHaveLength(TOURNAMENT.groups)
     for (const group of GROUPS) {
       expect(teamsOfGroup(group), `grupo ${group}`).toHaveLength(5)
     }
   })
 
-  it('suma los 113 jugadores del anuncio', () => {
+  it('adds up to the 113 players from the announcement', () => {
     const total = TEAMS.reduce((sum, team) => sum + team.roster, 0)
     expect(total).toBe(TOURNAMENT.players)
   })
 
-  it('usa 13 universidades y todas las que nombran los equipos existen', () => {
+  it('uses 13 universities and every one the teams name exists', () => {
     expect(Object.keys(UNIVERSITIES)).toHaveLength(TOURNAMENT.universities)
 
     const used = new Set(TEAMS.flatMap((team) => team.universities))
     for (const tag of used) {
       expect(UNIVERSITIES[tag], `universidad ${tag}`).toBeDefined()
     }
-    // Ninguna sobra: las 13 del anuncio son exactamente las que juegan.
+    // None is spare: the 13 from the announcement are exactly the ones playing.
     expect(used.size).toBe(TOURNAMENT.universities)
   })
 
-  it('marca como mezclados sólo a los equipos de inscripción individual', () => {
+  it('marks only the individually-signed-up teams as mixed', () => {
     for (const team of TEAMS) {
       if (team.universities.length > 1) {
-        expect(team.entry, `equipo ${team.number}`).toBe('individual')
+        expect(team.entry, `team ${team.number}`).toBe('individual')
       }
     }
-    // Cuatro equipos salieron mezclando universidades.
+    // Four teams came out mixing universities.
     expect(TEAMS.filter((team) => team.universities.length > 1)).toHaveLength(4)
   })
 })
 
-describe('fixture de la fase de grupos', () => {
+describe('group-phase fixture', () => {
   const allMatches = SCHEDULE.flatMap((round) => round.matches)
 
-  it('son 40 partidos y ningún cruce se repite', () => {
+  it('is 40 games and no matchup repeats', () => {
     expect(allMatches).toHaveLength(40)
 
     const seen = new Set(allMatches.map(([a, b]) => [a, b].sort((x, y) => x - y).join('-')))
     expect(seen.size).toBe(40)
   })
 
-  it('nunca cruza equipos de grupos distintos', () => {
+  it('never crosses teams from different groups', () => {
     for (const [a, b] of allMatches) {
       expect(teamByNumber(a).group, `${a} vs ${b}`).toBe(teamByNumber(b).group)
     }
   })
 
-  it('completa el todos contra todos de cada grupo', () => {
+  it("completes each group's round robin", () => {
     const seen = new Set(allMatches.map(([a, b]) => [a, b].sort((x, y) => x - y).join('-')))
 
     for (const group of GROUPS) {
@@ -86,7 +86,7 @@ describe('fixture de la fase de grupos', () => {
       for (let i = 0; i < numbers.length; i++) {
         for (let j = i + 1; j < numbers.length; j++) {
           const key = [numbers[i], numbers[j]].sort((x, y) => x - y).join('-')
-          expect(seen.has(key), `falta ${numbers[i]} vs ${numbers[j]} en el grupo ${group}`).toBe(
+          expect(seen.has(key), `missing ${numbers[i]} vs ${numbers[j]} in group ${group}`).toBe(
             true,
           )
         }
@@ -94,9 +94,9 @@ describe('fixture de la fase de grupos', () => {
     }
   })
 
-  it('en cada turno juegan 16 equipos y descansan 4, uno por grupo', () => {
+  it('in each slot 16 teams play and 4 rest, one per group', () => {
     for (const round of SCHEDULE) {
-      const label = `fecha ${round.matchday} turno ${round.slot}`
+      const label = `matchday ${round.matchday} turno ${round.slot}`
       expect(round.matches, label).toHaveLength(8)
 
       const playing = round.matches.flat()
@@ -107,13 +107,13 @@ describe('fixture de la fase de grupos', () => {
       for (const group of GROUPS) {
         expect(
           byes.filter((team) => team.group === group),
-          `${label}: libres del grupo ${group}`,
+          `${label}: byes in group ${group}`,
         ).toHaveLength(1)
       }
     }
   })
 
-  it('le da a cada equipo 4 partidos y un descanso', () => {
+  it('gives every team 4 games and one bye', () => {
     for (const team of TEAMS) {
       const played = SCHEDULE.filter((round) =>
         round.matches.some(([a, b]) => a === team.number || b === team.number),
@@ -122,59 +122,59 @@ describe('fixture de la fase de grupos', () => {
         byesFor(round).some((other) => other.number === team.number),
       )
 
-      expect(played, `equipo ${team.number}`).toHaveLength(4)
-      expect(rested, `equipo ${team.number}`).toHaveLength(1)
+      expect(played, `team ${team.number}`).toHaveLength(4)
+      expect(rested, `team ${team.number}`).toHaveLength(1)
     }
   })
 
-  it('juega todos los turnos un sábado, en las fechas del calendario', () => {
+  it("plays every slot on a Saturday, on the calendar's dates", () => {
     const groupDates = CALENDAR.filter((milestone) => milestone.phase === 'grupos').map(
       (milestone) => milestone.date.slice(0, 10),
     )
 
     for (const round of SCHEDULE) {
       const kickoff = new Date(round.kickoff)
-      expect(kickoff.getUTCDay(), `fecha ${round.matchday} turno ${round.slot}`).toBe(6)
+      expect(kickoff.getUTCDay(), `matchday ${round.matchday} turno ${round.slot}`).toBe(6)
       expect(groupDates).toContain(kickoff.toISOString().slice(0, 10))
     }
   })
 })
 
-describe('planteles', () => {
-  it('tiene plantel para los 20 equipos', () => {
+describe('rosters', () => {
+  it('has a roster for all 20 teams', () => {
     for (const team of TEAMS) {
-      expect(ROSTERS[team.number], `equipo ${team.number}`).toBeDefined()
+      expect(ROSTERS[team.number], `team ${team.number}`).toBeDefined()
     }
     expect(Object.keys(ROSTERS)).toHaveLength(TOURNAMENT.teams)
   })
 
-  it('suma 113 inscriptos, que es lo que anuncio la organizacion', () => {
+  it('adds up to 113 signups, which is what the organizers announced', () => {
     const total = Object.values(ROSTERS).reduce((sum, entries) => sum + entries.length, 0)
     expect(total).toBe(TOURNAMENT.players)
   })
 
-  it('coincide con la cantidad de inscriptos que declara cada equipo', () => {
+  it('matches the signup count each team declares', () => {
     for (const team of TEAMS) {
-      expect(ROSTERS[team.number], `equipo ${team.number}`).toHaveLength(team.roster)
+      expect(ROSTERS[team.number], `team ${team.number}`).toHaveLength(team.roster)
     }
   })
 
-  it('no inventa universidades ni deja fuera ninguna del equipo', () => {
+  it("invents no universities and leaves none of the team's out", () => {
     for (const team of TEAMS) {
-      const enPlantel = new Set(ROSTERS[team.number].map((entry) => entry.university))
+      const onRoster = new Set(ROSTERS[team.number].map((entry) => entry.university))
 
-      for (const tag of enPlantel) {
+      for (const tag of onRoster) {
         expect(UNIVERSITIES[tag], `universidad ${tag}`).toBeDefined()
-        expect(team.universities, `equipo ${team.number} no declara ${tag}`).toContain(tag)
+        expect(team.universities, `team ${team.number} no declara ${tag}`).toContain(tag)
       }
-      // Y al reves: lo que declara el equipo tiene que estar en el plantel.
+      // And the other way round: what the team declares has to be on the roster.
       for (const tag of team.universities) {
-        expect(enPlantel, `equipo ${team.number} declara ${tag} sin jugadores`).toContain(tag)
+        expect(onRoster, `team ${team.number} declares ${tag} with no players`).toContain(tag)
       }
     }
   })
 
-  it('pone primera la universidad mas representada del equipo', () => {
+  it("puts the team's most represented university first", () => {
     for (const team of TEAMS) {
       const conteo = new Map<string, number>()
       for (const entry of ROSTERS[team.number]) {
@@ -182,32 +182,32 @@ describe('planteles', () => {
       }
 
       const masJugadores = Math.max(...conteo.values())
-      expect(conteo.get(team.universities[0]), `equipo ${team.number}`).toBe(masJugadores)
+      expect(conteo.get(team.universities[0]), `team ${team.number}`).toBe(masJugadores)
     }
   })
 
-  it('no deja nombres vacios ni con la sigla de la universidad pegada', () => {
+  it('leaves no empty names and none with the university tag stuck on', () => {
     for (const [number, entries] of Object.entries(ROSTERS)) {
       for (const entry of entries) {
-        expect(entry.name.trim(), `equipo ${number}`).not.toBe('')
-        expect(entry.name, `equipo ${number}: ${entry.name}`).toBe(entry.name.trim())
-        // "ZemelkaUNAHUR" era un artefacto de copiar la planilla.
-        expect(entry.name, `equipo ${number}: ${entry.name}`).not.toMatch(
+        expect(entry.name.trim(), `team ${number}`).not.toBe('')
+        expect(entry.name, `team ${number}: ${entry.name}`).toBe(entry.name.trim())
+        // "ZemelkaUNAHUR" was an artefact of copying the sheet.
+        expect(entry.name, `team ${number}: ${entry.name}`).not.toMatch(
           new RegExp(`[a-z]${entry.university}$`),
         )
       }
     }
   })
 
-  it('no repite a la misma persona en dos equipos', () => {
-    const vistos = new Map<string, string>()
+  it('does not repeat the same person across two teams', () => {
+    const seen = new Map<string, string>()
     for (const [number, entries] of Object.entries(ROSTERS)) {
       for (const entry of entries) {
-        const clave = entry.name.toLowerCase()
-        expect(vistos.has(clave), `${entry.name} figura en ${vistos.get(clave)} y en ${number}`).toBe(
+        const key = entry.name.toLowerCase()
+        expect(seen.has(key), `${entry.name} appears in ${seen.get(key)} and in ${number}`).toBe(
           false,
         )
-        vistos.set(clave, number)
+        seen.set(key, number)
       }
     }
   })

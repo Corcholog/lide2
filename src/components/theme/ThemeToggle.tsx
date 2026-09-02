@@ -4,23 +4,23 @@ import { useLayoutEffect } from 'react'
 import { applyTheme, currentTheme, readStoredTheme } from '@/lib/theme'
 
 /**
- * Botón de tema del nav.
+ * The nav's theme button.
  *
- * No tiene estado, y eso es a propósito. El servidor no puede saber qué tema
- * eligió el visitante —está en localStorage— así que cualquier cosa que el botón
- * dibuje a partir del tema va a diferir de lo que renderiza el cliente al
- * hidratar. La salida es no dibujar nada a partir del tema: los dos íconos van
- * siempre en el HTML y el CSS decide cuál se ve, mirando el mismo `data-theme`
- * del que cuelgan todos los colores.
+ * It holds no state, and that is deliberate. The server cannot know which theme
+ * the visitor chose - it is in localStorage - so anything the button draws off
+ * the theme would differ from what the client renders while hydrating. The way
+ * out is to draw nothing off the theme: both icons are always in the HTML and
+ * the CSS decides which one shows, looking at the same `data-theme` every colour
+ * hangs off.
  *
- * Así el HTML del servidor y el del cliente son idénticos, el ícono correcto
- * aparece antes de que cargue el JavaScript, y al hacer clic el tema sale del
- * atributo del <html>, que es la fuente de verdad.
+ * That way the server's HTML and the client's are identical, the right icon
+ * appears before the JavaScript loads, and on click the theme comes from the
+ * <html> attribute, which is the source of truth.
  */
 export function ThemeToggle() {
-  // En desarrollo React remonta una vez y al hacerlo borra los atributos de
-  // <html> que no vienen del JSX, incluido el que puso el script del <head>.
-  // Esto lo vuelve a poner; en producción no hace nada.
+  // In development React remounts once and doing so wipes the <html>
+  // attributes that do not come from JSX, including the one the <head> script
+  // set. This puts it back; in production it does nothing.
   useLayoutEffect(() => {
     document.documentElement.setAttribute('data-theme', readStoredTheme())
   }, [])
@@ -36,7 +36,7 @@ export function ThemeToggle() {
       title="Cambiar tema"
       className="rounded p-1.5 text-muted transition-colors hover:bg-raised hover:text-accent"
     >
-      {/* El sol se ve en el tema oscuro: es a dónde lleva el clic. */}
+      {/* The sun shows in the dark theme: it is where the click leads. */}
       <SunIcon />
       <MoonIcon />
       <span className="sr-only">Cambiar entre tema claro y oscuro</span>

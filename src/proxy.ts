@@ -2,11 +2,11 @@ import type { NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/proxy'
 
 /**
- * En Next 16 el middleware se llama proxy. Refresca la sesion de Supabase y
- * saca del paso a los no autenticados.
+ * In Next 16 the middleware is called the proxy. It refreshes the Supabase
+ * session and moves unauthenticated visitors out of the way.
  *
- * Es un chequeo optimista para la navegacion: la autorizacion real la hace
- * requireUser() en cada page y route handler, cerca de los datos.
+ * It is an optimistic check for navigation: the real authorization is done by
+ * requireUser() in every page and route handler, close to the data.
  */
 export async function proxy(request: NextRequest) {
   return updateSession(request)

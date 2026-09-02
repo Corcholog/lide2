@@ -3,29 +3,30 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { useRef, useState } from 'react'
-import { toPng } from 'html-to-image'
+import { downloadNodeAsPng } from '@/lib/cards/png'
 import type { StatBlock } from '@/lib/stats/types'
 import type { FormatSpec } from '@/lib/cards/types'
 
 /**
- * Una pieza de 1080 de ancho, lista para publicar.
+ * A piece 1080 wide, ready to publish.
  *
- * Dibuja cualquier `StatBlock`, así que sirve para las 34 estadísticas del
- * registro y para las dos que se arman aparte. No decide nada de contenido: el
- * título, las filas y la aclaración vienen resueltos.
+ * It draws any `StatBlock`, so it serves the registry's 34 stats and the two
+ * that are built separately. It decides nothing about content: the title, the
+ * rows and the caveat all arrive resolved.
  *
- * La pieza sale siempre oscura, aunque el sitio esté en claro. Es una imagen
- * que se sube a Instagram: tiene que salir igual la exporte quien la exporte.
+ * The piece always comes out dark, even when the site is in the light theme. It
+ * is an image going up on Instagram: it has to come out the same whoever
+ * exports it.
  */
 
-/** Ancho de la vista previa. La pieza real siempre mide 1080. */
+/** Preview width. The real piece always measures 1080. */
 const PREVIEW_WIDTH = 340
 
 /*
- * El resplandor rojo de siempre, el mismo del fondo del sitio. Va en un style
- * inline y no en una clase porque html-to-image clona estilos calculados: un
- * degradado escrito acá viaja igual que uno de Tailwind, y así se lee al lado
- * de los números que lo usan.
+ * The usual red glow, the same one as the site's backdrop. It goes in an inline
+ * style and not in a class because html-to-image clones computed styles: a
+ * gradient written here travels just like a Tailwind one, and this way it reads
+ * next to the numbers that use it.
  */
 const GLOW = [
   'radial-gradient(70% 50% at 88% 0%, color-mix(in srgb, var(--accent) 22%, transparent) 0%, transparent 62%)',
@@ -44,9 +45,9 @@ export function StatPoster({
   kicker: string
   format: FormatSpec
   fileName: string
-  /** Si las filas van numeradas. Ver `Poster.ordered`. */
+  /** Whether the rows are numbered. See `Poster.ordered`. */
   ordered: boolean
-  /** Le pasa el nodo al lote, para poder bajar todas de una. */
+  /** Hands the node to the batch, so all of them can be downloaded at once. */
   register?: (node: HTMLElement | null) => void
 }) {
   const card = useRef<HTMLDivElement>(null)
@@ -92,9 +93,9 @@ export function StatPoster({
       )}
 
       {/*
-        El contenedor achica la vista; el nodo que se exporta conserva sus 1080.
-        La altura del hueco se calcula, si no queda el espacio de la pieza entera
-        debajo de la miniatura.
+        The container shrinks the view; the exported node keeps its 1080. The
+        slot's height is computed, otherwise the whole piece's worth of space is
+        left below the thumbnail.
       */}
       <div
         className="overflow-hidden border-2 border-line"
@@ -124,9 +125,10 @@ export function StatPoster({
 
               <div className="mt-[52px]">
                 {/*
-                  Los títulos van de "MVP" a "Tabla de universidades", así que
-                  a este cuerpo casi todos parten en dos renglones. `text-balance`
-                  los reparte parejo en vez de dejar una palabra suelta abajo.
+                  The titles run from "MVP" to "Tabla de universidades", so at
+                  this size nearly all of them break onto two lines.
+                  `text-balance` splits them evenly instead of leaving one word
+                  stranded below.
                 */}
                 <h1 className="font-display text-balance text-[96px] uppercase leading-[0.85] tracking-[-0.04em]">
                   {block.title}
@@ -139,8 +141,9 @@ export function StatPoster({
               </div>
 
               {/*
-                `justify-around` reparte las filas por el alto que sobre, así la
-                misma pieza compone bien en 1350 y en 1920 sin dos maquetados.
+                `justify-around` spreads the rows across whatever height is left
+                over, so the same piece composes well at 1350 and at 1920
+                without two layouts.
               */}
               <ol className="flex flex-1 flex-col justify-around py-[36px]">
                 {block.rows.map((row, index) => (
@@ -175,7 +178,7 @@ function Row({
   lead,
 }: {
   row: StatBlock['rows'][number]
-  /** null cuando las filas no son un ranking: no lleva número. */
+  /** null when the rows are not a ranking: it carries no number. */
   position: number | null
   lead: boolean
 }) {
@@ -192,9 +195,9 @@ function Row({
       )}
 
       {/*
-        Los logos todavía no están cargados en el bucket, así que hoy esto no se
-        dibuja nunca. Queda puesto para que aparezcan solos cuando se suban.
-        crossOrigin: sin eso el canvas queda contaminado y la exportación falla.
+        The logos are not uploaded to the bucket yet, so today this never draws.
+        It stays in so they appear on their own once they are. crossOrigin:
+        without it the canvas is tainted and the export fails.
       */}
       {row.logo && (
         <img
@@ -221,9 +224,9 @@ function Row({
       </div>
 
       {/*
-        `max-w-[46%]` y truncate: el valor no siempre es un número corto. "5.9k
-        de oro" a este cuerpo se come media pieza, y sin tope se lleva puesto el
-        nombre de al lado, que es lo que la gente vino a leer.
+        `max-w-[46%]` and truncate: the value is not always a short number. "5.9k
+        de oro" at this size eats half the piece, and with no cap it runs over
+        the name beside it, which is what people came to read.
       */}
       <span
         className={`max-w-[46%] shrink-0 truncate text-right tabular-nums ${
@@ -237,25 +240,9 @@ function Row({
 }
 
 /**
- * Convierte el nodo en PNG y lo baja.
- *
- * `document.fonts.ready` antes de capturar no es de más: html-to-image dibuja
- * lo que el navegador tenga en ese momento, y si la Archivo Black todavía no
- * terminó de cargar, el título sale en la tipografía de reserva. Es la falla
- * más silenciosa que tiene esto, porque la imagen se genera igual.
+ * The poster as a PNG. The capture itself lives in `downloadNodeAsPng`, which
+ * the match card shares.
  */
-export async function exportPoster(node: HTMLElement, format: FormatSpec, fileName: string) {
-  await document.fonts.ready
-
-  const dataUrl = await toPng(node, {
-    width: format.width,
-    height: format.height,
-    pixelRatio: 1,
-    cacheBust: true,
-  })
-
-  const link = document.createElement('a')
-  link.download = fileName
-  link.href = dataUrl
-  link.click()
+export function exportPoster(node: HTMLElement, format: FormatSpec, fileName: string) {
+  return downloadNodeAsPng(node, format, fileName)
 }

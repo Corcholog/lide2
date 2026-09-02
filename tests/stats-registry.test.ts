@@ -8,12 +8,12 @@ import type { StatsData, StatScope } from '@/lib/stats/types'
 import type { ChampionStatRow, PlayerPhaseTotalsRow, UniversityTotalsRow } from '@/types/db'
 
 /**
- * La capa de presentacion, sin base.
+ * The presentation layer, with no database.
  *
- * Las vistas de SQL se prueban contra Postgres en tests/stats.test.ts; lo que se
- * verifica aca es lo otro: que los rankings elijan bien, que los que no
- * califican queden afuera y que una estadistica sin datos desaparezca en vez de
- * dibujar una tarjeta vacia.
+ * The SQL views are tested against Postgres in tests/stats.test.ts; what gets
+ * verified here is the other half: that the rankings pick correctly, that the
+ * ones who do not qualify stay out and that a stat with no data disappears
+ * instead of drawing an empty card.
  */
 
 const SCOPE: StatScope = { tournamentId: 't1', phase: 'grupos', matchday: null }
@@ -143,27 +143,27 @@ function data(over: Partial<StatsData> = {}): StatsData {
   }
 }
 
-describe('presentacion de estadisticas', () => {
-  it('una estadistica sin datos no devuelve un bloque vacio', () => {
+describe('stats presentation', () => {
+  it('a stat with no data does not return an empty block', () => {
     expect(mvp(data())).toBeNull()
     expect(bestKda(data())).toBeNull()
     expect(mostPicked(data())).toBeNull()
   })
 
-  it('las secciones que quedan vacias no llegan a la pagina', () => {
+  it('the sections that end up empty never reach the page', () => {
     expect(buildStats(data())).toEqual([])
   })
 
-  it('el catalogo no repite ids', () => {
+  it('the catalogue repeats no ids', () => {
     expect(new Set(STATS.map((stat) => stat.id)).size).toBe(STATS.length)
   })
 
-  it('el minimo de partidas es mas exigente en el acumulado que en una fecha', () => {
+  it('the minimum games is stricter in the total than within one matchday', () => {
     expect(minGamesForAverages({ ...SCOPE, matchday: null })).toBe(3)
     expect(minGamesForAverages({ ...SCOPE, matchday: 1 })).toBe(1)
   })
 
-  it('el ranking de promedios deja afuera al que jugo una sola', () => {
+  it('the averages ranking leaves out whoever played only one', () => {
     const block = bestKda(
       data({
         players: [
@@ -176,7 +176,7 @@ describe('presentacion de estadisticas', () => {
     expect(block!.rows.map((row) => row.name)).toEqual(['Regular'])
   })
 
-  it('el quinteto toma al mejor de cada rol y no cinco del mismo', () => {
+  it('the starting five takes the best of each role and not five of one', () => {
     const block = bestFive(
       data({
         players: [
@@ -191,7 +191,7 @@ describe('presentacion de estadisticas', () => {
     expect(block!.rows.map((row) => row.display)).toEqual(['Top', 'Soporte'])
   })
 
-  it('un campeon que solo se baneo no entra en los mas elegidos, pero si en los mas baneados', () => {
+  it('a champion only banned does not enter the most picked, but does the most banned', () => {
     const rows = [
       champion({ champion: 'Ahri', picks: 5, bans: 0, matches_with_bans: 4 }),
       champion({ champion: 'Yasuo', picks: 0, bans: 4, matches_with_bans: 4, presence: 1 }),
@@ -201,17 +201,17 @@ describe('presentacion de estadisticas', () => {
     expect(mostBanned(data({ champions: rows }))!.rows.map((r) => r.name)).toEqual(['Yasuo'])
   })
 
-  it('sin ninguna partida con draft cargado, los bloques de bans no existen', () => {
+  it('with no match carrying a draft, the ban blocks do not exist', () => {
     const rows = [champion({ bans: 0, matches_with_bans: 0 })]
     expect(mostBanned(data({ champions: rows }))).toBeNull()
   })
 
-  it('el ranking muestra el nombre de ddragon y no la clave del .rofl', () => {
+  it("the ranking shows ddragon's name and not the .rofl key", () => {
     const rows = [
       champion({ champion: 'MonkeyKing', picks: 5 }),
-      // El .rofl escribe la S grande y ddragon no: la busqueda no distingue.
+      // The .rofl writes the capital S and ddragon does not: the lookup does not care.
       champion({ champion: 'FiddleSticks', picks: 4 }),
-      // Un campeon que ddragon todavia no conoce se muestra como venga.
+      // A champion ddragon does not know yet is shown exactly as it came.
       champion({ champion: 'Recien', picks: 3 }),
     ]
 
@@ -223,16 +223,16 @@ describe('presentacion de estadisticas', () => {
     )
 
     expect(block!.rows.map((row) => row.name)).toEqual(['Wukong', 'Fiddlesticks', 'Recien'])
-    // El id sigue siendo la clave: es con lo que se dibuja el icono.
+    // The id is still the key: it is what the icon is drawn from.
     expect(block!.rows.map((row) => row.id)).toEqual(['MonkeyKing', 'FiddleSticks', 'Recien'])
   })
 
-  it('sin ddragon, el ranking de campeones igual sale, con la clave interna', () => {
+  it('without ddragon the champion ranking still comes out, with the internal key', () => {
     const block = mostPicked(data({ champions: [champion({ champion: 'MonkeyKing', picks: 5 })] }))
     expect(block!.rows.map((row) => row.name)).toEqual(['MonkeyKing'])
   })
 
-  it('el ranking de universidades pide un minimo de apariciones', () => {
+  it('the university ranking asks for a minimum number of appearances', () => {
     const block = universityStandings(
       data({
         universities: [
@@ -242,8 +242,9 @@ describe('presentacion de estadisticas', () => {
       }),
     )
 
-    // Minimo 15 apariciones en el acumulado (3 partidas x 5 jugadores): la que
-    // gano su unico partido con un jugador suelto no encabeza la tabla.
+    // A minimum of 15 appearances in the total (3 matches x 5 players): the
+    // one that won its only game with a single player does not head the
+    // table.
     expect(block!.rows.map((row) => row.name)).toEqual(['UNLP'])
   })
 })

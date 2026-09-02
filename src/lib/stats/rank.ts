@@ -1,47 +1,47 @@
 /**
- * Convierte filas de la base en un ranking listo para mostrar.
+ * Turns database rows into a ranking that is ready to show.
  *
- * Todas las estadísticas hacen lo mismo —filtrar, ordenar, cortar el top y
- * formatear— así que eso vive acá una sola vez y cada estadística se reduce a
- * decir qué número mira y cómo se escribe.
+ * Every stat does the same thing — filter, sort, cut the top and format — so
+ * that lives here once and each stat comes down to saying which number it
+ * looks at and how it is written.
  */
 
 import type { StatBlock, StatRow, StatScope } from './types'
 import { TOP_ROWS } from './types'
 
 /**
- * Partidas mínimas para entrar en un ranking de promedios.
+ * Minimum games to enter a ranking of averages.
  *
- * Misma regla que `mvp_min_games()` en supabase/migrations/0010_stats.sql y por
- * el mismo motivo: en una fecha un equipo juega uno o dos partidos, así que
- * alcanza con haber jugado, pero en la fase entera son cuatro y el que apareció
- * una sola vez no puede encabezar un promedio. Los rankings de totales (kills,
- * daño) no lo necesitan: acumular ya premia al que jugó.
+ * Same rule as `mvp_min_games()` in supabase/migrations/0010_stats.sql and for
+ * the same reason: within one matchday a team plays one or two games, so having
+ * played at all is enough, but across the whole phase there are four and
+ * somebody who showed up once cannot head an average. Rankings of totals
+ * (kills, damage) do not need it: accumulating already rewards whoever played.
  *
- * El MVP lo decide la función de SQL, no ésta; acá se replica la regla para los
- * rankings que se arman en memoria.
+ * The MVP is decided by the SQL function, not by this one; the rule is mirrored
+ * here for the rankings that are built in memory.
  */
 export function minGamesForAverages(scope: StatScope): number {
   return scope.matchday === null ? 3 : 1
 }
 
 export interface RankOptions<T> {
-  /** El número por el que se ordena. */
+  /** The number that is sorted on. */
   value: (row: T) => number
-  /** Cómo se escribe ese número, con su unidad. */
+  /** How that number is written, with its unit. */
   display: (value: number, row: T) => string
   id: (row: T) => string
   name: (row: T) => string
   subtitle?: (row: T) => string | null
   logo?: (row: T) => string | null
-  /** A dónde lleva la fila. Sin esto no es un link. */
+  /** Where the row leads. Without this it is not a link. */
   href?: (row: T) => string | null
   detail?: (row: T) => string | null
-  /** Filas que no califican. Por defecto entran todas. */
+  /** Rows that do not qualify. By default every row is in. */
   eligible?: (row: T) => boolean
-  /** `asc` para "el que menos": partidas más cortas, menos muertes. */
+  /** `asc` for "the fewest": shortest games, fewest deaths. */
   order?: 'desc' | 'asc'
-  /** Desempate. Sin esto dos valores iguales quedan en el orden que vino la consulta. */
+  /** Tiebreak. Without it two equal values keep the order the query returned. */
   tiebreak?: (a: T, b: T) => number
   limit?: number
 }
@@ -83,11 +83,11 @@ export function rankRows<T>(rows: T[], options: RankOptions<T>): StatRow[] {
 }
 
 /**
- * Arma el bloque, o null si quedó vacío.
+ * Builds the block, or null when it came out empty.
  *
- * Devolver null y no un bloque sin filas es a propósito: la página no dibuja
- * títulos de rankings que no tienen a nadie. Antes de la primera fecha, eso es
- * todo el listado.
+ * Returning null instead of a block with no rows is deliberate: the page does
+ * not draw the titles of rankings that have nobody in them. Before the first
+ * matchday, that is the entire listing.
  */
 export function block(
   id: string,

@@ -2,11 +2,11 @@ import { readFileSync } from 'node:fs'
 import { PGlite } from '@electric-sql/pglite'
 
 /**
- * Postgres embebido (WASM) para correr las migraciones de verdad en los tests,
- * sin Docker ni un proyecto de Supabase.
+ * Embedded Postgres (WASM) for running the real migrations in the tests,
+ * without Docker or a Supabase project.
  *
- * Supabase trae de fabrica los roles y los esquemas `auth` y `storage`; aca hay
- * que crear lo minimo para que las migraciones puedan referenciarlos.
+ * Supabase ships the roles and the `auth` and `storage` schemas out of the box;
+ * here the minimum has to be created so the migrations can reference them.
  */
 const SUPABASE_STUBS = `
 create role anon;
@@ -60,13 +60,12 @@ export const MIGRATIONS = [
 ]
 
 /**
- * Lo que hace Supabase por su cuenta: `anon` y `authenticated` tienen SELECT
- * sobre todo lo que hay en `public`, y lo que decide qué ve cada uno es el RLS,
- * no el GRANT.
+ * What Supabase does on its own: `anon` and `authenticated` hold SELECT over
+ * everything in `public`, and what decides who sees what is RLS, not the GRANT.
  *
- * Sin esto los tests de acceso público darían un falso verde: `anon` no vería
- * nada, pero por falta de permiso de tabla y no por las policies, que es lo que
- * de verdad corre en producción.
+ * Without this the public-access tests would give a false green: `anon` would
+ * see nothing, but for want of a table permission and not because of the
+ * policies, which are what actually runs in production.
  */
 const SUPABASE_GRANTS = `
 grant usage on schema public to anon, authenticated;
@@ -74,16 +73,16 @@ grant select on all tables in schema public to anon, authenticated;
 `
 
 /**
- * Lo mismo para las funciones, pero ANTES de las migraciones y como privilegio
- * por defecto.
+ * The same for the functions, but BEFORE the migrations and as a default
+ * privilege.
  *
- * Supabase se lo da a cada funcion en el momento en que se crea, que es por lo
- * que las migraciones que crean funciones de escritura terminan con un `revoke
- * execute ... from anon, authenticated`. Un `grant execute on all functions`
- * corrido despues pisaria todos esos revoke, y los tests dirian que cualquiera
- * puede llamar a `set_match_bans` o `assign_team_member_role` —o peor, dirian
- * que nadie puede y en produccion si—. Con el privilegio por defecto el orden
- * es el de verdad: primero el grant, despues el revoke de cada migracion.
+ * Supabase grants it to each function at the moment it is created, which is why
+ * the migrations that create writing functions end with a `revoke execute ...
+ * from anon, authenticated`. A `grant execute on all functions` run afterwards
+ * would trample every one of those revokes, and the tests would claim anybody
+ * can call `set_match_bans` or `assign_team_member_role` - or worse, would
+ * claim nobody can while production says otherwise. With the default privilege
+ * the order is the real one: the grant first, each migration's revoke after.
  */
 const SUPABASE_DEFAULT_GRANTS = `
 alter default privileges in schema public grant execute on functions to anon, authenticated;

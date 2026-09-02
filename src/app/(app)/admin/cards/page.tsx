@@ -6,20 +6,20 @@ import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { loadStats, resolveTournamentId } from '@/lib/stats/query'
 import { buildPosters } from '@/lib/cards/batch'
 import { PosterBatch } from '@/components/cards/PosterBatch'
-import { ScopeNav } from '@/components/estadisticas/ScopeNav'
-import { Empty } from '@/components/estadisticas/Empty'
+import { ScopeNav } from '@/components/stats/ScopeNav'
+import { Empty } from '@/components/stats/Empty'
 import { parseScope } from '@/lib/stats/scope'
 import type { GroupStandingRow } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * Las piezas de una fecha, para redes.
+ * A matchday's pieces, for social media.
  *
- * Mismo recorte que /estadisticas y a propósito: lo que se publica tiene que
- * ser exactamente lo que dice el sitio. Si esta página calculara su propio MVP,
- * tarde o temprano el posteo y la web se contradirían, y el que queda mal es el
- * torneo.
+ * The same scope as /estadisticas, and deliberately so: what gets published has
+ * to be exactly what the site says. If this page computed its own MVP, sooner
+ * or later the post and the site would contradict each other, and the one that
+ * comes off badly is the tournament.
  */
 
 
@@ -45,10 +45,10 @@ export default async function CardsPage({ searchParams }: PageProps<'/admin/card
     supabase.from('group_standings').select('*').eq('tournament_id', tournamentId).order('position'),
   ])
 
-  // La tabla de posiciones es siempre la acumulada, también cuando se está
-  // mirando una fecha: no existe "la tabla de la fecha 2", existe cómo quedó
-  // la tabla después de la fecha 2, que es lo que se publica.
-  const standings = rows<GroupStandingRow>(standingsRes, 'la tabla de posiciones')
+  // The standings table is always the accumulated one, even while looking at a
+  // single matchday: there is no such thing as "matchday 2's table", there is
+  // how the table stood after matchday 2, which is what gets published.
+  const standings = rows<GroupStandingRow>(standingsRes, 'the standings table')
   const posters = buildPosters(data, standings)
 
   const prefix = scope.matchday === null ? 'lide2-acumulado' : `lide2-fecha-${scope.matchday}`

@@ -1,25 +1,28 @@
 /**
- * Deriva etapa, ronda y fecha a partir de cómo los equipos organizan los
- * replays en carpetas.
+ * Derives stage, round and date from the way the teams organize their replays
+ * into folders.
  *
- * La estructura real de la fase de grupos es:
+ * The real group-phase structure is:
  *
  *   16.05 - FECHA 1 (Replays)/16.05 BLOQUE B/E1vsE4-LEIF8-FECHA1-B.rofl
  *
- * Dos cosas aprendidas de los archivos de verdad:
+ * Two things learned from the actual files:
  *
- *  - El mtime NO sirve como fecha de partida: los de FECHA 1 caen todos en un
- *    rango de 20 minutos del día siguiente, o sea que es cuando se copiaron los
- *    archivos. La fecha de la carpeta es la fecha oficial de la ronda.
- *  - Hay archivos mal guardados ("Fecha 3 ..." dentro de la carpeta de FECHA 2),
- *    así que el nombre del archivo le gana a la carpeta, y la fecha sale de la
- *    ronda y no de la carpeta donde quedó.
+ *  - The mtime is NO use as the match date: every FECHA 1 file falls inside a
+ *    20-minute window on the following day, which is when the files were
+ *    copied. The folder's date is the round's official date.
+ *  - Some files are filed wrong ("Fecha 3 ..." inside the FECHA 2 folder), so
+ *    the file name beats the folder, and the date comes from the round and not
+ *    from whichever folder it ended up in.
+ *
+ * The labels this produces ("Bloque B", "Fecha 1") are stored and displayed as
+ * they are, so they stay in Spanish.
  */
 
 export interface DerivedLabels {
-  /** Bloque de la fase de grupos: "Bloque B". */
+  /** Group-phase block: "Bloque B". */
   stageLabel: string | null
-  /** Jornada del torneo: "Fecha 1". */
+  /** Tournament matchday: "Fecha 1". */
   roundLabel: string | null
   round: number | null
   playedAt: Date | null
@@ -27,7 +30,7 @@ export interface DerivedLabels {
 
 const ROUND_RE = /FECHA\s*(\d+)/i
 const BLOCK_RE = /BLOQUE\s*([A-D])\b/i
-/** Bloque codificado en el nombre: "WINNERS-B-LEIF8", "...-FECHA1-B.rofl". */
+/** Block encoded in the name: "WINNERS-B-LEIF8", "...-FECHA1-B.rofl". */
 const BLOCK_IN_NAME_RE = /-([A-D])(?=[-.])/
 const FOLDER_DATE_RE = /(\d{2})\.(\d{2})/
 
@@ -36,9 +39,8 @@ function segments(path: string): string[] {
 }
 
 /**
- * Mapa ronda -> fecha, leído de los nombres de carpeta ("16.05 - FECHA 1").
- * Sirve para fechar bien incluso los archivos que quedaron en la carpeta
- * equivocada.
+ * Round -> date map, read from the folder names ("16.05 - FECHA 1"). It dates
+ * even the files that ended up in the wrong folder correctly.
  */
 export function buildRoundDateMap(paths: string[], year: number): Map<number, Date> {
   const map = new Map<number, Date>()
@@ -64,7 +66,7 @@ export function deriveLabels(path: string, roundDates: Map<number, Date>): Deriv
   const fileName = parts[parts.length - 1] ?? path
   const folders = parts.slice(0, -1)
 
-  // El nombre del archivo manda: es lo que escribió quien jugó la partida.
+  // The file name wins: it is what whoever played the match typed.
   const roundMatch = ROUND_RE.exec(fileName) ?? ROUND_RE.exec(folders.join(' '))
   const round = roundMatch ? Number(roundMatch[1]) : null
 

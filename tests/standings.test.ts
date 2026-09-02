@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestDb } from './helpers/db'
 import { playMatch } from './helpers/matches'
 
-/** Un cruce del fixture, en los terminos del torneo. */
+/** One fixture matchup, in the tournament's terms. */
 interface Played {
   blue: string
   red: string
@@ -38,7 +38,7 @@ interface StandingRow {
   form: boolean[]
 }
 
-describe('tabla de posiciones', () => {
+describe('standings table', () => {
   let db: PGlite
 
   beforeAll(async () => {
@@ -54,19 +54,19 @@ describe('tabla de posiciones', () => {
     }
 
     const fixture: Played[] = [
-      // Bloque A, fecha 1
+      // Block A, matchday 1
       { blue: 'Alfa', red: 'Bravo', winner: 'blue', blueKills: 20, redKills: 10, stage: 'Bloque A', round: 'Fecha 1', playedAt: '2026-05-16T22:00:00Z' },
       { blue: 'Charlie', red: 'Delta', winner: 'blue', blueKills: 15, redKills: 12, stage: 'Bloque A', round: 'Fecha 1', playedAt: '2026-05-16T22:00:00Z' },
-      // Bloque A, fecha 2
+      // Block A, matchday 2
       { blue: 'Alfa', red: 'Charlie', winner: 'red', blueKills: 14, redKills: 18, stage: 'Bloque A', round: 'Fecha 2', playedAt: '2026-05-23T22:00:00Z' },
       { blue: 'Bravo', red: 'Delta', winner: 'blue', blueKills: 25, redKills: 5, stage: 'Bloque A', round: 'Fecha 2', playedAt: '2026-05-23T22:00:00Z' },
-      // Otro bloque: tiene su propia tabla
+      // Another block: it has its own table
       { blue: 'Eco', red: 'Fox', winner: 'blue', blueKills: 11, redKills: 9, stage: 'Bloque B', round: 'Fecha 1', playedAt: '2026-05-16T22:00:00Z' },
     ]
 
     for (const game of fixture) await play(db, teams, game)
 
-    // Partida de un equipo contra rivales sin roster cargado: no cuenta.
+    // A team's match against opponents with no roster loaded: it does not count.
     await db.query(
       `insert into public.matches
          (fingerprint, format, game_length_ms, played_at, winning_side, blue_team_id,
@@ -81,11 +81,11 @@ describe('tabla de posiciones', () => {
     await db?.close()
   })
 
-  it('da vuelta cada partida a dos filas equipo/rival', async () => {
+  it('turns each match into two team/opponent rows', async () => {
     const { rows } = await db.query<{ n: string }>(
       'select count(*) as n from public.team_match_results',
     )
-    // 5 partidas con los dos equipos vinculados, mas el lado suelto de la sexta.
+    // 5 matches with both teams linked, plus the loose side of the sixth.
     expect(Number(rows[0].n)).toBe(11)
 
     const alfa = await db.query<{ opponent_name: string; win: boolean; kills: string }>(
@@ -99,7 +99,7 @@ describe('tabla de posiciones', () => {
     expect(alfa.rows.map((r) => Number(r.kills))).toEqual([20, 14])
   })
 
-  it('ordena por victorias y desempata por diferencia de kills', async () => {
+  it('orders by wins and breaks ties on kill difference', async () => {
     const { rows } = await db.query<StandingRow>(
       `select team_name, games, wins, losses, kill_diff::text, position, form
          from public.team_standings where stage_label = 'Bloque A' order by position`,
@@ -108,13 +108,13 @@ describe('tabla de posiciones', () => {
     expect(rows.map((r) => r.team_name)).toEqual(['Charlie', 'Bravo', 'Alfa', 'Delta'])
     expect(rows.map((r) => r.wins)).toEqual([2, 1, 1, 0])
 
-    // Bravo y Alfa empatan 1-1: pasa Bravo por diferencia (+10 contra +6).
+    // Bravo and Alfa are level at 1-1: Bravo goes through on difference (+10 against +6).
     const [, bravo, alfa] = rows
     expect(Number(bravo.kill_diff)).toBe(10)
     expect(Number(alfa.kill_diff)).toBe(6)
   })
 
-  it('cada etapa tiene su propia tabla', async () => {
+  it('each stage has its own table', async () => {
     const { rows } = await db.query<StandingRow>(
       `select team_name, wins, position from public.team_standings
         where stage_label = 'Bloque B' order by position`,
@@ -125,7 +125,7 @@ describe('tabla de posiciones', () => {
     ])
   })
 
-  it('no cuenta las partidas donde falta vincular al rival', async () => {
+  it('does not count matches where the opponent is not linked yet', async () => {
     const { rows } = await db.query<StandingRow>(
       `select games, wins, losses from public.team_standings where team_name = 'Delta'`,
     )
@@ -133,11 +133,11 @@ describe('tabla de posiciones', () => {
     expect(rows[0].losses).toBe(2)
   })
 
-  it('deja los ultimos resultados listos para la rachita', async () => {
+  it('leaves the last results ready for the form streak', async () => {
     const { rows } = await db.query<StandingRow>(
       `select form from public.team_standings where team_name = 'Alfa'`,
     )
-    // Del mas nuevo al mas viejo: perdio con Charlie, antes le gano a Bravo.
+    // Newest first: they lost to Charlie, before that they beat Bravo.
     expect(rows[0].form).toEqual([false, true])
   })
 })

@@ -1,12 +1,12 @@
 /**
- * Lo que se ve mientras la página trae sus datos.
+ * What shows while the page fetches its data.
  *
- * Casi todas las páginas son dinámicas y hacen entre tres y seis consultas, así
- * que sin esto el navegador se queda con la pantalla anterior —o en blanco— sin
- * ninguna señal de que algo está pasando.
+ * Nearly every page is dynamic and runs between three and six queries, so
+ * without this the browser sits on the previous screen - or on a blank one -
+ * with no sign that anything is happening.
  *
- * Bloques grises del tamaño aproximado de lo que viene, y no un spinner: lo que
- * se quiere transmitir es "ya llega, va a tener esta forma", no "esperá".
+ * Grey blocks roughly the size of what is coming, and not a spinner: what it
+ * means to say is "it is on its way, it will look like this", not "wait".
  */
 export default function Loading() {
   return (

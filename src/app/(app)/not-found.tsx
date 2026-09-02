@@ -1,11 +1,11 @@
 import Link from 'next/link'
 
 /**
- * Un equipo, un jugador o una partida que no existe.
+ * A team, a player or a match that does not exist.
  *
- * Las fichas llaman a `notFound()` cuando la consulta vuelve vacía, y sin esto
- * caían en la pantalla genérica de Next, fuera del sitio. Acá al menos quedan
- * adentro, con la navegación puesta y un camino de vuelta.
+ * The pages call `notFound()` when the query comes back empty, and without this
+ * they landed on Next's generic screen, outside the site. Here they at least
+ * stay inside, with the navigation in place and a way back.
  */
 export default function NotFound() {
   return (

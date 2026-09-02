@@ -1,4 +1,4 @@
-import { BarraDeDano } from './BarraDeDano'
+import { DamageBar } from './DamageBar'
 import { GameIcon } from './GameIcon'
 import { championIcon, championName, itemIcon, spellIcon } from '@/lib/ddragon'
 import { formatGold, formatKda, formatPosition, playerName, riotTag } from '@/lib/format'
@@ -86,14 +86,14 @@ export function Scoreboard({
         </div>
       </header>
 
-      {/* `tabla-scroll` marca el borde derecho mientras quede tabla para ese
-          lado: son 52rem de ancho mínimo y en un teléfono no hay barra de
-          scroll que lo diga. La misma clase que usa TablaOrdenable. */}
+      {/* `tabla-scroll` marks the right edge while there is table left on that
+          side: it is 52rem of minimum width and on a phone there is no
+          scrollbar to say so. The same class SortableTable uses. */}
       <div className="tabla-scroll overflow-x-auto">
         <table className="w-full min-w-[52rem] text-sm">
-          {/* El `scope` y el `caption` los tenía TablaOrdenable y no esta:
-              sin ellos un lector de pantalla lee ocho números sueltos sin poder
-              decir a qué columna pertenece cada uno. */}
+          {/* SortableTable had the `scope` and the `caption` and this one did
+              not: without them a screen reader reads eight loose numbers with
+              no way of saying which column each belongs to. */}
           <caption className="sr-only">Estadísticas por jugador</caption>
           <thead>
             <tr className="border-y border-line text-left text-xs text-faint">
@@ -189,7 +189,7 @@ export function Scoreboard({
                 </td>
 
                 <td className="px-2 py-2">
-                  <BarraDeDano
+                  <DamageBar
                     damage={player.damageToChampions}
                     max={maxDamage}
                     side={player.side}

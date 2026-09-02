@@ -1,11 +1,11 @@
 import type { PGlite } from '@electric-sql/pglite'
 
 /**
- * Arma una partida a mano: la fila de `matches` y un jugador por lado.
+ * Builds a match by hand: the `matches` row and one player a side.
  *
- * Un jugador por lado alcanza porque las vistas suman por lado, y ahorra las 10
- * filas de un scoreboard real en tests que no miran stats individuales. Para
- * ingesta de verdad estan los fixtures .rofl.
+ * One player a side is enough because the views sum by side, and it saves the
+ * 10 rows of a real scoreboard in tests that do not look at individual stats.
+ * For real ingest there are the .rofl fixtures.
  */
 export interface PlayMatchOptions {
   blueTeamId?: string | null
@@ -91,10 +91,11 @@ export async function playMatch(db: PGlite, options: PlayMatchOptions): Promise<
 }
 
 /**
- * Una linea del scoreboard: un jugador con sus numeros.
+ * One scoreboard line: a player with their numbers.
  *
- * Todo tiene default porque cada test mira dos o tres columnas y llenar diez
- * campos por jugador para probar el ranking de vision es puro ruido.
+ * Everything has a default because each test looks at two or three columns, and
+ * filling in ten fields per player to exercise the vision ranking is pure
+ * noise.
  */
 export interface PlayerLine {
   puuid: string
@@ -130,15 +131,15 @@ export interface ScoreboardOptions {
 const POSITIONS = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'SUPPORT']
 
 /**
- * Arma una partida con el scoreboard entero, como la deja la ingesta.
+ * Builds a match with the whole scoreboard, the way the ingest leaves it.
  *
- * A diferencia de playMatch (un jugador por lado, que alcanza para las vistas
- * que suman por lado), esto hace falta para todo lo que mira al jugador: MVP,
- * participacion en kills, rankings individuales y atribucion por universidad.
+ * Unlike playMatch (one player a side, which is enough for the views that sum
+ * by side), this is needed for everything that looks at the player: MVP, kill
+ * participation, individual rankings and per-university attribution.
  *
- * Crea tambien la fila de `players` y la enlaza, que es lo que hace
- * ingest_match(): sin eso, player_id queda null y la universidad de una persona
- * no se puede resolver.
+ * It also creates the `players` row and links it, which is what ingest_match()
+ * does: without that, player_id stays null and a person's university cannot be
+ * resolved.
  */
 export async function playScoreboard(db: PGlite, options: ScoreboardOptions): Promise<string> {
   const {

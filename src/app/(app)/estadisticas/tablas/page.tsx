@@ -2,19 +2,19 @@ import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
 import { assetVersion, championName, championNames } from '@/lib/ddragon'
-import { inicioDelTorneo, TOURNAMENT } from '@/lib/lide2/tournament'
+import { tournamentStartDate, TOURNAMENT } from '@/lib/lide2/tournament'
 import { playerName } from '@/lib/format'
 import { resolveTournamentId } from '@/lib/stats/query'
 import { parseScope } from '@/lib/stats/scope'
-import { metaFilter, parseGrupo, scopeFilter } from '@/lib/stats/tablas'
-import { parseOrden } from '@/lib/tabla/orden'
-import { Empty } from '@/components/estadisticas/Empty'
-import { GrupoNav } from '@/components/estadisticas/GrupoNav'
-import { ScopeNav } from '@/components/estadisticas/ScopeNav'
-import { VistaNav } from '@/components/estadisticas/VistaNav'
-import { TablaCampeones, type FilaCampeon } from '@/components/estadisticas/TablaCampeones'
-import { TablaEquipos, type FilaEquipo } from '@/components/estadisticas/TablaEquipos'
-import { TablaJugadores, type FilaJugador } from '@/components/estadisticas/TablaJugadores'
+import { metaFilter, parseGroup, scopeFilter } from '@/lib/stats/tables'
+import { parseSortOrder } from '@/lib/table/sort'
+import { Empty } from '@/components/stats/Empty'
+import { GroupNav } from '@/components/stats/GroupNav'
+import { ScopeNav } from '@/components/stats/ScopeNav'
+import { ViewNav } from '@/components/stats/ViewNav'
+import { ChampionTable, type ChampionRow } from '@/components/stats/ChampionTable'
+import { TeamTable, type TeamRow } from '@/components/stats/TeamTable'
+import { PlayerTable, type PlayerRow } from '@/components/stats/PlayerTable'
 import type { ChampionMetaRow, PlayerPhaseTotalsRow, TeamPhaseTotalsRow } from '@/types/db'
 
 export const metadata = {
@@ -26,30 +26,32 @@ export const metadata = {
 export const dynamic = 'force-dynamic'
 
 /**
- * Las tablas de consulta.
+ * The lookup tables.
  *
- * La otra pestaña —los rankings— es un top cinco de cada cosa, que es lo que
- * sirve para contar el torneo. Esta es para buscar: todas las filas, todas las
- * columnas, y ordenar por la que a uno le importe.
+ * The other tab - the rankings - is a top five of everything, which is what
+ * serves to tell the story of the tournament. This one is for searching: every
+ * row, every column, sorted by whichever matters to you.
  *
- * LOS NUMEROS SE COERCIONAN ACA, una sola vez. `pick_rate`, `win_pct`, `kda` y
- * `presence` son `numeric` en Postgres y pueden llegar como texto; si viajaran
- * así al componente de cliente, ordenar compararía "0.9" contra "0.85" como
- * palabras y la tabla saldría mal sin tirar ningún error.
+ * THE NUMBERS ARE COERCED HERE, once. `pick_rate`, `win_pct`, `kda` and
+ * `presence` are `numeric` in Postgres and can arrive as text; travelling that
+ * way to the client component, sorting would compare "0.9" against "0.85" as
+ * words and the table would come out wrong without throwing any error.
+ *
+ * The column ids stay in Spanish: they travel in `?orden=`.
  */
 
-const ORDEN_CAMPEONES = ['campeon', 'posicion', 'picks', 'pickrate', 'winrate', 'kda', 'dano']
+const CHAMPION_COLUMNS = ['campeon', 'posicion', 'picks', 'pickrate', 'winrate', 'kda', 'dano']
 
 /**
- * Las tres columnas que sólo existen cuando hay algún draft cargado.
+ * The three columns that only exist once some draft is entered.
  *
- * Van aparte para que `parseOrden` no acepte `?orden=banrate` cuando la columna
- * no se está dibujando: la tabla quedaría sin ordenar y sin ninguna flecha
- * marcada, que se ve como si el link estuviera roto.
+ * They are kept apart so `parseSortOrder` does not accept `?orden=banrate` when
+ * the column is not being drawn: the table would end up unsorted and with no
+ * arrow marked, which looks like a broken link.
  */
-const ORDEN_BANS = ['bans', 'banrate', 'presencia']
+const BAN_COLUMNS = ['bans', 'banrate', 'presencia']
 
-const ORDEN_JUGADORES = [
+const PLAYER_COLUMNS = [
   'jugador',
   'equipo',
   'posicion',
@@ -65,7 +67,7 @@ const ORDEN_JUGADORES = [
   'mvp',
 ] as const
 
-const ORDEN_EQUIPOS = [
+const TEAM_COLUMNS = [
   'equipo',
   'grupo',
   'partidas',
@@ -78,7 +80,7 @@ const ORDEN_EQUIPOS = [
   'duracion',
 ] as const
 
-export default async function TablasPage({ searchParams }: PageProps<'/estadisticas/tablas'>) {
+export default async function TablesPage({ searchParams }: PageProps<'/estadisticas/tablas'>) {
   const supabase = await createClient()
   const [user, tournamentId] = await Promise.all([getUser(), resolveTournamentId(supabase)])
 
@@ -91,20 +93,20 @@ export default async function TablasPage({ searchParams }: PageProps<'/estadisti
     ) : (
       <Empty
         title="Todavía no hay estadísticas"
-        detail={`La ${TOURNAMENT.name} arranca el ${inicioDelTorneo()}. En cuanto se juegue la primera fecha, esta página se llena sola.`}
+        detail={`La ${TOURNAMENT.name} arranca el ${tournamentStartDate()}. En cuanto se juegue la primera fecha, esta página se llena sola.`}
       />
     )
   }
 
   const params = await searchParams
   const scope = parseScope(params.fecha, tournamentId)
-  const grupo = parseGrupo(params.grupo)
+  const group = parseGroup(params.grupo)
 
-  // El recorte que arrastra cada nav para no borrar el filtro del otro.
-  const filtros = { fecha: scope.matchday, grupo: grupo?.slice(-1) ?? null }
+  // The scope each nav carries along so it does not wipe the other's filter.
+  const filters = { fecha: scope.matchday, grupo: group?.slice(-1) ?? null }
 
-  const [metaRes, jugadoresRes, equiposRes, version] = await Promise.all([
-    supabase.from('champion_meta').select('*').match(metaFilter(scope, grupo)),
+  const [metaRes, playersRes, teamsRes, version] = await Promise.all([
+    supabase.from('champion_meta').select('*').match(metaFilter(scope, group)),
     supabase.from('player_phase_totals').select('*').match(scopeFilter(scope)),
     supabase.from('team_phase_totals').select('*').match(scopeFilter(scope)),
     assetVersion(null),
@@ -112,28 +114,28 @@ export default async function TablasPage({ searchParams }: PageProps<'/estadisti
 
   const names = await championNames(version)
 
-  const meta = rows<ChampionMetaRow>(metaRes, 'el meta de campeones')
-  const equipos = rows<TeamPhaseTotalsRow>(equiposRes, 'los equipos')
-  const jugadores = rows<PlayerPhaseTotalsRow>(jugadoresRes, 'los jugadores')
+  const meta = rows<ChampionMetaRow>(metaRes, 'the champion meta')
+  const teams = rows<TeamPhaseTotalsRow>(teamsRes, 'the teams')
+  const players = rows<PlayerPhaseTotalsRow>(playersRes, 'the players')
 
   /*
-    Jugadores y equipos no tienen la dimensión de grupo en sus vistas, y no
-    hace falta que la tengan: en fase de grupos un equipo sólo juega contra los
-    de su grupo, así que sus totales YA son los de ese grupo y alcanza con no
-    dibujar los otros equipos. El grupo del jugador sale del suyo.
+    Players and teams do not have the group dimension in their views, and they
+    do not need it: in the group phase a team only plays teams from its own
+    group, so its totals ALREADY are that group's and it is enough not to draw
+    the other teams. A player's group comes from their team's.
   */
-  const grupoDelEquipo = new Map(equipos.map((e) => [e.team_id, e.group_label]))
-  const equiposFiltrados = grupo ? equipos.filter((e) => e.group_label === grupo) : equipos
-  const jugadoresFiltrados = grupo
-    ? jugadores.filter((j) => j.team_id !== null && grupoDelEquipo.get(j.team_id) === grupo)
-    : jugadores
+  const groupOfTeam = new Map(teams.map((team) => [team.team_id, team.group_label]))
+  const filteredTeams = group ? teams.filter((team) => team.group_label === group) : teams
+  const filteredPlayers = group
+    ? players.filter((p) => p.team_id !== null && groupOfTeam.get(p.team_id) === group)
+    : players
 
-  const partidas = meta[0]?.matches ?? 0
-  const conDraft = meta[0]?.matches_with_bans ?? 0
+  const matches = meta[0]?.matches ?? 0
+  const withDraft = meta[0]?.matches_with_bans ?? 0
 
-  const filasCampeones: FilaCampeon[] = meta.map((row) => ({
+  const championRows: ChampionRow[] = meta.map((row) => ({
     champion: row.champion,
-    nombre: championName(names, row.champion),
+    name: championName(names, row.champion),
     position: row.position,
     picks: Number(row.picks),
     wins: Number(row.wins),
@@ -150,13 +152,13 @@ export default async function TablasPage({ searchParams }: PageProps<'/estadisti
     avgDamage: Number(row.avg_damage),
   }))
 
-  const filasJugadores: FilaJugador[] = jugadoresFiltrados
+  const playerRows: PlayerRow[] = filteredPlayers
     .filter((row): row is PlayerPhaseTotalsRow & { player_id: string } => row.player_id !== null)
     .map((row) => ({
       playerId: row.player_id,
-      nombre: playerName(row.player_name),
+      name: playerName(row.player_name),
       teamId: row.team_id,
-      equipo: row.team_name,
+      teamName: row.team_name,
       position: row.position,
       games: Number(row.games),
       wins: Number(row.wins),
@@ -174,11 +176,11 @@ export default async function TablasPage({ searchParams }: PageProps<'/estadisti
       mvpCount: Number(row.mvp_count),
     }))
 
-  const filasEquipos: FilaEquipo[] = equiposFiltrados.map((row) => ({
+  const teamRows: TeamRow[] = filteredTeams.map((row) => ({
     teamId: row.team_id,
-    nombre: row.team_name ?? 'Equipo',
+    name: row.team_name ?? 'Equipo',
     logo: row.team_logo,
-    grupo: row.group_label,
+    group: row.group_label,
     games: Number(row.games),
     wins: Number(row.wins),
     losses: Number(row.losses),
@@ -195,94 +197,94 @@ export default async function TablasPage({ searchParams }: PageProps<'/estadisti
       <header className="flex flex-col gap-1">
         <h1 className="font-display text-3xl uppercase tracking-tight">Estadísticas</h1>
         <p className="text-sm text-muted">
-          {grupo ?? 'Todos los grupos'} ·{' '}
+          {group ?? 'Todos los grupos'} ·{' '}
           {scope.matchday === null ? 'toda la fase' : `fecha ${scope.matchday}`}
-          {partidas > 0 && ` · ${partidas} ${partidas === 1 ? 'partida' : 'partidas'}`}
+          {matches > 0 && ` · ${matches} ${matches === 1 ? 'partida' : 'partidas'}`}
         </p>
       </header>
 
       <div className="flex flex-col gap-2">
-        {/* La otra pestaña no filtra por grupo: sólo se le pasa la fecha. */}
-        <VistaNav activa="tablas" query={{ fecha: scope.matchday }} />
-        <ScopeNav base="/estadisticas/tablas" matchday={scope.matchday} query={filtros} />
-        <GrupoNav base="/estadisticas/tablas" grupo={grupo} query={filtros} />
+        {/* The other tab does not filter by group: it only gets the matchday. */}
+        <ViewNav active="tablas" query={{ fecha: scope.matchday }} />
+        <ScopeNav base="/estadisticas/tablas" matchday={scope.matchday} query={filters} />
+        <GroupNav base="/estadisticas/tablas" group={group} query={filters} />
       </div>
 
-      {partidas === 0 ? (
+      {matches === 0 ? (
         <Empty
           title="Todavía no se jugó nada acá"
           detail={
-            grupo || scope.matchday !== null
+            group || scope.matchday !== null
               ? 'Probá con otro recorte: ninguna partida de este grupo y esta fecha tiene el replay cargado.'
-              : `La ${TOURNAMENT.name} arranca el ${inicioDelTorneo()}. En cuanto se suba el primer replay, esta página se llena sola.`
+              : `La ${TOURNAMENT.name} arranca el ${tournamentStartDate()}. En cuanto se suba el primer replay, esta página se llena sola.`
           }
         />
       ) : (
         <>
-          <Seccion
-            titulo="Campeones"
-            detalle={
-              conDraft === 0
+          <Section
+            title="Campeones"
+            detail={
+              withDraft === 0
                 ? 'Sin drafts cargados todavía: los baneos no salen del .rofl y se cargan a mano.'
-                : conDraft < partidas
-                  ? `Baneos medidos sobre ${conDraft} de ${partidas} partidas: al resto le falta el draft.`
+                : withDraft < matches
+                  ? `Baneos medidos sobre ${withDraft} de ${matches} partidas: al resto le falta el draft.`
                   : 'Elegidos, baneados y cómo les fue.'
             }
           >
-            <TablaCampeones
-              filas={filasCampeones}
+            <ChampionTable
+              rows={championRows}
               version={version}
-              conBans={conDraft > 0}
-              inicial={parseOrden(
+              hasBans={withDraft > 0}
+              initial={parseSortOrder(
                 params.orden,
                 params.dir,
-                conDraft > 0 ? [...ORDEN_CAMPEONES, ...ORDEN_BANS] : ORDEN_CAMPEONES,
+                withDraft > 0 ? [...CHAMPION_COLUMNS, ...BAN_COLUMNS] : CHAMPION_COLUMNS,
                 { id: 'pickrate', dir: 'desc' },
               )}
             />
-          </Seccion>
+          </Section>
 
-          <Seccion titulo="Jugadores" detalle="Los números de cada uno en este recorte.">
-            <TablaJugadores
-              filas={filasJugadores}
-              inicial={parseOrden(
+          <Section title="Jugadores" detail="Los números de cada uno en este recorte.">
+            <PlayerTable
+              rows={playerRows}
+              initial={parseSortOrder(
                 params['orden-jugadores'],
                 params['dir-jugadores'],
-                ORDEN_JUGADORES,
+                PLAYER_COLUMNS,
                 { id: 'mvp', dir: 'desc' },
               )}
             />
-          </Seccion>
+          </Section>
 
-          <Seccion titulo="Equipos" detalle="Para comparar, no para la tabla de posiciones.">
-            <TablaEquipos
-              filas={filasEquipos}
-              inicial={parseOrden(params['orden-equipos'], params['dir-equipos'], ORDEN_EQUIPOS, {
+          <Section title="Equipos" detail="Para comparar, no para la tabla de posiciones.">
+            <TeamTable
+              rows={teamRows}
+              initial={parseSortOrder(params['orden-equipos'], params['dir-equipos'], TEAM_COLUMNS, {
                 id: 'winrate',
                 dir: 'desc',
               })}
             />
-          </Seccion>
+          </Section>
         </>
       )}
     </div>
   )
 }
 
-function Seccion({
-  titulo,
-  detalle,
+function Section({
+  title,
+  detail,
   children,
 }: {
-  titulo: string
-  detalle: string
+  title: string
+  detail: string
   children: React.ReactNode
 }) {
   return (
     <section className="flex flex-col gap-3">
       <div className="flex flex-wrap items-baseline gap-3 border-b-2 border-line-strong pb-2">
-        <h2 className="font-display text-lg uppercase tracking-wide">{titulo}</h2>
-        <p className="text-xs text-muted">{detalle}</p>
+        <h2 className="font-display text-lg uppercase tracking-wide">{title}</h2>
+        <p className="text-xs text-muted">{detail}</p>
       </div>
       {children}
     </section>

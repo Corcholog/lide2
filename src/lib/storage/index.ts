@@ -1,35 +1,35 @@
 import type { RoflSource } from '../rofl'
 
 /**
- * Capa de storage detras de una interfaz chica.
+ * The storage layer behind a small interface.
  *
- * Los .rofl pesan 12-17 MB y el torneo suizo de 20 equipos son ~65 partidas
- * (~920 MB), justo en el limite del plan free de Supabase. Cuando haya que
- * mudarlos a Cloudflare R2 alcanza con escribir otro adaptador con esta misma
- * interfaz: el resto de la app no se entera.
+ * The .rofl files weigh 12-17 MB and the 20-team Swiss tournament is ~65
+ * matches (~920 MB), right at the limit of the Supabase free plan. When they
+ * have to move to Cloudflare R2, writing another adapter against this same
+ * interface is enough: the rest of the app never finds out.
  */
 
 export interface UploadTarget {
   provider: string
-  /** Ruta dentro del bucket. Es lo que se guarda en match_files.storage_path. */
+  /** Path inside the bucket. It is what match_files.storage_path stores. */
   path: string
-  /** El cliente lo necesita para subir; se manda desde el server y no como env publica. */
+  /** The client needs it to upload; it is sent from the server, not as a public env var. */
   bucket: string
-  /** URL a la que el browser sube directo, sin pasar por Vercel. */
+  /** URL the browser uploads straight to, without going through Vercel. */
   uploadUrl: string
-  /** Token de la signed upload URL (especifico de Supabase). */
+  /** Token of the signed upload URL (Supabase-specific). */
   token: string
 }
 
 export interface StorageAdapter {
   readonly provider: string
-  /** Reserva una ruta y devuelve permiso de subida por unica vez. */
+  /** Reserves a path and hands back one-time permission to upload. */
   createUploadTarget(originalName: string): Promise<UploadTarget>
-  /** Tamano real del objeto ya subido. No se confia en el numero del cliente. */
+  /** The uploaded object's real size. The client's number is not trusted. */
   stat(path: string): Promise<{ size: number } | null>
   /**
-   * Lector por rangos: el parser solo necesita el header (288 bytes) y el
-   * bloque final con la metadata, ~118 KB de un archivo de 15 MB.
+   * Range reader: the parser only needs the header (288 bytes) and the final
+   * metadata block, ~118 KB out of a 15 MB file.
    */
   createReadSource(path: string, size: number): Promise<RoflSource>
   createDownloadUrl(path: string, expiresInSeconds?: number): Promise<string>

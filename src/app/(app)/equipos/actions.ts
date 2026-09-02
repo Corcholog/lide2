@@ -21,7 +21,7 @@ import {
 
 function refresh() {
   revalidatePath('/equipos')
-  // El listado de jugadores ya no existe; su tabla vive en las estadísticas.
+  // The player listing no longer exists; its table lives under the stats.
   revalidatePath('/estadisticas/tablas')
   revalidatePath('/')
 }
@@ -35,7 +35,7 @@ export async function createDetectedTeamsAction(formData: FormData) {
 
     const index = key.slice('name-'.length)
     const name = String(value).trim()
-    // Sólo se crean los equipos tildados y con nombre.
+    // Only the teams that are ticked and named get created.
     if (!name || formData.get(`include-${index}`) !== 'on') continue
 
     teams.push({ name, puuids: String(formData.get(`puuids-${index}`) ?? '').split(',').filter(Boolean) })
@@ -85,25 +85,25 @@ export async function relinkAction() {
 export interface AccountResult {
   ok: boolean
   error?: string
-  /** El Riot ID: como quedó cargado si salió bien, tal como se escribió si no. */
+  /** The Riot ID: as stored when it went well, as typed when it did not. */
   nick?: string
-  /** La cuenta no existía: se creó sin PUUID hasta que aparezca en un replay. */
+  /** The account did not exist: created without a PUUID until it shows up in a replay. */
   created?: boolean
-  /** Partidas que la cuenta ya tenía. */
+  /** Matches the account already had. */
   games?: number
 }
 
 /**
- * Cargar un nick a mano en el plantel de un equipo.
+ * Adding a nick to a team's roster by hand.
  *
- * Lo que hace falta antes de la fecha 1: hasta que se juegue algo no hay
- * ninguna cuenta que agregar, porque `players` se llena desde los replays. Con
- * esto el plantel de la ficha se puede completar el día de la inscripción.
+ * What is needed before matchday 1: until something is played there is no
+ * account to add, because `players` fills itself from the replays. With this
+ * the team page's roster can be completed on signup day.
  *
- * Devuelve el resultado en vez de tirar excepción —a diferencia de las otras
- * acciones de esta página— porque acá el error es parte del uso normal: el nick
- * ya está en el plantel, ya juega en otro equipo, o el nombre suelto es
- * ambiguo. Eso se muestra al lado del campo y no en una pantalla de error.
+ * It returns the result instead of throwing - unlike the other actions on this
+ * page - because here the error is part of normal use: the nick is already on
+ * the roster, it already plays for another team, or the bare name is ambiguous.
+ * That is shown next to the field and not on an error screen.
  */
 export async function addAccountAction(
   _prev: AccountResult | null,
@@ -128,16 +128,17 @@ export async function addAccountAction(
 }
 
 /**
- * Emparejar un inscripto con una de las cuentas del plantel.
+ * Matching a signup with one of the roster's accounts.
  *
- * Está en la ficha del equipo y no sólo en /admin/planteles porque es ahí donde
- * se cargan los nicks: quien los escribe uno por uno sabe de quién es cada uno,
- * y hacerlo ir a otra pantalla a repetirlo es la forma más segura de que no se
- * haga nunca. El de allá sigue existiendo y guarda el plantel entero de una.
+ * It is on the team page and not only on /admin/planteles because that is where
+ * the nicks get entered: whoever types them one by one knows whose each one is,
+ * and making them go to another screen to repeat it is the surest way for it
+ * never to happen. The one over there still exists and saves the whole roster
+ * at once.
  *
- * Devuelve el resultado en vez de tirar excepción, igual que `addAccountAction`
- * y por lo mismo: los rechazos son parte del uso normal —esa cuenta ya es de
- * otro inscripto— y se muestran al lado del desplegable.
+ * It returns the result instead of throwing, like `addAccountAction` and for
+ * the same reason: rejections are part of normal use - that account is already
+ * somebody else's signup - and they are shown next to the dropdown.
  */
 export async function assignAccountAction(
   _prev: AssignAccountResult | null,
@@ -149,8 +150,8 @@ export async function assignAccountAction(
   const rosterId = String(formData.get('rosterId') ?? '')
   if (!teamId || !rosterId) return { ok: false, error: 'Falta el inscripto.' }
 
-  // El vacío del desplegable es "sin emparejar", que acá es sacarle la cuenta
-  // que tenía: es la única forma de deshacer un emparejado equivocado.
+  // The dropdown's empty value is "unmatched", which here means taking away
+  // the account they had: it is the only way to undo a wrong match.
   const playerId = String(formData.get('playerId') ?? '') || null
 
   const result = await assignRosterAccount(rosterId, playerId)
@@ -165,12 +166,12 @@ export async function assignAccountAction(
 }
 
 /**
- * Asignar a mano la línea de una cuenta del plantel.
+ * Assigning a roster account's lane by hand.
  *
- * Está junto a cada nick del "Plantel" en la ficha del equipo, que es donde ya
- * se ve el casillero que le tocó por las partidas jugadas (o "Sin posición" si
- * todavía no jugó ninguna). El desplegable manda vacío para "sin asignar", que
- * es la forma de deshacer una asignación.
+ * It sits beside every nick under "Plantel" on the team page, which is where
+ * the slot they landed in through the matches played is already shown (or "Sin
+ * posición" when they have played none). The dropdown sends an empty value for
+ * "unassigned", which is how an assignment is undone.
  */
 export async function assignRoleAction(
   _prev: AssignRoleResult | null,

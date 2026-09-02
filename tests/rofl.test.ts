@@ -18,8 +18,8 @@ async function expectError(promise: Promise<unknown>, code: string) {
   await promise.catch((e: RoflParseError) => expect(e.code).toBe(code))
 }
 
-describe('parseRofl · formato nuevo (ROFL2)', () => {
-  it('lee la metadata del final del archivo', async () => {
+describe('parseRofl · new format (ROFL2)', () => {
+  it('reads the metadata at the end of the file', async () => {
     const metadata = await parseRoflBuffer(buildRofl2(defaultRoster()))
 
     expect(metadata.format).toBe('ROFL2')
@@ -28,7 +28,7 @@ describe('parseRofl · formato nuevo (ROFL2)', () => {
     expect(metadata.players).toHaveLength(10)
   })
 
-  it('sólo lee la cola del archivo, no el payload entero', async () => {
+  it("reads only the file's tail, not the whole payload", async () => {
     const file = buildRofl2(defaultRoster(), { payloadSize: 4 * 1024 * 1024 })
     const base = bufferSource(file)
     let bytesRead = 0
@@ -48,8 +48,8 @@ describe('parseRofl · formato nuevo (ROFL2)', () => {
   })
 })
 
-describe('parseRofl · formato viejo (ROFL)', () => {
-  it('usa la tabla de offsets del header', async () => {
+describe('parseRofl · old format (ROFL)', () => {
+  it("uses the header's offset table", async () => {
     const metadata = await parseRoflBuffer(buildRofl1(defaultRoster()))
 
     expect(metadata.format).toBe('ROFL')
@@ -58,35 +58,35 @@ describe('parseRofl · formato viejo (ROFL)', () => {
   })
 })
 
-describe('parseRofl · errores', () => {
-  it('rechaza un archivo que no es .rofl', async () => {
+describe('parseRofl · errors', () => {
+  it('rejects a file that is not a .rofl', async () => {
     await expectError(parseRoflBuffer(Buffer.alloc(1024, 0x50)), 'NOT_A_ROFL')
   })
 
-  it('rechaza un archivo truncado', async () => {
+  it('rejects a truncated file', async () => {
     await expectError(parseRoflBuffer(Buffer.from(ROFL2_SIGNATURE)), 'TRUNCATED_FILE')
   })
 
-  it('explica los replays sin stats (parches 13.20 a 14.10)', async () => {
+  it('explains the replays with no stats (patches 13.20 to 14.10)', async () => {
     await expectError(parseRoflBuffer(buildRofl2([], { statsJson: '[]' })), 'METADATA_EMPTY')
   })
 
-  it('detecta metadata corrupta', async () => {
+  it('detects corrupt metadata', async () => {
     const file = buildRofl2(defaultRoster())
     const broken = Buffer.from(file)
-    // Rompe el JSON de la metadata sin tocar el largo declarado en el footer.
+    // Breaks the metadata JSON without touching the length declared in the footer.
     broken.write('{{{', file.length - 4 - 10)
     await expectError(parseRoflBuffer(broken), 'MALFORMED_METADATA')
   })
 
-  it('rechaza stats sin PUUID ni campeón', async () => {
+  it('rejects stats with no PUUID or champion', async () => {
     const file = buildRofl2([], { statsJson: JSON.stringify([{ NAME: 'x' }]) })
     await expectError(parseRoflBuffer(file), 'UNSUPPORTED_STATS')
   })
 })
 
 describe('normalizeMatch', () => {
-  it('mapea los campos principales y detecta al ganador', async () => {
+  it('maps the main fields and detects the winner', async () => {
     const metadata = await parseRoflBuffer(buildRofl2(defaultRoster()))
     const match = normalizeMatch(metadata, { fileName: 'LA2-1234567890.rofl' })
 
@@ -102,7 +102,7 @@ describe('normalizeMatch', () => {
     expect(first.raw.PUUID).toBe('puuid-100-0')
   })
 
-  it('coerciona números en notación científica', async () => {
+  it('coerces numbers in scientific notation', async () => {
     const roster = defaultRoster()
     roster[0] = player({
       ...roster[0],
@@ -123,25 +123,25 @@ describe('fingerprint', () => {
     { puuid: 'b', champion: 'Jinx', kills: 4, deaths: 5, assists: 6 },
   ]
 
-  it('no depende del orden de los jugadores', () => {
+  it('does not depend on the order of the players', () => {
     expect(matchFingerprint(roster, 1_800_000)).toBe(
       matchFingerprint([...roster].reverse(), 1_800_000),
     )
   })
 
-  it('distingue dos partidas de los mismos jugadores', () => {
+  it('tells apart two matches between the same players', () => {
     const otherGame = [{ ...roster[0], champion: 'Sett' }, roster[1]]
     expect(matchFingerprint(roster, 1_800_000)).not.toBe(matchFingerprint(otherGame, 1_800_000))
   })
 
-  it('saca el match id del nombre del archivo', () => {
+  it('takes the match id from the file name', () => {
     expect(riotMatchIdFromFileName('LA2-1234567890.rofl')).toBe('LA2-1234567890')
     expect(riotMatchIdFromFileName('EUW1-7654321.rofl')).toBe('EUW1-7654321')
     expect(riotMatchIdFromFileName('final-torneo.rofl')).toBeNull()
   })
 })
 
-describe('replay real anonimizado (parche 16.12)', () => {
+describe('real anonymized replay (patch 16.12)', () => {
   const fixtures = [
     { rofl: 'LA2-1602356940', fileName: 'LA2-1602356940.rofl' },
     { rofl: 'E1vsE2-B-LEIF8-FECHA3', fileName: 'E1vsE2-B-LEIF8-FECHA3.rofl' },
@@ -160,7 +160,7 @@ describe('replay real anonimizado (parche 16.12)', () => {
     }
   })
 
-  it('lee los 365 campos por jugador y las 5 posiciones', async () => {
+  it('reads the 365 fields per player and the 5 positions', async () => {
     const source = await fileSource('fixtures/LA2-1602356940.fixture.rofl')
     try {
       const match = normalizeMatch(await parseRofl(source))

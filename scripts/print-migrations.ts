@@ -1,6 +1,6 @@
 /**
- * Junta las migraciones en un solo archivo para poder pegarlas de una en el
- * SQL editor de Supabase.
+ * Concatenates the migrations into a single file so they can be pasted in one
+ * go into Supabase's SQL editor.
  *
  *   npm run db:sql
  */
@@ -17,5 +17,5 @@ const out = 'supabase/all-migrations.sql'
 writeFileSync(out, sql)
 
 console.log(`\n  ${out}`)
-console.log(`  ${files.length} migraciones, ${sql.split('\n').length} líneas`)
-console.log(`  Pegalo en el SQL editor del proyecto de Supabase y ejecutalo.\n`)
+console.log(`  ${files.length} migrations, ${sql.split('\n').length} lines`)
+console.log(`  Paste it into the Supabase project's SQL editor and run it.\n`)

@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { maybeRow, rows } from '@/lib/supabase/query'
 import { assetVersion, championIcon, championName, championNames } from '@/lib/ddragon'
 import { formatGold, formatNumber, playerName } from '@/lib/format'
-import { MatchCard, type CardHighlight, type MatchCardData } from '@/components/card/MatchCard'
+import { MatchCard, type CardHighlight, type MatchCardData } from '@/components/cards/MatchCard'
 import type { MatchPlayerScoreRow, MatchSummaryRow } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
@@ -18,10 +18,10 @@ export default async function MatchCardPage({ params }: PageProps<'/partidas/[id
     supabase.from('match_player_scores').select('*').eq('match_id', id),
   ])
 
-  const summary = maybeRow<MatchSummaryRow>(summaryRes, 'la partida')
+  const summary = maybeRow<MatchSummaryRow>(summaryRes, 'the match')
   if (!summary) notFound()
 
-  const scores = rows<MatchPlayerScoreRow>(scoresRes, 'el scoreboard')
+  const scores = rows<MatchPlayerScoreRow>(scoresRes, 'the scoreboard')
   const version = await assetVersion(summary.patch)
   const champNames = await championNames(version)
 

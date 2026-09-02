@@ -1,4 +1,4 @@
-/** Rankings por equipo. */
+/** Per-team rankings. */
 
 import { formatNumber } from '@/lib/format'
 import { block, rankRows } from './rank'
@@ -59,11 +59,11 @@ export function topObjectives(data: StatsData): StatBlock | null {
   const rows = teamRanking(data, {
     value: (row) => row.objectives,
     /*
-      La inicial de cada objetivo y no un emoji: el dragón y el heraldo se
-      dibujan distinto en cada sistema —y en Windows el ojo sale celeste, que
-      no es un heraldo—, se pierden en 12px y un lector de pantalla los lee
-      como "dragón" en el medio de una cifra. El subtítulo dice qué es cada
-      letra.
+      The initial of each objective and not an emoji: the dragon and the herald
+      are drawn differently on every system — and on Windows the eye comes out
+      light blue, which is not a herald — they get lost at 12px, and a screen
+      reader reads them as "dragon" in the middle of a figure. The subtitle says
+      what each letter is.
     */
     display: (_value, row) => `${row.dragons}D · ${row.barons}B · ${row.heralds}H`,
     eligible: (row) => row.objectives > 0,
@@ -72,10 +72,10 @@ export function topObjectives(data: StatsData): StatBlock | null {
 }
 
 /**
- * Duración promedio, de la más rápida a la más lenta.
+ * Average duration, from the fastest to the slowest.
  *
- * Ascendente a propósito: acá lo interesante es quién cierra rápido, no quién
- * alarga la partida.
+ * Ascending on purpose: what is interesting here is who closes games out fast,
+ * not who drags them on.
  */
 export function fastestTeams(data: StatsData): StatBlock | null {
   const rows = teamRanking(data, {

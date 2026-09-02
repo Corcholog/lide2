@@ -1,17 +1,17 @@
 import { open } from 'node:fs/promises'
 
 /**
- * Fuente de bytes de un .rofl.
+ * A source of .rofl bytes.
  *
- * Toda la metadata que necesitamos vive en el header (288 bytes) y en un bloque
- * al final del archivo, así que nunca hace falta traer los 10-30 MB completos.
- * Esta interfaz existe para que el mismo parser sirva para un archivo local
- * (script/tests) y para un objeto remoto leído con requests Range.
+ * All the metadata needed lives in the header (288 bytes) and in a block at the
+ * end of the file, so the full 10-30 MB never has to be fetched. This interface
+ * exists so the same parser serves both a local file (script and tests) and a
+ * remote object read with Range requests.
  */
 export interface RoflSource {
-  /** Tamaño total del archivo en bytes. */
+  /** Total file size in bytes. */
   readonly size: number
-  /** Devuelve exactamente `length` bytes a partir de `start`. */
+  /** Returns exactly `length` bytes starting at `start`. */
   read(start: number, length: number): Promise<Buffer>
   close?(): Promise<void>
 }
@@ -25,7 +25,7 @@ export function bufferSource(buf: Buffer): RoflSource {
   }
 }
 
-/** Lee de disco sin cargar el archivo entero en memoria. Para el CLI y los tests. */
+/** Reads from disk without loading the whole file into memory. For the CLI and the tests. */
 export async function fileSource(path: string): Promise<RoflSource> {
   const handle = await open(path, 'r')
   const { size } = await handle.stat()
@@ -44,8 +44,8 @@ export async function fileSource(path: string): Promise<RoflSource> {
 }
 
 /**
- * Lee un objeto remoto con requests `Range`. Si el server ignora el header y
- * responde 200 con el cuerpo completo, recorta el tramo pedido igual.
+ * Reads a remote object with `Range` requests. If the server ignores the header
+ * and answers 200 with the whole body, it slices the requested stretch anyway.
  */
 export function rangeUrlSource(url: string, size: number): RoflSource {
   return {
@@ -55,7 +55,7 @@ export function rangeUrlSource(url: string, size: number): RoflSource {
       const res = await fetch(url, { headers: { Range: `bytes=${start}-${end}` } })
 
       if (!res.ok) {
-        throw new Error(`Range request falló (${res.status} ${res.statusText})`)
+        throw new Error(`Range request failed (${res.status} ${res.statusText})`)
       }
 
       const body = Buffer.from(await res.arrayBuffer())

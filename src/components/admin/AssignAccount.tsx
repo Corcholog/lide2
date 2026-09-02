@@ -7,18 +7,19 @@ import type { AssignAccountResult } from '@/lib/teams/service'
 import type { TeamAccountRow } from '@/types/db'
 
 /**
- * De quién es cada nick, al lado del inscripto.
+ * Whose each nick is, right beside the signup.
  *
- * Las cuentas de un equipo entran por la ficha (`AddAccount`), así que es acá
- * donde quien las carga sabe de quién es cada una. El emparejado automático
- * —`link_roster_accounts()`— sólo lo resuelve cuando el Riot ID declarado en la
- * planilla coincide con el de la cuenta; cuando la planilla vino sin Riot ID,
- * con el nick viejo o mal escrito, no hay forma de que lo adivine y hasta ahora
- * había que ir a /admin/planteles a decirlo.
+ * A team's accounts come in through its page (`AddAccount`), so this is where
+ * whoever enters them knows whose each one is. The automatic matching -
+ * `link_roster_accounts()` - only resolves it when the Riot ID declared on the
+ * sheet equals the account's; when the sheet arrived with no Riot ID, with the
+ * old nick or misspelled, there is no way for it to guess and until now you had
+ * to go to /admin/planteles to say so.
  *
- * Un desplegable por inscripto y no un formulario con todo el plantel: el de
- * /admin/planteles guarda las cinco filas juntas porque ahí se editan nombres,
- * universidades y bajas a la vez. Acá se toca una sola cosa, y de a una.
+ * One dropdown per signup and not a form with the whole roster: the one on
+ * /admin/planteles saves all five rows together because names, universities and
+ * removals are edited there at once. Here one single thing is touched, one at a
+ * time.
  */
 export function AssignAccount({
   teamId,
@@ -42,11 +43,11 @@ export function AssignAccount({
       <input type="hidden" name="rosterId" value={rosterId} />
 
       {/*
-        La `key` es la cuenta que tiene hoy en la base. React reinicia los
-        campos de un `<form action>` cuando la acción termina y los deja en su
-        `defaultValue`, que en un no controlado es el del primer render: sin
-        esto el desplegable volvería a la cuenta anterior por un instante,
-        justo después de guardar la nueva.
+        The `key` is the account it holds in the database today. React resets
+        the fields of a `<form action>` when the action finishes, leaving them
+        at their `defaultValue`, which in an uncontrolled field is the one from
+        the first render: without this the dropdown would flick back to the
+        previous account for an instant, right after saving the new one.
       */}
       <select
         key={playerId ?? 'sin'}

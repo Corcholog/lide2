@@ -1,8 +1,8 @@
 /**
- * Filas de las vistas que consulta la app.
+ * Rows of the views the app queries.
  *
- * Escritas a mano por ahora; cuando el proyecto de Supabase este creado se
- * reemplazan por las generadas con `supabase gen types typescript`.
+ * Written by hand for now; once the Supabase project exists they get replaced
+ * by the ones generated with `supabase gen types typescript`.
  */
 
 export interface MatchSummaryRow {
@@ -36,25 +36,25 @@ export interface MatchSummaryRow {
   blue_team_logo: string | null
   red_team_logo: string | null
 
-  // El recorte del torneo al que pertenece la partida, resuelto por
-  // `match_context` (0021_meta_y_bans.sql). Sale de acá y no de una consulta
-  // aparte para que los filtros de /partidas sean un `.eq()` sobre esta vista.
-  /** Fecha del torneo, 1 a 3. Null en playoffs o si todavía no se resolvió. */
+  // The slice of the tournament the match belongs to, resolved by
+  // `match_context` (0021_meta_y_bans.sql). It comes from here and not from a
+  // separate query so /partidas' filters are an `.eq()` over this view.
+  /** Tournament matchday, 1 to 3. Null in playoffs or when unresolved. */
   matchday: number | null
   group_label: string | null
   phase: StatPhase | null
   slot: number | null
-  /** Cuántos bans tiene cargados a mano. 0 = sin draft; el .rofl no lo trae. */
+  /** How many bans are entered by hand. 0 = no draft; the .rofl does not carry it. */
   ban_count: number
 }
 
-/** Una fila de `match_bans`: un baneo del draft, cargado a mano en el panel. */
+/** A `match_bans` row: one ban from the draft, entered by hand in the panel. */
 export interface MatchBanRow {
   id: string
   match_id: string
   side: 100 | 200
   champion: string
-  /** 1 a 5 dentro de su lado. */
+  /** 1 to 5 within its side. */
   order_index: number
 }
 
@@ -129,7 +129,7 @@ export interface TeamStandingRow {
   avg_minutes: number | null
   first_played_at: string | null
   last_played_at: string | null
-  /** Últimos 5 resultados, del más nuevo al más viejo. */
+  /** The last 5 results, newest first. */
   form: boolean[] | null
   position: number
 }
@@ -168,11 +168,11 @@ export interface PlayerChampionRow {
 }
 
 /**
- * Una fila de `player_profiles`: lo público de una cuenta de Riot.
+ * A `player_profiles` row: the public part of a Riot account.
  *
- * Sin `puuid`. La tabla `players` no es legible sin sesión justamente porque su
- * clave es ese identificador, que sirve para preguntarle cosas a la API de Riot
- * sobre esa persona.
+ * No `puuid`. The `players` table is not readable without a session precisely
+ * because its key is that identifier, which can be used to ask Riot's API
+ * things about that person.
  */
 export interface PlayerProfileRow {
   player_id: string
@@ -203,12 +203,12 @@ export interface GroupStandingRow {
   gold_diff: number
   avg_minutes: number | null
   last_played_at: string | null
-  /** Últimos 5 resultados, del más nuevo al más viejo. */
+  /** The last 5 results, newest first. */
   form: boolean[] | null
   position: number
   /**
-   * Todas las universidades del plantel, la principal primero. Casi siempre es
-   * una sola; los equipos armados con inscripciones individuales tienen varias.
+   * Every university on the roster, the main one first. Nearly always just one;
+   * the teams built from individual signups have several.
    */
   university_tags: string[]
 }
@@ -227,7 +227,7 @@ export interface SeriesResultRow {
   team_a_id: string | null
   team_a_name: string | null
   team_a_logo: string | null
-  /** De dónde sale el equipo mientras no esté definido: "1o A". */
+  /** Where the team comes from while it is undecided: "1o A". */
   slot_a_label: string | null
   team_b_id: string | null
   team_b_name: string | null
@@ -241,15 +241,15 @@ export interface SeriesResultRow {
   wins_b: number
 }
 
-/** Una fila de `fixture_results`: un cruce publicado, con resultado si ya se jugo. */
+/** A `fixture_results` row: a published matchup, with its result once played. */
 export interface FixtureResultRow {
   id: string
   tournament_id: string
   stage_id: string | null
   group_label: string
-  /** Fecha del torneo, 1 a 3. */
+  /** Tournament matchday, 1 to 3. */
   matchday: number
-  /** Turno dentro de la fecha. */
+  /** Slot within the matchday. */
   slot: number
   kickoff: string
   match_id: string | null
@@ -275,12 +275,12 @@ export interface FixtureResultRow {
   winner_team_id: string | null
   status: 'pendiente' | 'sin resultado' | 'jugado'
 
-  /** Siglas de las universidades de cada lado, la principal primero. */
+  /** Each side's university tags, the main one first. */
   team_a_universities: string[] | null
   team_b_universities: string[] | null
 }
 
-/** Un equipo que descansa en un turno: en cada uno queda libre uno por grupo. */
+/** A team resting in a slot: one per group sits out each one. */
 export interface FixtureByeRow {
   tournament_id: string
   matchday: number
@@ -292,28 +292,28 @@ export interface FixtureByeRow {
   team_logo: string | null
 }
 
-// --- Estadísticas (supabase/migrations/0010_stats.sql) ----------------------
+// --- Stats (supabase/migrations/0010_stats.sql) -----------------------------
 //
-// Las cuatro vistas de acumulados comparten el mismo encabezado de recorte y
-// devuelven, en la misma consulta, la fila de cada fecha y la fila de toda la
-// fase. `is_total` es lo que las separa: el acumulado tiene `matchday: null`,
-// pero también lo tiene una partida a la que todavía no se le pudo resolver la
-// fecha, así que filtrar por `matchday is null` no alcanza.
+// The four accumulated views share the same scope header and return, in the
+// same query, each matchday's row and the row for the whole phase. `is_total`
+// is what tells them apart: the accumulated one has `matchday: null`, but so
+// does a match whose matchday could not be resolved yet, so filtering on
+// `matchday is null` is not enough.
 
 export type StatPhase = 'grupos' | 'playoffs'
 
 interface StatScopeColumns {
   tournament_id: string | null
   phase: StatPhase | null
-  /** Fecha del torneo. Null en la fila acumulada y en los playoffs. */
+  /** Tournament matchday. Null in the accumulated row and in playoffs. */
   matchday: number | null
-  /** "Fecha 2", o el nombre de la ronda en playoffs. */
+  /** "Fecha 2", or the round's name in playoffs. */
   round_label: string | null
-  /** true = la fila del acumulado; false = la de esa fecha. */
+  /** true = the accumulated row; false = that matchday's. */
   is_total: boolean
 }
 
-/** Una fila de `player_phase_totals`. */
+/** A `player_phase_totals` row. */
 export interface PlayerPhaseTotalsRow extends StatScopeColumns {
   player_id: string | null
   player_name: string | null
@@ -322,7 +322,7 @@ export interface PlayerPhaseTotalsRow extends StatScopeColumns {
   team_tag: string | null
   university_id: string | null
   university_tag: string | null
-  /** El rol en el que más jugó, para el quinteto de la fecha. */
+  /** The role played most, for the matchday's starting five. */
   position: string | null
 
   games: number
@@ -350,7 +350,7 @@ export interface PlayerPhaseTotalsRow extends StatScopeColumns {
   avg_vision: number
   wards_placed: number
   wards_killed: number
-  /** Racha más larga sin morir: reemplaza a los first bloods, que el .rofl no trae. */
+  /** Longest streak without dying: it replaces first bloods, which the .rofl lacks. */
   best_killing_spree: number
   best_multi_kill: number
   double_kills: number
@@ -363,7 +363,7 @@ export interface PlayerPhaseTotalsRow extends StatScopeColumns {
   mvp_count: number
 }
 
-/** Una fila de `team_phase_totals`. */
+/** A `team_phase_totals` row. */
 export interface TeamPhaseTotalsRow extends StatScopeColumns {
   team_id: string
   team_name: string | null
@@ -389,10 +389,10 @@ export interface TeamPhaseTotalsRow extends StatScopeColumns {
 }
 
 /**
- * Una fila de `university_totals`.
+ * A `university_totals` row.
  *
- * Se cuenta por aparición (jugador-partida) y no por partido: cuatro equipos
- * mezclan universidades, así que un mismo partido le suma a varias a la vez.
+ * It counts by appearance (player-match) and not by match: four teams mix
+ * universities, so one match adds to several at once.
  */
 export interface UniversityTotalsRow extends StatScopeColumns {
   university_id: string
@@ -403,7 +403,7 @@ export interface UniversityTotalsRow extends StatScopeColumns {
   matches: number
   teams: number
   players: number
-  /** Jugador-partida: un equipo de una sola universidad suma 5 por partido. */
+  /** Player-match: a single-university team adds 5 per match. */
   appearances: number
   wins: number
   losses: number
@@ -420,10 +420,11 @@ export interface UniversityTotalsRow extends StatScopeColumns {
 }
 
 /**
- * Una fila de `champion_stats`.
+ * A `champion_stats` row.
  *
- * `bans` y `presence` valen sólo sobre las partidas que tienen el draft cargado
- * a mano; `matches_with_bans` dice sobre cuántas, y la UI tiene que aclararlo.
+ * `bans` and `presence` hold only over the matches whose draft was entered by
+ * hand; `matches_with_bans` says over how many, and the UI has to spell it
+ * out.
  */
 export interface ChampionStatRow extends StatScopeColumns {
   champion: string
@@ -445,17 +446,17 @@ export interface ChampionStatRow extends StatScopeColumns {
 }
 
 /**
- * Una fila de `champion_meta` (0021_meta_y_bans.sql).
+ * A `champion_meta` row (0021_meta_y_bans.sql).
  *
- * El mismo meta que `champion_stats` pero con la dimensión de grupo, y con las
- * tres tasas ya calculadas. Cuatro recortes conviven en la vista —acumulado,
- * por fecha, por grupo, y grupo+fecha— y las dos banderas dicen cuál es cada
- * fila. No se pueden reemplazar por `group_label is null`: ese null puede
- * significar "todos los grupos" o "esta partida no tiene grupo resuelto", que
- * es el mismo problema que resuelve `is_total` en las otras vistas.
+ * The same meta as `champion_stats` but with the group dimension, and with the
+ * three rates already computed. Four scopes coexist in the view - accumulated,
+ * by matchday, by group, and group+matchday - and the two flags say which row
+ * is which. They cannot be replaced by `group_label is null`: that null can
+ * mean "every group" or "this match has no group resolved", which is the same
+ * problem `is_total` solves in the other views.
  *
- * `pick_rate`, `ban_rate` y `presence` son null cuando su denominador es cero:
- * un campeón que nadie jugó no tiene 0% de winrate, no tiene winrate.
+ * `pick_rate`, `ban_rate` and `presence` are null when their denominator is
+ * zero: a champion nobody played does not have a 0% win rate, it has none.
  */
 export interface ChampionMetaRow {
   tournament_id: string | null
@@ -463,9 +464,9 @@ export interface ChampionMetaRow {
   group_label: string | null
   matchday: number | null
   round_label: string | null
-  /** true = la fila de todos los grupos juntos. */
+  /** true = the row for every group together. */
   all_groups: boolean
-  /** true = la fila de toda la fase; false = la de una fecha. */
+  /** true = the row for the whole phase; false = one matchday's. */
   all_matchdays: boolean
 
   champion: string
@@ -482,14 +483,14 @@ export interface ChampionMetaRow {
   avg_score: number
   bans: number
   matches: number
-  /** Sobre cuántas partidas del recorte se midieron los bans. */
+  /** How many matches in the scope the bans were measured over. */
   matches_with_bans: number
   pick_rate: number | null
   ban_rate: number | null
   presence: number | null
 }
 
-/** Una fila de `match_records`: una partida con lo que hace falta para los récords. */
+/** A `match_records` row: a match with what the records need. */
 export interface MatchRecordRow {
   match_id: string
   tournament_id: string | null
@@ -522,15 +523,16 @@ export interface MatchRecordRow {
   loser_name: string | null
 }
 
-// --- Planteles (supabase/migrations/0012_planteles.sql) ---------------------
+// --- Rosters (supabase/migrations/0012_planteles.sql) ----------------------
 
 /**
- * Una fila de `roster_status`: un inscripto y su cuenta de Riot.
+ * A `roster_status` row: a signup and their Riot account.
  *
- * `declared_*` es lo que dice la planilla; `linked_*` es la cuenta real, y sólo
- * aparece cuando esa persona ya jugó y quedó emparejada.
+ * `declared_*` is what the sheet says; `linked_*` is the real account, and it
+ * only appears once that person has played and got matched.
  *
- * Lleva `full_name`, que son nombres legales: esta fila no sale del login.
+ * It carries `full_name`, which are legal names: this row never leaves the
+ * signed-in side.
  */
 export interface RosterStatusRow {
   roster_id: string
@@ -550,7 +552,7 @@ export interface RosterStatusRow {
   games: number
 }
 
-/** Una fila de `team_accounts`: una cuenta de Riot que juega en un equipo. */
+/** A `team_accounts` row: a Riot account that plays for a team. */
 export interface TeamAccountRow {
   team_id: string
   player_id: string
@@ -558,42 +560,42 @@ export interface TeamAccountRow {
   riot_game_name: string | null
   riot_tag_line: string | null
   games: number
-  /** Si ya está emparejada con un inscripto. */
+  /** Whether it is already matched with a signup. */
   linked: boolean
 }
 
 /**
- * Un lugar del plantel de un equipo, de `team_lineup`.
+ * One slot in a team's lineup, from `team_lineup`.
  *
- * Es un casillero, no un jugador: los cinco roles existen siempre y los del
- * banco salen de cuántos anotó el equipo. `player_id` en null es un lugar que
- * todavía no se sabe quién ocupa, y se dibuja con el nombre del rol.
+ * It is a slot, not a player: the five roles always exist and the bench ones
+ * come from how many the team signed up. A null `player_id` is a slot whose
+ * occupant is not known yet, and it is drawn with the role's name.
  */
 export interface TeamLineupRow {
   team_id: string
-  /** 1 a 5 los titulares, de Top a Soporte; de 6 en adelante el banco. */
+  /** 1 to 5 are the starters, from Top to Support; 6 upwards is the bench. */
   slot: number
-  /** El rol del lugar, o null si es del banco. */
+  /** The slot's role, or null when it is a bench one. */
   role: string | null
-  /** 1, 2, 3… para los del banco; null para los titulares. */
+  /** 1, 2, 3… for the bench ones; null for the starters. */
   sub_number: number | null
   is_substitute: boolean
   player_id: string | null
   name: string | null
   games: number
-  /** El nick de Riot pelado; `name` puede ser un alias del panel. */
+  /** The bare Riot nick; `name` may be an alias from the panel. */
   game_name: string | null
-  /** El `#TAG`, sin el `#`. Null en cuentas viejas que entraron sin tag. */
+  /** The `#TAG`, without the `#`. Null on old accounts that came in without one. */
   tag_line: string | null
   /**
-   * La línea asignada a mano, tal cual se guardó. Distinta de `role`: esa es
-   * la línea EFECTIVA del casillero (puede venir de las partidas); esta es la
-   * que se precarga en el desplegable de edición. Null si nadie la tocó.
+   * The lane assigned by hand, exactly as stored. Different from `role`: that
+   * one is the slot's EFFECTIVE lane (it may come from the matches); this one
+   * is what preloads the edit dropdown. Null when nobody touched it.
    */
   assigned_role: string | null
 }
 
-/** Una fila de `tournament_mvp`: el ranking de MVP del recorte. */
+/** A `tournament_mvp` row: the scope's MVP ranking. */
 export interface TournamentMvpRow extends StatScopeColumns {
   player_id: string | null
   player_name: string | null
