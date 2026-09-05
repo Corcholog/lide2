@@ -21,6 +21,17 @@ function key(row: PlayerPhaseTotalsRow): string {
   return row.player_id ?? `${row.team_id ?? 'no-team'}-${row.player_name ?? '?'}`
 }
 
+/**
+ * "Mínimo 2 partidas", or nothing at all.
+ *
+ * A minimum of one is not a minimum - it is every player who took the field -
+ * and writing it out reads as a filter that is leaving somebody out. The cards
+ * that name it get the line back the day the threshold goes up again.
+ */
+function minimumNote(min: number): string | null {
+  return min > 1 ? `Mínimo ${min} partidas` : null
+}
+
 function record(row: PlayerPhaseTotalsRow): string {
   return `${formatKda(row.kills, row.deaths, row.assists)} · ${row.games} ${row.games === 1 ? 'partida' : 'partidas'}`
 }
@@ -126,17 +137,57 @@ export function topAssists(data: StatsData): StatBlock | null {
 }
 
 export function bestKda(data: StatsData): StatBlock | null {
-  const min = minGamesForAverages(data.scope)
+  const min = minGamesForAverages()
   const rows = playerRanking(data, {
     value: (row) => row.kda,
     display: (value) => value.toFixed(2),
     eligible: (row) => row.games >= min,
   })
-  return block('kda', 'Mejor KDA', rows, { subtitle: `Mínimo ${min} ${min === 1 ? 'partida' : 'partidas'}` })
+  return block('kda', 'Mejor KDA', rows, {
+    subtitle: ['Sobre el total del recorte', minimumNote(min)].filter(Boolean).join(' · '),
+  })
+}
+
+/**
+ * The other KDA: each game's, averaged, and every player in the tournament in
+ * the same ranking.
+ *
+ * It sits next to `bestKda` and does not replace it because they answer
+ * different questions. "Mejor KDA" divides every kill and assist by every
+ * death, so four steady games beat three quiet ones and one disaster. This one
+ * averages the per-game figures, and since a game without deaths divides by
+ * one, the 10/0/10 counts whole instead of dissolving into the totals: it is
+ * the ranking of whoever had the best nights, not of whoever held up best.
+ *
+ * That is why both subtitles spell out which of the two they are: two
+ * different numbers under the same word are the way to make neither readable.
+ *
+ * The minimum is the shared one and not a number of its own: it is an average
+ * like the rest, and two rankings of averages asking for different amounts of
+ * games are two rankings nobody can compare.
+ */
+export function bestAverageKda(data: StatsData): StatBlock | null {
+  const min = minGamesForAverages()
+  const rows = playerRanking(data, {
+    value: (row) => row.avg_kda,
+    display: (value) => value.toFixed(2),
+    // The `typeof` is not paranoia: the migrations of this project are applied
+    // by hand from Supabase's SQL editor (`npm run db:sql`), so the deploy can
+    // perfectly well reach production before 0025 does. Without this the
+    // column arrives undefined, `toFixed` throws and it takes down all of
+    // /estadisticas - every other ranking included - over one card. With it
+    // the card is simply not there, which is what already happens to any stat
+    // with nothing to show, and it appears on its own once the view is
+    // replaced.
+    eligible: (row) => row.games >= min && typeof row.avg_kda === 'number',
+  })
+  return block('kda-promedio', 'Mayor KDA promedio', rows, {
+    subtitle: ['El KDA de cada partida, promediado', minimumNote(min)].filter(Boolean).join(' · '),
+  })
 }
 
 export function fewestDeaths(data: StatsData): StatBlock | null {
-  const min = minGamesForAverages(data.scope)
+  const min = minGamesForAverages()
   const rows = playerRanking(data, {
     value: (row) => row.avg_deaths,
     display: (value) => `${value.toFixed(2)} por partida`,
@@ -172,7 +223,7 @@ export function topDamage(data: StatsData): StatBlock | null {
 }
 
 export function topDpm(data: StatsData): StatBlock | null {
-  const min = minGamesForAverages(data.scope)
+  const min = minGamesForAverages()
   const rows = playerRanking(data, {
     value: (row) => row.dpm,
     display: (value) => `${formatNumber(value)} por minuto`,
@@ -182,7 +233,7 @@ export function topDpm(data: StatsData): StatBlock | null {
 }
 
 export function topCsPerMin(data: StatsData): StatBlock | null {
-  const min = minGamesForAverages(data.scope)
+  const min = minGamesForAverages()
   const rows = playerRanking(data, {
     value: (row) => row.csm,
     display: (value) => `${value.toFixed(1)} por minuto`,
@@ -192,7 +243,7 @@ export function topCsPerMin(data: StatsData): StatBlock | null {
 }
 
 export function topGpm(data: StatsData): StatBlock | null {
-  const min = minGamesForAverages(data.scope)
+  const min = minGamesForAverages()
   const rows = playerRanking(data, {
     value: (row) => row.gpm,
     display: (value) => `${formatNumber(value)} por minuto`,
@@ -202,7 +253,7 @@ export function topGpm(data: StatsData): StatBlock | null {
 }
 
 export function topVision(data: StatsData): StatBlock | null {
-  const min = minGamesForAverages(data.scope)
+  const min = minGamesForAverages()
   const rows = playerRanking(data, {
     value: (row) => row.avg_vision,
     display: (value) => `${value.toFixed(1)} por partida`,

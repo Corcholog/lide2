@@ -6,23 +6,36 @@
  * looks at and how it is written.
  */
 
-import type { StatBlock, StatRow, StatScope } from './types'
+import type { StatBlock, StatRow } from './types'
 import { TOP_ROWS } from './types'
 
 /**
  * Minimum games to enter a ranking of averages.
  *
- * Same rule as `mvp_min_games()` in supabase/migrations/0010_stats.sql and for
- * the same reason: within one matchday a team plays one or two games, so having
- * played at all is enough, but across the whole phase there are four and
- * somebody who showed up once cannot head an average. Rankings of totals
- * (kills, damage) do not need it: accumulating already rewards whoever played.
+ * Same rule as `mvp_min_games()` in supabase/migrations/0026, and changed with
+ * it: the MVP is decided by the SQL function and the averages by this one, so
+ * moving one alone leaves the same page asking two different things.
  *
- * The MVP is decided by the SQL function, not by this one; the rule is mirrored
- * here for the rankings that are built in memory.
+ * ONE, WHICH IS TO SAY HAVING PLAYED. It asked for three across the whole
+ * phase, and with a single matchday played nobody reached it: the MVP and the
+ * six average rankings came out empty, and since a card with no rows is not
+ * drawn, the players section had neither until the third matchday. Two had the
+ * same problem one step down - in the first matchday of this group phase there
+ * are teams that play only once, and their whole five would be missing from
+ * the only page where anyone's numbers can be read, not for how they played
+ * but for how the fixture fell.
+ *
+ * The cost is a first matchday where somebody with one great game can head an
+ * average. That untidiness lasts a matchday and sorts itself out on its own;
+ * a player who does not exist does not.
+ *
+ * It is not deleted, it is set to one: this stays the only place the threshold
+ * is adjusted, so raising it again - for a finished tournament, or for the
+ * cards that get published - is this number and the SQL one, and nothing else.
+ * The scope stopped being a parameter because it stopped changing the answer.
  */
-export function minGamesForAverages(scope: StatScope): number {
-  return scope.matchday === null ? 3 : 1
+export function minGamesForAverages(): number {
+  return 1
 }
 
 export interface RankOptions<T> {

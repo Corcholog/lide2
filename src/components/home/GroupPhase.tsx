@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { teamPath } from '@/lib/routes'
 import { UniversityLogo } from '@/components/tournament/UniversityLogo'
 import type { GroupStandingRow } from '@/types/db'
 
@@ -127,7 +128,7 @@ function StandingsRow({ row }: { row: GroupStandingRow }) {
           {row.university_tags[0] && <UniversityLogo tag={row.university_tags[0]} size="md" />}
           <div className="min-w-0 flex-1">
             <Link
-              href={`/equipos/${row.team_id}`}
+              href={teamPath(row.team_id, 'grupos')}
               className={`block truncate transition-colors hover:text-accent ${
                 qualified ? 'font-semibold' : 'font-medium'
               }`}
