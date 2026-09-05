@@ -50,7 +50,7 @@ function universityRanking(
  * in one match cannot head the table on 100%.
  */
 export function universityStandings(data: StatsData): StatBlock | null {
-  const min = minGamesForAverages(data.scope) * 5
+  const min = minGamesForAverages() * 5
   const rows = universityRanking(data, {
     value: (row) => row.win_pct,
     display: (value) => `${Math.round(value * 100)}%`,
@@ -111,7 +111,7 @@ export function universityDamage(data: StatsData): StatBlock | null {
  * most teams would always win. UNLP entered six and UNCuyo one.
  */
 export function universityOfTheDay(data: StatsData): StatBlock | null {
-  const min = minGamesForAverages(data.scope) * 5
+  const min = minGamesForAverages() * 5
   const rows = universityRanking(data, {
     value: (row) => row.avg_score,
     display: (value) => value.toFixed(2),
