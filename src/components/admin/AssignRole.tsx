@@ -8,16 +8,17 @@ import type { AssignRoleResult } from '@/lib/teams/service'
 /**
  * Which lane this account plays, by hand.
  *
- * `team_lineup` deduces the lane from the match history, and before anything is
+ * `team_lineup` takes the lane from the match history, and before anything is
  * played it has nowhere to get it from: the slot reads "Sin posición" even when
  * whoever entered the nick already knows they play support because they were
  * told so at signup. This dropdown is that information, next to every nick on
  * the roster.
  *
- * It sits beside any row that has an account - starter or bench - because what
- * is assigned by hand beats what is deduced: if somebody is on the bench
- * according to the matches but is really a lane's starter, it is corrected
- * right here and not by going to hunt for another screen.
+ * It is a provisional, and since 0023 it says so: the first replay overrides
+ * it, because a lane somebody was told at signup can be out of date by Sunday
+ * and a scoreboard cannot. The dropdown stays on every row that has an account
+ * anyway - it is what fills the lineup for the accounts that have not played
+ * yet, and it keeps showing what was entered so a wrong one can be cleared.
  */
 export function AssignRole({
   teamId,
