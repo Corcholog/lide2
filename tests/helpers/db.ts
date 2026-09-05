@@ -59,6 +59,7 @@ export const MIGRATIONS = [
   '0021_meta_y_bans.sql',
   '0022_logo_script_path.sql',
   '0023_plantel_dinamico.sql',
+  '0024_no_presentado.sql',
 ]
 
 /**
