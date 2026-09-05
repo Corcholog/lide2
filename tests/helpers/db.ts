@@ -60,6 +60,8 @@ export const MIGRATIONS = [
   '0022_logo_script_path.sql',
   '0023_plantel_dinamico.sql',
   '0024_no_presentado.sql',
+  '0025_kda_promedio.sql',
+  '0026_minimo_una_partida.sql',
 ]
 
 /**

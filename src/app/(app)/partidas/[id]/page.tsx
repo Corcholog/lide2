@@ -6,6 +6,7 @@ import { maybeRow, rows } from '@/lib/supabase/query'
 import { assetVersion, championNames, summonerSpellNames } from '@/lib/ddragon'
 import { formatDate, formatDuration, ROLES } from '@/lib/format'
 import { Scoreboard, type ScoreboardPlayer } from '@/components/match/Scoreboard'
+import { matchOrigin, teamPath } from '@/lib/routes'
 import type { MatchPlayerScoreRow, MatchSummaryRow, MatchTeamStatsRow } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
@@ -60,6 +61,7 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
     return {
       matchPlayerId: score.match_player_id,
       side: score.side,
+      playerId: score.player_id,
       champion: score.champion,
       position: score.position,
       riotGameName: score.riot_game_name,
@@ -91,7 +93,10 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <Link href="/" className="text-sm text-muted transition-colors hover:text-fg">
+        {/* Decía "Partidas" y llevaba a la portada. El resto del sitio nombra
+            el destino en la flecha —"← Equipos" va a /equipos, "← Panel" al
+            panel—, así que lo que estaba mal era el href. */}
+        <Link href="/partidas" className="text-sm text-muted transition-colors hover:text-fg">
           ← Partidas
         </Link>
         {user && (
@@ -114,13 +119,20 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
 
       <header className="rounded-lg border border-line bg-surface px-6 py-5">
         <div className="flex items-center justify-center gap-6">
-          <p
+          {/*
+            El marcador es lo primero que se lee y los dos nombres son la puerta
+            a cada ficha. Van con `desde` para que la flecha de la ficha del
+            equipo vuelva a esta partida y no al listado de todas.
+          */}
+          <TeamName
+            name={summary.blue_team_name}
+            teamId={summary.blue_team_id}
+            matchId={id}
+            fallback="Lado azul"
             className={`flex-1 truncate text-right text-lg font-semibold ${
               summary.winning_side === 100 ? 'text-side-blue' : 'text-muted'
             }`}
-          >
-            {summary.blue_team_name ?? 'Lado azul'}
-          </p>
+          />
           <div className="tabular shrink-0 text-center">
             <p className="text-3xl font-bold">
               <span className={summary.winning_side === 100 ? 'text-side-blue' : 'text-faint'}>
@@ -132,13 +144,15 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
               </span>
             </p>
           </div>
-          <p
+          <TeamName
+            name={summary.red_team_name}
+            teamId={summary.red_team_id}
+            matchId={id}
+            fallback="Lado rojo"
             className={`flex-1 truncate text-left text-lg font-semibold ${
               summary.winning_side === 200 ? 'text-side-red' : 'text-muted'
             }`}
-          >
-            {summary.red_team_name ?? 'Lado rojo'}
-          </p>
+          />
         </div>
 
         <p className="mt-3 text-center text-xs text-faint">
@@ -159,6 +173,8 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
       <Scoreboard
         side={100}
         teamName={summary.blue_team_name}
+        teamId={summary.blue_team_id}
+        matchId={id}
         players={bySide(100)}
         stats={teamStats.find((t) => t.side === 100)}
         version={version}
@@ -170,6 +186,8 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
       <Scoreboard
         side={200}
         teamName={summary.red_team_name}
+        teamId={summary.red_team_id}
+        matchId={id}
         players={bySide(200)}
         stats={teamStats.find((t) => t.side === 200)}
         version={version}
@@ -178,6 +196,35 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
         maxDamage={maxDamage}
       />
     </div>
+  )
+}
+
+/**
+ * El nombre de un equipo en el encabezado: link cuando hay ficha adonde ir.
+ *
+ * Una partida sin cruce asignado no tiene equipos —el .rofl trae los diez
+ * nicks y nada mas—, y ahi el nombre es texto: un link a ninguna parte es peor
+ * que ningun link.
+ */
+function TeamName({
+  name,
+  teamId,
+  matchId,
+  fallback,
+  className,
+}: {
+  name: string | null
+  teamId: string | null
+  matchId: string
+  fallback: string
+  className: string
+}) {
+  if (!teamId) return <p className={className}>{name ?? fallback}</p>
+
+  return (
+    <Link href={teamPath(teamId, matchOrigin(matchId))} className={`${className} hover:underline`}>
+      {name ?? fallback}
+    </Link>
   )
 }
 

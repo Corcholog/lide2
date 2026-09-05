@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { SortableTable, type Column } from '@/components/table/SortableTable'
 import { formatNumber, formatPosition, ROLES } from '@/lib/format'
 import type { SortOrder } from '@/lib/table/sort'
-import { playerPath } from '@/lib/routes'
+import { playerPath, teamPath } from '@/lib/routes'
 
 /**
  * Every player within the scope, with all of their columns.
@@ -63,7 +63,7 @@ export function PlayerTable({ rows, initial }: { rows: PlayerRow[]; initial: Sor
       cell: (row) =>
         row.teamId && row.teamName ? (
           <Link
-            href={`/equipos/${row.teamId}`}
+            href={teamPath(row.teamId, 'tablas')}
             className="truncate text-fg-soft transition-colors hover:text-accent"
           >
             {row.teamName}

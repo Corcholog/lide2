@@ -246,6 +246,22 @@ describe('stats', () => {
       expect(total.matchday).toBeNull()
     })
 
+    it('the average KDA is not the total KDA', async () => {
+      const { rows } = await db.query<{ kda: number; avg_kda: number }>(
+        `select kda, avg_kda from public.player_phase_totals
+          where tournament_id = $1 and is_total and player_name = 'b-top'`,
+        [tournamentId],
+      )
+
+      // b-top played 4/0/0 and then 0/1/1. Over the totals that is
+      // (4 + 1) / 1 = 5.00, because the game without deaths leaves nothing in
+      // the denominator; game by game it is (4.00 + 1.00) / 2 = 2.50. Same
+      // player, same two games, two different numbers: that is exactly why
+      // both columns exist and why each card says which one it is showing.
+      expect(Number(rows[0].kda)).toBe(5)
+      expect(Number(rows[0].avg_kda)).toBe(2.5)
+    })
+
     it('the team adds up its two games in the total', async () => {
       const { rows } = await db.query<{ games: number; wins: number; losses: number }>(
         `select games, wins, losses from public.team_phase_totals
@@ -258,7 +274,14 @@ describe('stats', () => {
       expect(Number(rows[0].losses)).toBe(1)
     })
 
-    it("the phase MVP asks for more games than a matchday's", async () => {
+    it('the MVP takes in whoever played, in both cuts', async () => {
+      const min = await db.query<{ total: string; fecha: string }>(
+        `select public.mvp_min_games(true) as total, public.mvp_min_games(false) as fecha`,
+      )
+
+      expect(Number(min.rows[0].total)).toBe(1)
+      expect(Number(min.rows[0].fecha)).toBe(1)
+
       const matchdayRow = await db.query<{ n: string }>(
         `select count(*) as n from public.tournament_mvp
           where tournament_id = $1 and not is_total and matchday = 1`,
@@ -269,10 +292,13 @@ describe('stats', () => {
         [tournamentId],
       )
 
-      // With two games played nobody reaches the whole phase's minimum (3),
-      // but within one matchday having played at all is enough.
+      // The ten played both games, so they are all in both cuts. The number
+      // that matters here is the one the threshold used to be: at three the
+      // phase MVP was empty with two matchdays played, which is to say the
+      // card did not exist until the tournament was nearly over. See
+      // 0026_minimo_una_partida.sql.
       expect(Number(matchdayRow.rows[0].n)).toBe(10)
-      expect(Number(fase.rows[0].n)).toBe(0)
+      expect(Number(fase.rows[0].n)).toBe(10)
     })
   })
 

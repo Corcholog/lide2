@@ -372,6 +372,15 @@ export interface PlayerPhaseTotalsRow extends StatScopeColumns {
   time_dead: number
   avg_score: number
   mvp_count: number
+  /**
+   * The average of each game's KDA, which is not the same as `kda`.
+   *
+   * `kda` is the ratio over the whole slice: every kill and assist divided by
+   * every death. This one averages the per-game ratios, so a deathless game
+   * counts in full instead of being diluted into the totals. See
+   * 0025_kda_promedio.sql.
+   */
+  avg_kda: number
 }
 
 /** A `team_phase_totals` row. */
@@ -443,7 +452,8 @@ export interface ChampionStatRow extends StatScopeColumns {
   picks: number
   wins: number
   losses: number
-  win_pct: number
+  /** NULL - not 0 - for a champion that was only banned: it has no games to win. */
+  win_pct: number | null
   kills: number
   deaths: number
   assists: number

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildStats, STATS } from '@/lib/stats/registry'
 import { minGamesForAverages } from '@/lib/stats/rank'
-import { bestFive, bestKda, mvp } from '@/lib/stats/players'
+import { bestAverageKda, bestFive, bestKda, mvp } from '@/lib/stats/players'
 import { mostBanned, mostPicked } from '@/lib/stats/champions'
 import { universityStandings } from '@/lib/stats/universities'
 import type { StatsData, StatScope } from '@/lib/stats/types'
@@ -68,6 +68,7 @@ function player(over: Partial<PlayerPhaseTotalsRow>): PlayerPhaseTotalsRow {
     time_dead: 200,
     avg_score: 10,
     mvp_count: 0,
+    avg_kda: 4,
     ...over,
   }
 }
@@ -158,22 +159,59 @@ describe('stats presentation', () => {
     expect(new Set(STATS.map((stat) => stat.id)).size).toBe(STATS.length)
   })
 
-  it('the minimum games is stricter in the total than within one matchday', () => {
-    expect(minGamesForAverages({ ...SCOPE, matchday: null })).toBe(3)
-    expect(minGamesForAverages({ ...SCOPE, matchday: 1 })).toBe(1)
+  it('having played is enough to enter a ranking of averages', () => {
+    expect(minGamesForAverages()).toBe(1)
   })
 
-  it('the averages ranking leaves out whoever played only one', () => {
-    const block = bestKda(
-      data({
-        players: [
-          player({ player_name: 'Fugaz', games: 1, kda: 20 }),
-          player({ player_name: 'Regular', games: 4, kda: 5 }),
-        ],
-      }),
-    )
+  it('the two KDA rankings can disagree, which is the point of having both', () => {
+    const players = [
+      // Steady: never a great game, never a bad one.
+      player({ player_name: 'Sostenido', games: 4, kda: 6, avg_kda: 6 }),
+      // One perfect game and one disaster: over the totals it drags, game by
+      // game the deathless one counts whole.
+      player({ player_name: 'Picos', games: 4, kda: 4, avg_kda: 9 }),
+    ]
 
-    expect(block!.rows.map((row) => row.name)).toEqual(['Regular'])
+    expect(bestKda(data({ players }))!.rows.map((row) => row.name)).toEqual([
+      'Sostenido',
+      'Picos',
+    ])
+    expect(bestAverageKda(data({ players }))!.rows.map((row) => row.name)).toEqual([
+      'Picos',
+      'Sostenido',
+    ])
+  })
+
+  it('whoever played once is in the averages, which is what makes the cards appear', () => {
+    const players = [
+      player({ player_name: 'Una sola', games: 1, kda: 20, avg_kda: 20 }),
+      player({ player_name: 'Dos', games: 2, kda: 8, avg_kda: 8 }),
+      player({ player_name: 'Cuatro', games: 4, kda: 5, avg_kda: 5 }),
+    ]
+
+    // At three - the minimum there used to be - nobody in the group phase
+    // qualified until the third matchday, so both rankings came out empty and
+    // neither card got drawn at all. There are teams that play a single game
+    // in the first matchday, so two left their whole five out.
+    expect(bestKda(data({ players }))!.rows.map((row) => row.name)).toEqual([
+      'Una sola',
+      'Dos',
+      'Cuatro',
+    ])
+    expect(bestAverageKda(data({ players }))!.rows.map((row) => row.name)).toEqual([
+      'Una sola',
+      'Dos',
+      'Cuatro',
+    ])
+  })
+
+  it('the cards do not announce a minimum that leaves nobody out', () => {
+    const players = [player({ player_name: 'Uno', games: 1, kda: 8, avg_kda: 8 })]
+
+    expect(bestKda(data({ players }))!.subtitle).toBe('Sobre el total del recorte')
+    expect(bestAverageKda(data({ players }))!.subtitle).toBe(
+      'El KDA de cada partida, promediado',
+    )
   })
 
   it('the starting five takes the best of each role and not five of one', () => {
@@ -199,6 +237,30 @@ describe('stats presentation', () => {
 
     expect(mostPicked(data({ champions: rows }))!.rows.map((r) => r.name)).toEqual(['Ahri'])
     expect(mostBanned(data({ champions: rows }))!.rows.map((r) => r.name)).toEqual(['Yasuo'])
+  })
+
+  it('the pick count travels with its win rate', () => {
+    const block = mostPicked(
+      data({
+        champions: [
+          champion({ champion: 'Ornn', picks: 4, wins: 0, losses: 4, win_pct: 0 }),
+          champion({ champion: 'Ahri', picks: 3, wins: 2, losses: 1, win_pct: 0.667 }),
+        ],
+      }),
+    )
+
+    // Four picks and not one win is not the same reading as a bare 4.
+    expect(block!.rows.map((row) => row.display)).toEqual(['4 (0% wr)', '3 (67% wr)'])
+  })
+
+  it('a champion that was only banned shows no win rate it never earned', () => {
+    const block = mostBanned(
+      data({
+        champions: [champion({ champion: 'Yasuo', picks: 0, wins: 0, losses: 0, win_pct: null, bans: 4, matches_with_bans: 4 })],
+      }),
+    )
+
+    expect(block!.rows[0].detail).toBe('0 picks · 4 bans')
   })
 
   it('with no match carrying a draft, the ban blocks do not exist', () => {
