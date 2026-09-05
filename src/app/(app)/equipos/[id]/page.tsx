@@ -14,8 +14,9 @@ import { maybeRow, rows } from '@/lib/supabase/query'
 import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { formatNumber, formatPosition, playerName, riotTag } from '@/lib/format'
 import type { PlayerTotalsRow, RosterReviewRow, TeamAccountRow, TeamLineupRow } from '@/types/db'
-import { addPlayerAction, deleteTeamAction, removePlayerAction } from '../actions'
+import { multisearchUrl, searchableCount } from '@/lib/opgg'
 import { playerPath } from '@/lib/routes'
+import { addPlayerAction, deleteTeamAction, removePlayerAction } from '../actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -108,6 +109,15 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
   const memberIds = new Set(lineup.flatMap((slot) => (slot.player_id ? [slot.player_id] : [])))
   const confirmados = memberIds.size
 
+  // Las cuentas del plantel para el multisearch de op.gg. Sale del lineup y no
+  // de `team_accounts` porque esa lista solo se pide con sesión, y este link se
+  // ve sin ella: son Riot IDs, que ya están escritos en la ficha.
+  const cuentas = lineup
+    .filter((slot) => slot.player_id)
+    .map((slot) => ({ gameName: slot.game_name, tagLine: slot.tag_line }))
+  const opgg = multisearchUrl(cuentas)
+  const buscables = searchableCount(cuentas)
+
   const statsByPlayer = new Map(totals.map((t) => [t.player_id, t]))
   // Sin equipo asignado y con partidas jugadas: los candidatos a sumar.
   const available = totals.filter((t) => !memberIds.has(t.player_id) && !t.team_id)
@@ -197,18 +207,37 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
       )}
 
       <section className="flex flex-col gap-2">
-        <div className="flex items-baseline justify-between gap-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <h2 className="text-sm font-medium text-muted">Plantel</h2>
-          {/* "Nick" es la palabra del pipeline de ingesta, no la de alguien que
-              entra a ver quién juega en su universidad. Y con cero confirmados,
-              "0 de 5" es una forma rebuscada de decir que no hay ninguno. */}
-          {confirmados < lineup.length && (
-            <span className="text-xs text-dim">
-              {confirmados === 0
-                ? 'Sin confirmar'
-                : `${confirmados} de ${lineup.length} confirmados`}
-            </span>
-          )}
+          <div className="flex items-baseline gap-3">
+            {/* "Nick" es la palabra del pipeline de ingesta, no la de alguien que
+                entra a ver quién juega en su universidad. Y con cero confirmados,
+                "0 de 5" es una forma rebuscada de decir que no hay ninguno. */}
+            {confirmados < lineup.length && (
+              <span className="text-xs text-dim">
+                {confirmados === 0
+                  ? 'Sin confirmar'
+                  : `${confirmados} de ${lineup.length} confirmados`}
+              </span>
+            )}
+            {/*
+              El rango, el pool de campeones y las rankeds de los cinco, que es
+              lo primero que busca cualquiera que mira un equipo y lo único que
+              no está en los replays. Se linkea en vez de fingir que lo tenemos.
+              Cuenta las cuentas y no los casilleros: los que no tienen #TAG no
+              entran, porque op.gg no los puede resolver.
+            */}
+            {opgg && (
+              <a
+                href={opgg}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-muted underline-offset-2 transition-colors hover:text-accent hover:underline"
+              >
+                Ver {buscables === 1 ? 'la cuenta' : `las ${buscables}`} en op.gg ↗
+              </a>
+            )}
+          </div>
         </div>
         {/*
           Un lugar vacío se muestra igual, con el nombre del rol. El plantel de
