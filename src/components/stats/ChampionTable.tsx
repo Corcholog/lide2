@@ -18,6 +18,11 @@ import type { SortOrder } from '@/lib/table/sort'
  * and sorting text compares "0.9" against "0.85" backwards without a word.
  */
 
+/** A total written as what it was worth in each of the champion's picks. */
+function perPick(total: number, picks: number): string {
+  return picks > 0 ? (total / picks).toFixed(1) : '0.0'
+}
+
 export interface ChampionRow {
   /** The internal key, which is what builds the icon URL. */
   champion: string
@@ -32,11 +37,13 @@ export interface ChampionRow {
   bans: number
   banRate: number | null
   presence: number | null
+  /** The average of each game's KDA, not the ratio over the totals. */
   kda: number
   kills: number
   deaths: number
   assists: number
-  avgDamage: number
+  /** Damage to champions per minute, averaged over the champion's picks. */
+  dpm: number
 }
 
 /** A percentage, or an em dash when there is no sample to compute it from. */
@@ -157,22 +164,30 @@ export function ChampionTable({
     {
       id: 'kda',
       label: 'KDA',
+      title: 'El KDA de cada partida, promediado sobre los picks del campeón',
       sort: (row) => row.kda,
+      /*
+        The K/D/A underneath goes per game as well. It used to be the totals,
+        and with the figure above it now an average the two lines were counting
+        different things: "1.20" over "24/20/18" reads as if the ratio came
+        from those three numbers, and it does not.
+      */
       cell: (row) => (
         <>
           <p>{row.kda.toFixed(2)}</p>
           <p className="text-xs text-faint">
-            {row.kills}/{row.deaths}/{row.assists}
+            {perPick(row.kills, row.picks)}/{perPick(row.deaths, row.picks)}/
+            {perPick(row.assists, row.picks)}
           </p>
         </>
       ),
     },
     {
       id: 'dano',
-      label: 'Daño',
-      title: 'Daño a campeones, promedio por partida',
-      sort: (row) => row.avgDamage,
-      cell: (row) => <span className="text-fg-soft">{formatNumber(row.avgDamage)}</span>,
+      label: 'Daño/min',
+      title: 'Daño a campeones por minuto, promediado sobre los picks del campeón',
+      sort: (row) => row.dpm,
+      cell: (row) => <span className="text-fg-soft">{formatNumber(row.dpm)}</span>,
     },
   ]
 

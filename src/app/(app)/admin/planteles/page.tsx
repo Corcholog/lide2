@@ -83,7 +83,7 @@ export default async function RostersPage() {
           </p>
         </div>
         <Link
-          href="/admin/assign"
+          href="/admin/asignar"
           className="border-2 border-line-strong px-4 py-2 text-sm transition-colors hover:border-accent"
         >
           Asignar partidas

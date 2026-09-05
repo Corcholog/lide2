@@ -293,6 +293,28 @@ body {
 }
 
 /*
+ * LO QUE SOBRA CUANDO HAY JAVASCRIPT
+ *
+ * El filtro de equipos de /partidas es un `<form method="get">` con su boton
+ * de enviar: asi anda sin JavaScript, que es la regla de todos los filtros del
+ * sitio —el estado viaja en la URL y la pagina sigue siendo un componente de
+ * servidor—. Con JavaScript el `<select>` navega solo al elegir, y ese boton
+ * pasa a ser un clic de mas para hacer lo que ya paso.
+ *
+ * Se esconde con CSS y no con un `useEffect` que lo saque despues de hidratar:
+ * asi no aparece y desaparece a los 300ms de cargar la pagina. La regla se
+ * levanta desde un <style> dentro del <noscript> del layout, que el navegador
+ * solo aplica cuando el scripting esta apagado.
+ *
+ * `revert` y no `inline-block`: devuelve el display que el navegador le da a
+ * ese elemento, asi que sirve para cualquiera. Va sobre elementos que no
+ * declaren su propio `display`.
+ */
+.sin-js {
+  display: none;
+}
+
+/*
  * LO QUE SOLO SE DESCUBRE CON EL MOUSE
  *
  * Dos afordancias del sitio viven en un `:hover`, y en un telefono el hover no
@@ -330,6 +352,31 @@ h3 {
 /* Números de estadísticas: tabular para que las columnas no bailen. */
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/*
+ * LA COLUMNA POR LA QUE SE ESTÁ ORDENANDO
+ *
+ * El encabezado de la columna activa ya se pinta de accent, pero eso se queda
+ * arriba: apenas la vista baja a las filas, en una tabla de diez columnas y
+ * cuarenta filas no hay forma de saber cuál de todas es la que manda el orden,
+ * y hay que volver a subir a mirar la flecha. Con la columna teñida, el eje
+ * que uno eligió se sigue viendo mientras se lee para abajo.
+ *
+ * Es un fondo y no un color de texto porque cada celda ya trae el suyo —el
+ * daño va en fg-soft, el winrate parte en fg y parte en faint— y pintar el
+ * texto desde afuera pintaría unas sí y otras no, según qué celda se hubiera
+ * declarado un color. El fondo pasa por debajo de todas.
+ *
+ * Al 55% para que el hover de la fila siga leyéndose a través. Sobre el tinte,
+ * `faint` —el texto más flojo que aparece en estas tablas— da 5.5:1 en oscuro
+ * y 5.0:1 en claro, o sea que no baja de AA en ninguno de los dos.
+ *
+ * La primera columna nunca se tiñe: lleva su propio fondo porque queda fija al
+ * hacer scroll lateral, y encima es el nombre de la fila, no una medida.
+ */
+.columna-orden {
+  background-color: color-mix(in srgb, var(--accent-dim) 55%, transparent);
 }
 
 /*

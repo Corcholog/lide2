@@ -120,20 +120,39 @@ export function bestFive(data: StatsData): StatBlock | null {
   return block('quinteto', 'El quinteto', rows, { subtitle: 'El mejor score promedio de cada rol' })
 }
 
+/*
+  WHAT ACCUMULATES GOES PER GAME, here for the same reason as in `teams.ts`.
+
+  Kills, assists, damage and wards destroyed were totals, and a total only
+  ranks anything when everybody has played the same amount. Nobody has: the
+  fixture gives some teams two games in a matchday and others one, substitutes
+  come in, and somebody who played four games headed "Carnicero" over somebody
+  who played two and killed more in each. That is a ranking of the calendar.
+
+  Nothing is lost by dividing. The line under every name is already the total
+  K/D/A and how many games it took - "26/8/14 · 4 partidas" - so the raw
+  numbers are still right there; what changes is what decides the order.
+
+  What is NOT divided: `best_killing_spree` is a maximum, and the average of a
+  record is not a record; the multikills are a count of rare events, and "0.25
+  pentas a game" is not a number anybody has ever scored. Both are read as
+  achievements, and an achievement is not diluted by playing more.
+*/
+
 export function topKills(data: StatsData): StatBlock | null {
   const rows = playerRanking(data, {
-    value: (row) => row.kills,
-    display: (value) => `${value}`,
+    value: (row) => row.avg_kills,
+    display: (value) => `${value.toFixed(1)} por partida`,
   })
-  return block('kills', 'Carnicero', rows, { subtitle: 'Más kills' })
+  return block('kills', 'Carnicero', rows, { subtitle: 'Kills por partida' })
 }
 
 export function topAssists(data: StatsData): StatBlock | null {
   const rows = playerRanking(data, {
-    value: (row) => row.assists,
-    display: (value) => `${value}`,
+    value: (row) => row.avg_assists,
+    display: (value) => `${value.toFixed(1)} por partida`,
   })
-  return block('assists', 'Manos de seda', rows, { subtitle: 'Más asistencias' })
+  return block('assists', 'Manos de seda', rows, { subtitle: 'Asistencias por partida' })
 }
 
 export function bestKda(data: StatsData): StatBlock | null {
@@ -214,12 +233,20 @@ export function longestKillingSpree(data: StatsData): StatBlock | null {
   })
 }
 
+/**
+ * Damage per game, which is not the same as the damage per minute below.
+ *
+ * This one asks how much a player does in a game and the other how fast they
+ * do it: somebody who wins in twenty minutes can lead the per-minute ranking
+ * and be well below in this one, and both facts are true. `avg_damage` comes
+ * from the view already averaged.
+ */
 export function topDamage(data: StatsData): StatBlock | null {
   const rows = playerRanking(data, {
-    value: (row) => row.damage,
-    display: (value) => formatNumber(value),
+    value: (row) => row.avg_damage,
+    display: (value) => `${formatNumber(value)} por partida`,
   })
-  return block('dano', 'Más daño a campeones', rows, { subtitle: 'Total del recorte' })
+  return block('dano', 'Más daño a campeones', rows, { subtitle: 'Daño a campeones por partida' })
 }
 
 export function topDpm(data: StatsData): StatBlock | null {
@@ -263,12 +290,16 @@ export function topVision(data: StatsData): StatBlock | null {
 }
 
 export function topWardsKilled(data: StatsData): StatBlock | null {
+  // The only one of the four with no averaged column in the view: it is
+  // divided here.
   const rows = playerRanking(data, {
-    value: (row) => row.wards_killed,
-    display: (value) => `${value}`,
+    value: (row) => (row.games > 0 ? row.wards_killed / row.games : 0),
+    display: (value) => `${value.toFixed(1)} por partida`,
     eligible: (row) => row.wards_killed > 0,
   })
-  return block('deswardeo', 'A oscuras', rows, { subtitle: 'Más guardianes destruidos' })
+  return block('deswardeo', 'A oscuras', rows, {
+    subtitle: 'Guardianes destruidos por partida',
+  })
 }
 
 export function multikills(data: StatsData): StatBlock | null {

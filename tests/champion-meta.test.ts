@@ -39,6 +39,9 @@ interface MetaRow {
   pick_rate: number | null
   ban_rate: number | null
   presence: number | null
+  kda: number
+  avg_kda: number
+  dpm: number
 }
 
 describe('champion meta', () => {
@@ -210,6 +213,30 @@ describe('champion meta', () => {
     expect(Number(zed.win_pct)).toBe(0)
   })
 
+  it('the averages are taken over the picks and not over anything else', async () => {
+    // Against `player_match_stats`, which is what the view aggregates: this is
+    // what catches a sum where an average was meant, or an average taken over
+    // the wrong set of rows.
+    //
+    // The four matches of this fixture are identical, so here `kda` and
+    // `avg_kda` land on the same number - the case where they part ways is
+    // covered in tests/stats.test.ts, over `player_phase_totals`, which is the
+    // same pair of columns computed the same way.
+    const expected = await db.query<{ avg_kda: string; dpm: string; picks: string }>(
+      `select round(avg(s.kda), 2) as avg_kda, round(avg(s.dpm)) as dpm, count(*) as picks
+         from public.player_match_stats s
+        where s.tournament_id = $1 and s.champion = 'Ahri'`,
+      [tournamentId],
+    )
+
+    const [ahri] = await meta(null, null, 'Ahri')
+
+    expect(Number(ahri.picks)).toBe(Number(expected.rows[0].picks))
+    expect(Number(ahri.avg_kda)).toBe(Number(expected.rows[0].avg_kda))
+    expect(Number(ahri.dpm)).toBe(Number(expected.rows[0].dpm))
+    expect(Number(ahri.dpm)).toBeGreaterThan(0)
+  })
+
   it('with no draft entered, ban_rate and presence are null and not 0', async () => {
     // Zero bans and "unknown" are different things: drawing them the same
     // would say a champion is never banned when in fact nobody entered the
@@ -246,6 +273,11 @@ describe('champion meta', () => {
       expect(teemo.picks).toBe(0)
       expect(teemo.bans).toBe(1)
       expect(teemo.win_pct).toBeNull()
+      // Zero and not null, unlike the rates: these two are coalesced because
+      // the table draws them as numbers in a column of numbers, and a champion
+      // that was never played did do zero damage a minute.
+      expect(Number(teemo.avg_kda)).toBe(0)
+      expect(Number(teemo.dpm)).toBe(0)
     })
 
     it('the ban rates are measured only over the matches with a draft', async () => {
