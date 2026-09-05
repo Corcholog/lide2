@@ -355,6 +355,31 @@ h3 {
 }
 
 /*
+ * LA COLUMNA POR LA QUE SE ESTÁ ORDENANDO
+ *
+ * El encabezado de la columna activa ya se pinta de accent, pero eso se queda
+ * arriba: apenas la vista baja a las filas, en una tabla de diez columnas y
+ * cuarenta filas no hay forma de saber cuál de todas es la que manda el orden,
+ * y hay que volver a subir a mirar la flecha. Con la columna teñida, el eje
+ * que uno eligió se sigue viendo mientras se lee para abajo.
+ *
+ * Es un fondo y no un color de texto porque cada celda ya trae el suyo —el
+ * daño va en fg-soft, el winrate parte en fg y parte en faint— y pintar el
+ * texto desde afuera pintaría unas sí y otras no, según qué celda se hubiera
+ * declarado un color. El fondo pasa por debajo de todas.
+ *
+ * Al 55% para que el hover de la fila siga leyéndose a través. Sobre el tinte,
+ * `faint` —el texto más flojo que aparece en estas tablas— da 5.5:1 en oscuro
+ * y 5.0:1 en claro, o sea que no baja de AA en ninguno de los dos.
+ *
+ * La primera columna nunca se tiñe: lleva su propio fondo porque queda fija al
+ * hacer scroll lateral, y encima es el nombre de la fila, no una medida.
+ */
+.columna-orden {
+  background-color: color-mix(in srgb, var(--accent-dim) 55%, transparent);
+}
+
+/*
  * "SIGUE PARA ALLÁ": la sombra del borde derecho de las tablas anchas.
  *
  * La tabla de jugadores declara 64rem de ancho mínimo, o sea 1024px dentro de
