@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { AddAccount } from '@/components/admin/AddAccount'
 import { AssignAccount } from '@/components/admin/AssignAccount'
 import { AssignRole } from '@/components/admin/AssignRole'
+import { RosterReview } from '@/components/admin/RosterReview'
 import {
   UniversityLogo,
   UniversityLogos,
@@ -12,7 +13,7 @@ import { createClient } from '@/lib/supabase/server'
 import { maybeRow, rows } from '@/lib/supabase/query'
 import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { formatNumber, formatPosition, playerName, riotTag } from '@/lib/format'
-import type { PlayerTotalsRow, TeamAccountRow, TeamLineupRow } from '@/types/db'
+import type { PlayerTotalsRow, RosterReviewRow, TeamAccountRow, TeamLineupRow } from '@/types/db'
 import { addPlayerAction, deleteTeamAction, removePlayerAction } from '../actions'
 import { playerPath } from '@/lib/routes'
 
@@ -54,34 +55,42 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
   const { id } = await params
 
   const supabase = await createClient()
-  const [teamRes, lineupRes, totalsRes, rosterRes, unisRes, accountsRes] = await Promise.all([
-    supabase.from('teams').select('id,name,tag').eq('id', id).maybeSingle(),
-    // El plantel son casilleros y no cuentas: los cinco roles están siempre, el
-    // banco sale de cuántos anotó el equipo y el nick aparece cuando la persona
-    // jugó y quedó emparejada. Ver 0014_roster.sql.
-    supabase.from('team_lineup').select('*').eq('team_id', id).order('slot'),
-    supabase.from('player_totals').select('*').order('games', { ascending: false }),
-    supabase
-      .from('team_roster')
-      .select('id,full_name,display_name,order_index,player_id,universities(tag)')
-      .eq('team_id', id)
-      .order('order_index'),
-    // Las universidades que representa el equipo, la principal primero. La
-    // mayoria tiene una; los cuatro equipos armados con inscripciones sueltas
-    // tienen hasta tres. `team_universities` es de lectura publica, asi que
-    // esto tambien se ve sin sesion.
-    supabase
-      .from('team_universities')
-      .select('order_index,universities(tag,name)')
-      .eq('team_id', id)
-      .order('order_index'),
-    // Los nicks del equipo, para decir de quién es cada uno. Sólo con sesión:
-    // es lo único de esta página que se usa al lado de los nombres legales de
-    // la planilla, y la lista de acá abajo ya no se dibuja sin usuario.
-    user
-      ? supabase.from('team_accounts').select('*').eq('team_id', id)
-      : Promise.resolve({ data: [], error: null }),
-  ])
+  const [teamRes, lineupRes, totalsRes, rosterRes, unisRes, accountsRes, reviewRes] =
+    await Promise.all([
+      supabase.from('teams').select('id,name,tag').eq('id', id).maybeSingle(),
+      // El plantel son casilleros y no cuentas: los cinco roles están siempre, el
+      // banco sale de cuántos anotó el equipo y el nick aparece cuando la persona
+      // jugó y quedó emparejada. Ver 0014_roster.sql.
+      supabase.from('team_lineup').select('*').eq('team_id', id).order('slot'),
+      supabase.from('player_totals').select('*').order('games', { ascending: false }),
+      supabase
+        .from('team_roster')
+        .select('id,full_name,display_name,order_index,player_id,universities(tag)')
+        .eq('team_id', id)
+        .order('order_index'),
+      // Las universidades que representa el equipo, la principal primero. La
+      // mayoria tiene una; los cuatro equipos armados con inscripciones sueltas
+      // tienen hasta tres. `team_universities` es de lectura publica, asi que
+      // esto tambien se ve sin sesion.
+      supabase
+        .from('team_universities')
+        .select('order_index,universities(tag,name)')
+        .eq('team_id', id)
+        .order('order_index'),
+      // Los nicks del equipo, para decir de quién es cada uno. Sólo con sesión:
+      // es lo único de esta página que se usa al lado de los nombres legales de
+      // la planilla, y la lista de acá abajo ya no se dibuja sin usuario.
+      user
+        ? supabase.from('team_accounts').select('*').eq('team_id', id)
+        : Promise.resolve({ data: [], error: null }),
+      // Lo que dejó la fecha por revisar: quién apareció sin estar anotado, quién
+      // no jugó y a quién le cambió la línea. La vista es `security_invoker` sobre
+      // tablas sin policy `anon`, así que sin sesión devuelve cero filas igual;
+      // no se pide para no hacer la consulta al pedo. Ver 0023.
+      user
+        ? supabase.from('roster_review').select('*').eq('team_id', id)
+        : Promise.resolve({ data: [], error: null }),
+    ])
 
   const team = maybeRow<{ id: string; name: string; tag: string | null }>(teamRes, 'the team')
   if (!team) notFound()
@@ -94,6 +103,7 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
   const lineup = rows<TeamLineupRow>(lineupRes, 'the lineup')
   const roster = rows<RosterRow>(rosterRes as never, 'the signups')
   const accounts = rows<TeamAccountRow>(accountsRes as never, 'the team accounts')
+  const review = rows<RosterReviewRow>(reviewRes as never, 'the roster review')
   const totals = rows<PlayerTotalsRow>(totalsRes, 'the per-player totals')
   const memberIds = new Set(lineup.flatMap((slot) => (slot.player_id ? [slot.player_id] : [])))
   const confirmados = memberIds.size
@@ -207,6 +217,18 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
           Del banco para abajo no hay números: son cuentas sin línea asignada,
           no un orden que alguien haya elegido.
         */}
+        {/*
+          De dónde sale cada línea. Se dice acá arriba y no en un tooltip porque
+          es lo que explica todo lo raro que puede mostrar esta lista: un nick
+          en una línea que no es la que el equipo declaró, un casillero que
+          cambia solo después de subir un replay, alguien anotado marcado como
+          "No jugó". Sin esta frase las tres cosas parecen errores de la página.
+        */}
+        <p className="text-xs text-dim">
+          Las líneas salen de las partidas jugadas: cada cuenta queda en la que más jugó y se
+          actualiza sola con cada replay que se sube. Lo que se carga a mano antes de jugar es
+          provisorio y sirve hasta que haya una partida que lo confirme o lo corrija.
+        </p>
         <ul className="divide-y divide-line rounded-lg border border-line">
           {lineup.map((slot) => {
             const stats = slot.player_id ? statsByPlayer.get(slot.player_id) : null
@@ -230,6 +252,15 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
                       {playerName(slot.name)}
                     </Link>
                     {tag && <span className="shrink-0 text-xs text-faint">{tag}</span>}
+                    {/* El nick se cargó a mano y el equipo ya jugó sin esta
+                        cuenta. No es lo mismo que un casillero vacío: acá hay
+                        alguien anotado que no apareció en la cancha, y decirlo
+                        es más honesto que mostrarlo como si hubiera jugado. */}
+                    {slot.did_not_play && (
+                      <span className="shrink-0 rounded bg-raised px-1.5 py-0.5 text-xs text-faint">
+                        No jugó
+                      </span>
+                    )}
                   </span>
                 ) : (
                   <span className="min-w-0 flex-1 truncate text-dim">Por confirmar</span>
@@ -264,6 +295,10 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
           })}
         </ul>
       </section>
+
+      {/* Lo que la fecha dejo por revisar. Va justo debajo del plantel: primero
+          se ve como quedo la formacion, despues lo que no cierra de ella. */}
+      {user && <RosterReview teamId={team.id} rows={review} />}
 
       {user && (
         <section className="flex flex-col gap-2">

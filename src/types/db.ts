@@ -589,10 +589,53 @@ export interface TeamLineupRow {
   tag_line: string | null
   /**
    * The lane assigned by hand, exactly as stored. Different from `role`: that
-   * one is the slot's EFFECTIVE lane (it may come from the matches); this one
-   * is what preloads the edit dropdown. Null when nobody touched it.
+   * one is the slot's EFFECTIVE lane (which since 0023 comes from the matches
+   * whenever there are any); this one is what preloads the edit dropdown. Null
+   * when nobody touched it.
    */
   assigned_role: string | null
+  /**
+   * The nick was typed in, the team has already played, and this account was
+   * not in any of it. False for everybody before matchday 1, when nobody has
+   * played yet and the whole lineup is still a promise.
+   */
+  did_not_play: boolean
+}
+
+/**
+ * A `roster_review` row: something the matchday left to sort out for a team.
+ *
+ * Only with a session - the view runs `security_invoker` over tables that have
+ * no `anon` policy, so without a login it returns nothing. See
+ * `supabase/migrations/0023_plantel_dinamico.sql`.
+ */
+export interface RosterReviewRow {
+  team_id: string
+  team_name: string
+  player_id: string
+  name: string
+  game_name: string | null
+  tag_line: string | null
+  games: number
+  /**
+   * `nueva` played and nobody had typed them in; `no_jugo` was typed in and the
+   * team played without them; `cambio_de_rol` played a different lane than the
+   * one written down. One account can appear under two of them.
+   */
+  kind: 'nueva' | 'no_jugo' | 'cambio_de_rol'
+  assigned_role: string | null
+  played_role: string | null
+  /** Never turned up in a replay: it is a placeholder and can be absorbed. */
+  is_placeholder: boolean
+  /** It was typed in by hand at some point, whether or not it played later. */
+  hand_entered: boolean
+  /** Matched with a signup on the sheet. The name itself never leaves the view. */
+  linked: boolean
+  /** On `no_jugo`: the account this one probably turned into. */
+  suggested_player_id: string | null
+  suggested_name: string | null
+  /** Why it is being suggested: `mismo_tag`, `unica` or `mismo_rol`. */
+  suggested_reason: 'mismo_tag' | 'unica' | 'mismo_rol' | null
 }
 
 /** A `tournament_mvp` row: the scope's MVP ranking. */

@@ -12,10 +12,12 @@ import {
   createEmptyTeam,
   createTeams,
   deleteTeam,
+  mergeManualAccount,
   relinkAllMatches,
   removePlayerFromTeam,
   type AssignAccountResult,
   type AssignRoleResult,
+  type MergeAccountResult,
   type TeamToCreate,
 } from '@/lib/teams/service'
 
@@ -160,6 +162,44 @@ export async function assignAccountAction(
   refresh()
   revalidatePath(`/equipos/${teamId}`)
   revalidatePath('/admin/planteles')
+  revalidatePath('/estadisticas')
+
+  return result
+}
+
+/**
+ * Confirming that a nick that never played is somebody's old nick.
+ *
+ * The panel proposes the pairing - see `roster_review` - and this is the click
+ * that accepts it. It is never automatic on purpose: the account that played
+ * and the one that was typed in look identical from the outside, and the
+ * alternative reading of the same evidence is a substitute who went in for the
+ * starter. Getting it wrong hands somebody's matches to another university and
+ * nobody notices afterwards.
+ *
+ * It returns the result instead of throwing, like the two above it and for the
+ * same reason: the refusals are part of normal use and get shown next to the
+ * proposal.
+ */
+export async function mergeAccountAction(
+  _prev: MergeAccountResult | null,
+  formData: FormData,
+): Promise<MergeAccountResult> {
+  await requireUser()
+
+  const teamId = String(formData.get('teamId') ?? '')
+  const placeholderId = String(formData.get('placeholderId') ?? '')
+  const realId = String(formData.get('realId') ?? '')
+
+  if (!teamId || !placeholderId || !realId) return { ok: false, error: 'Faltan las dos cuentas.' }
+
+  const result = await mergeManualAccount(teamId, placeholderId, realId)
+  if (!result.ok) return result
+
+  refresh()
+  revalidatePath(`/equipos/${teamId}`)
+  revalidatePath('/admin/planteles')
+  revalidatePath('/admin/asignar')
   revalidatePath('/estadisticas')
 
   return result
