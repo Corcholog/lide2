@@ -84,10 +84,20 @@ export function closestGame(data: StatsData): StatBlock | null {
   return block('mas-pareja', 'Las más parejas', rows, { subtitle: 'Menor diferencia de oro' })
 }
 
+/**
+ * The beatings, by kill difference.
+ *
+ * The value column used to hold "Equipo 07 por 15", which is a sentence in the
+ * one place on the card that is read as a number - and the longest of them
+ * clipped, leaving "Equipo 07 por". The gap goes there now, like every other
+ * ranking, and who did it moves to the line below, which is where the rest of
+ * the records already say what happened.
+ */
 export function biggestBlowout(data: StatsData): StatBlock | null {
   const rows = matchRanking(data, {
     value: (row) => row.kill_gap,
-    display: (_value, row) => `${row.winner_name ?? '—'} por ${row.kill_gap}`,
+    display: (value) => `${value} kills`,
+    detail: (row) => `Ganó ${row.winner_name ?? '—'} · ${row.blue_kills}-${row.red_kills}`,
     eligible: (row) => row.winner_name !== null,
   })
   return block('paliza', 'Las palizas', rows, { subtitle: 'Mayor diferencia de kills' })
