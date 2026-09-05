@@ -14,8 +14,21 @@ import type { StatBlock, StatRow } from '@/lib/stats/types'
 export function StatCard({ block }: { block: StatBlock }) {
   return (
     <section className="flex flex-col border-2 border-line bg-surface text-fg">
-      <header className="border-b-2 border-line px-4 py-3">
-        <h3 className="font-display text-sm uppercase tracking-wide">{block.title}</h3>
+      {/*
+        THE TITLE BAND. Thirty-four cards in a three-column grid, all in the
+        same greys, and the titles were the same size and colour as the rows
+        underneath: scrolling past, nothing said where one ranking ended and
+        the next began, and finding "Multikills" meant reading every heading.
+
+        Red, tinted background and a red rule underneath - the same trio the
+        active chip of the bans panel uses - turn the heading into a band that
+        is found without reading it. The colour is `accent`, which is the one
+        the palette already audited over `accent-dim`: 5.5:1 on the light theme
+        and 4.96:1 on the dark, so it is a title anyone can read and not a
+        decoration that only works if you can tell red from grey.
+      */}
+      <header className="border-b-2 border-accent bg-accent-dim px-4 py-3">
+        <h3 className="font-display text-sm uppercase tracking-wide text-accent">{block.title}</h3>
         {block.subtitle && <p className="mt-0.5 text-xs text-muted">{block.subtitle}</p>}
       </header>
 
@@ -132,9 +145,20 @@ function RowContent({ row, index }: { row: StatRow; index: number }): ReactNode 
         )}
       </div>
 
+      {/*
+        THE NUMBER, IN RED. It is the same rule as the standings table on the
+        front page, where what a team won is `win` and what it lost is `dim`:
+        on this site the figure that is being ranked is red, and the grey was
+        making it read as one more line of context next to the name.
+
+        The leader keeps the strong tone plus the bold; the other four go in
+        `accent-soft`, which is a step apart in both themes and clears 4.5:1 on
+        `surface` in each. So the ranking is still read off the colour and not
+        only off the number on the left.
+      */}
       <span
         className={`shrink-0 text-right text-sm tabular-nums ${
-          index === 0 ? 'font-bold text-accent' : 'text-fg-soft'
+          index === 0 ? 'font-bold text-accent' : 'text-accent-soft'
         }`}
       >
         {row.display}
