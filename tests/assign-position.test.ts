@@ -10,6 +10,10 @@ import { playScoreboard } from './helpers/matches'
  * (0019): before matchday 1 there is not one match to deduce anything from, and
  * whoever entered the team's nicks already knows who plays where because they
  * were told at signup.
+ *
+ * Since 0023 that is all it is: a provisional. It fills the lineup while there
+ * are no replays and loses against the first one, because what somebody was
+ * told at signup can be out of date by Sunday and the scoreboard cannot.
  */
 
 interface AssignResult {
@@ -121,7 +125,7 @@ describe('assigning an account lane by hand', () => {
     expect(result.error).toContain('no está en el plantel')
   })
 
-  it('by hand beats what is deduced from the matches', async () => {
+  it('what was played beats what was entered by hand', async () => {
     // Somebody really played top. They are added to the roster by hand: it is
     // what `assign_match_to_fixture()` does in real life (0012_planteles.sql);
     // here the whole fixture is skipped because it is not what is under test.
@@ -151,12 +155,16 @@ describe('assigning an account lane by hand', () => {
     const antes = await roster()
     expect(antes.find((r) => r.slot === 1)!.player_id).toBe(queJugoTop)
 
-    // But the team says they actually play support.
+    // The signup sheet said support. It played top, so top is what it is: from
+    // 0023 the sheet is a provisional that loses against the first replay.
     await assign(queJugoTop, 'SUPPORT')
 
     const despues = await roster()
-    expect(despues.find((r) => r.slot === 5)!.player_id).toBe(queJugoTop)
-    expect(despues.find((r) => r.slot === 1)!.player_id).not.toBe(queJugoTop)
+    expect(despues.find((r) => r.slot === 1)!.player_id).toBe(queJugoTop)
+    expect(despues.find((r) => r.slot === 5)!.player_id).toBeNull()
+    // The hand assignment is still stored, and the dropdown still shows it:
+    // it just no longer decides the slot.
+    expect(despues.find((r) => r.slot === 1)!.assigned_role).toBe('SUPPORT')
   })
 
   it('two accounts assigned the same lane: one wins, the other drops to the bench', async () => {
