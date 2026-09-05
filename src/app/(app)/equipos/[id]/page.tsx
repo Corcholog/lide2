@@ -4,6 +4,7 @@ import { AddAccount } from '@/components/admin/AddAccount'
 import { AssignAccount } from '@/components/admin/AssignAccount'
 import { AssignRole } from '@/components/admin/AssignRole'
 import { RosterReview } from '@/components/admin/RosterReview'
+import { OpggLink } from '@/components/tournament/OpggLink'
 import {
   UniversityLogo,
   UniversityLogos,
@@ -14,8 +15,8 @@ import { maybeRow, rows } from '@/lib/supabase/query'
 import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { formatNumber, formatPosition, playerName, riotTag } from '@/lib/format'
 import type { PlayerTotalsRow, RosterReviewRow, TeamAccountRow, TeamLineupRow } from '@/types/db'
-import { addPlayerAction, deleteTeamAction, removePlayerAction } from '../actions'
 import { playerPath } from '@/lib/routes'
+import { addPlayerAction, deleteTeamAction, removePlayerAction } from '../actions'
 
 export const dynamic = 'force-dynamic'
 
@@ -108,6 +109,13 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
   const memberIds = new Set(lineup.flatMap((slot) => (slot.player_id ? [slot.player_id] : [])))
   const confirmados = memberIds.size
 
+  // Las cuentas del plantel para el multisearch de op.gg. Sale del lineup y no
+  // de `team_accounts` porque esa lista solo se pide con sesión, y este link se
+  // ve sin ella: son Riot IDs, que ya están escritos en la ficha.
+  const cuentas = lineup
+    .filter((slot) => slot.player_id)
+    .map((slot) => ({ gameName: slot.game_name, tagLine: slot.tag_line }))
+
   const statsByPlayer = new Map(totals.map((t) => [t.player_id, t]))
   // Sin equipo asignado y con partidas jugadas: los candidatos a sumar.
   const available = totals.filter((t) => !memberIds.has(t.player_id) && !t.team_id)
@@ -131,17 +139,26 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
             )}
           </div>
         </div>
-        {user && (
-          <form action={deleteTeamAction}>
-            <input type="hidden" name="teamId" value={team.id} />
-            <button
-              type="submit"
-              className="rounded border border-line-strong px-3 py-1.5 text-sm text-muted transition-colors hover:border-accent hover:text-accent"
-            >
-              Eliminar equipo
-            </button>
-          </form>
-        )}
+        {/*
+          El rango, el pool de campeones y las rankeds de los cinco: lo primero
+          que busca cualquiera que mira un equipo, y lo unico que no esta en los
+          replays. Va en el encabezado y no dentro de "Plantel" porque es un
+          link del equipo entero, no de esa lista.
+        */}
+        <div className="flex items-center gap-3">
+          <OpggLink accounts={cuentas} />
+          {user && (
+            <form action={deleteTeamAction}>
+              <input type="hidden" name="teamId" value={team.id} />
+              <button
+                type="submit"
+                className="rounded border border-line-strong px-3 py-1.5 text-sm text-muted transition-colors hover:border-accent hover:text-accent"
+              >
+                Eliminar equipo
+              </button>
+            </form>
+          )}
+        </div>
       </div>
 
       {user && roster.length > 0 && (
