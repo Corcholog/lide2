@@ -37,6 +37,7 @@ export const SECTIONS: { id: StatSection; label: string; description: string }[]
 export const STATS: StatDefinition[] = [
   { id: 'mvp', title: 'MVP', section: 'jugadores', build: players.mvp },
   { id: 'quinteto', title: 'El quinteto', section: 'jugadores', build: players.bestFive },
+  { id: 'kda-promedio', title: 'Mayor KDA promedio', section: 'jugadores', build: players.bestAverageKda },
   { id: 'kills', title: 'Carnicero', section: 'jugadores', build: players.topKills },
   { id: 'assists', title: 'Manos de seda', section: 'jugadores', build: players.topAssists },
   { id: 'kda', title: 'Mejor KDA', section: 'jugadores', build: players.bestKda },

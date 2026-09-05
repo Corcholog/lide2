@@ -90,7 +90,7 @@ export default async function StatsPage({ searchParams }: PageProps<'/estadistic
           {/*
             The section bar, the same one the home page uses.
 
-            It is thirty-three rankings across five blocks: without this,
+            It is thirty-four rankings across five blocks: without this,
             reaching the meta means scrolling blindly past every individual one.
             The bar docks to the top on scroll and marks which one you are in,
             and sections left without data do not appear because they come from
