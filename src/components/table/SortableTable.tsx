@@ -127,9 +127,12 @@ export function SortableTable<T>({
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr className="border-b-2 border-line-strong bg-surface text-xs text-faint">
-            {columns.map((column) => {
+            {columns.map((column, index) => {
               const active = column.id === order.id
               const alignment = ALIGN[column.align ?? 'right']
+              // See `.columna-orden` in globals.css. Never the first one: it
+              // carries its own background because it stays pinned.
+              const tint = active && index > 0 ? 'columna-orden' : ''
 
               return (
                 <th
@@ -147,7 +150,7 @@ export function SortableTable<T>({
                     background of its own - the row's does not cover it - which
                     is why `bg-surface` is spelled out.
                   */
-                  className={`px-2 py-2 font-medium first:sticky first:left-0 first:z-10 first:bg-surface first:pl-3 last:pr-3 ${alignment}`}
+                  className={`px-2 py-2 font-medium first:sticky first:left-0 first:z-10 first:bg-surface first:pl-3 last:pr-3 ${alignment} ${tint}`}
                 >
                   {column.sort ? (
                     <button
@@ -187,12 +190,14 @@ export function SortableTable<T>({
             // `group` is so the pinned cell on the left - which carries its own
             // background - follows the hover instead of staying put.
             <tr key={rowKey(row)} className="group hover:bg-raised">
-              {columns.map((column) => (
+              {columns.map((column, index) => (
                 <td
                   key={column.id}
                   className={`px-2 py-2 first:sticky first:left-0 first:z-10 first:bg-canvas group-hover:first:bg-raised first:pl-3 last:pr-3 ${
                     ALIGN[column.align ?? 'right']
-                  } ${column.align === 'left' ? '' : 'tabular'}`}
+                  } ${column.align === 'left' ? '' : 'tabular'} ${
+                    column.id === order.id && index > 0 ? 'columna-orden' : ''
+                  }`}
                 >
                   {column.cell(row)}
                 </td>
