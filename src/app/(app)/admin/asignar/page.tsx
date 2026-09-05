@@ -11,6 +11,7 @@ import {
   type SidePlayer,
   type UnassignedMatch,
 } from '@/components/admin/AssignMatch'
+import { Walkover } from '@/components/admin/Walkover'
 import type { FixtureResultRow } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
@@ -107,8 +108,11 @@ export default async function AssignMatchesPage() {
   const conNovedades = [...porEquipo.values()].sort((a, b) => b.n - a.n)
 
   const fixture = rows<FixtureResultRow>(fixtureRes, 'the fixture')
-  const pending = fixture.filter((row) => row.match_id === null)
   const done = fixture.filter((row) => row.match_id !== null)
+  // Awarded without being played: they have no match and never will, so they
+  // are neither "to be played" nor a replay waiting to be hooked up.
+  const walkovers = fixture.filter((row) => row.walkover_team_id !== null)
+  const pending = fixture.filter((row) => row.match_id === null && row.walkover_team_id === null)
 
   const options: FixtureOption[] = pending.map((row) => ({
     id: row.id,
@@ -174,6 +178,56 @@ export default async function AssignMatchesPage() {
                 <span className="tabular shrink-0 text-xs text-muted">
                   {team.n === 1 ? '1 novedad' : `${team.n} novedades`}
                 </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {/*
+        Cargar el que no se jugo. El reglamento da 15 minutos de tolerancia y
+        pasados esos hay un resultado sin partida, que es lo unico que el resto
+        del panel no puede tomar: todo lo demas arranca de un .rofl.
+
+        Van juntos los pendientes y los ya dados por ganado. Los segundos no se
+        esconden porque un W.O. cargado mal le saca un punto a alguien en la
+        tabla, y para deshacerlo hay que poder verlo.
+      */}
+      {(pending.length > 0 || walkovers.length > 0) && (
+        <section className="flex flex-col gap-3">
+          <h2 className="border-b-2 border-line-strong pb-2 font-display text-lg uppercase tracking-wide">
+            Cruces sin jugar
+          </h2>
+          <p className="max-w-2xl text-sm text-muted">
+            Si un equipo no se presento dentro de los 15 minutos, cargalo aca y el cruce se le da
+            por ganado al otro. Suma partido, victoria y derrota en la tabla, pero no kills: no se
+            jugo nada. No se crea ninguna partida, asi que no aparece en el listado ni en las
+            estadisticas.
+          </p>
+          <ul className="flex flex-col gap-0.5 bg-line">
+            {[...walkovers, ...pending].map((row) => (
+              <li
+                key={row.id}
+                className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 bg-surface px-4 py-2.5 text-sm"
+              >
+                <span className="min-w-0">
+                  <span className="text-faint">
+                    F{row.matchday}·T{row.slot}
+                  </span>{' '}
+                  {row.team_a_name} vs {row.team_b_name}
+                  {row.walkover_team_id && (
+                    <span className="ml-2 text-xs text-accent">
+                      W.O. a favor de{' '}
+                      {row.walkover_team_id === row.team_a_id ? row.team_a_name : row.team_b_name}
+                    </span>
+                  )}
+                </span>
+                <Walkover
+                  fixtureId={row.id}
+                  teamA={{ id: row.team_a_id, name: row.team_a_name }}
+                  teamB={{ id: row.team_b_id, name: row.team_b_name }}
+                  current={row.walkover_team_id}
+                />
               </li>
             ))}
           </ul>

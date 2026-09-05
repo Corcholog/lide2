@@ -71,6 +71,56 @@ export async function assignMatchAction(
   return result
 }
 
+export interface WalkoverResult {
+  ok: boolean
+  error?: string
+  /** The team the matchup was awarded to. */
+  winner?: string
+  /** The one that did not turn up. */
+  absent?: string
+  matchday?: number
+  /** The entry was undone rather than made. */
+  cleared?: boolean
+}
+
+/**
+ * Awarding a matchup because one side never turned up.
+ *
+ * The rules give 15 minutes. Past that there is a result and no game, which is
+ * the one case the whole pipeline cannot express: everything here hangs off a
+ * .rofl. It is recorded on the fixture instead of as a fake match, so nothing
+ * downstream of a scoreboard - the match list, the records, the champion meta -
+ * learns about a game that was never played. See
+ * `supabase/migrations/0024_no_presentado.sql`.
+ *
+ * The empty value clears it, which is how a wrong entry is undone: a walkover
+ * takes a point off somebody in the standings, so it had better be reversible
+ * from the panel and not only from the SQL editor.
+ */
+export async function setWalkoverAction(
+  _prev: WalkoverResult | null,
+  formData: FormData,
+): Promise<WalkoverResult> {
+  await requireUser()
+
+  const fixtureId = String(formData.get('fixtureId') ?? '')
+  if (!fixtureId) return { ok: false, error: 'Falta el cruce.' }
+
+  const winnerTeamId = String(formData.get('winnerTeamId') ?? '') || null
+
+  const { data, error } = await createAdminClient().rpc('set_fixture_walkover', {
+    p_fixture_id: fixtureId,
+    p_winner_team_id: winnerTeamId,
+  })
+
+  if (error) return { ok: false, error: error.message }
+
+  const result = data as WalkoverResult
+  if (result.ok) refresh()
+
+  return result
+}
+
 export async function unassignMatchAction(
   _prev: AssignResult | null,
   formData: FormData,
