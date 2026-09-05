@@ -49,7 +49,7 @@ export default async function AssignMatchesPage() {
 
   const tournamentId = (tournament?.id as string) ?? null
 
-  const [pendingRes, fixtureRes] = await Promise.all([
+  const [pendingRes, fixtureRes, reviewRes] = await Promise.all([
     supabase.from('unassigned_matches').select('*').order('played_at', { ascending: true }),
     tournamentId
       ? supabase
@@ -61,6 +61,10 @@ export default async function AssignMatchesPage() {
           .order('group_label')
           .order('team_a_name')
       : Promise.resolve({ data: [], error: null }),
+    // Lo que dejaron las fechas ya cargadas por revisar, para todos los equipos
+    // de una. Aca solo se cuenta y se dice donde: lo que hay que decidir sobre
+    // cada cuenta necesita el plantel al lado, y eso esta en la ficha.
+    supabase.from('roster_review').select('team_id,team_name,kind'),
   ])
 
   // Unassigned replays may come from different patches, but champion names do
@@ -84,6 +88,23 @@ export default async function AssignMatchesPage() {
       redGuess: row.red_guess,
     }),
   )
+
+  const review = rows<{ team_id: string; team_name: string; kind: string }>(
+    reviewRes as never,
+    'the roster review',
+  )
+  // Por equipo y ordenados por cuanto tienen pendiente: el que mas cosas dejo
+  // sin cerrar es por el que conviene empezar.
+  const porEquipo = new Map<string, { id: string; name: string; n: number }>()
+  for (const row of review) {
+    const previo = porEquipo.get(row.team_id)
+    porEquipo.set(row.team_id, {
+      id: row.team_id,
+      name: row.team_name,
+      n: (previo?.n ?? 0) + 1,
+    })
+  }
+  const conNovedades = [...porEquipo.values()].sort((a, b) => b.n - a.n)
 
   const fixture = rows<FixtureResultRow>(fixtureRes, 'the fixture')
   const pending = fixture.filter((row) => row.match_id === null)
@@ -115,11 +136,49 @@ export default async function AssignMatchesPage() {
         </Link>
       </header>
 
-      <dl className="grid grid-cols-3 gap-0.5 bg-line">
+      <dl className="grid grid-cols-2 gap-0.5 bg-line sm:grid-cols-4">
         <Stat label="Sin asignar" value={matches.length} tone={matches.length > 0} />
         <Stat label="Cruces jugados" value={done.length} />
         <Stat label="Cruces por jugar" value={pending.length} />
+        <Stat label="Novedades de plantel" value={review.length} tone={review.length > 0} />
       </dl>
+
+      {/*
+        Que hay para revisar y en que ficha. No se resuelve desde aca a
+        proposito: decidir si un nick que aparecio es el nick nuevo de alguien o
+        un suplente que entro necesita ver el plantel entero al lado, y eso es
+        justo lo que muestra la ficha del equipo.
+      */}
+      {conNovedades.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h2 className="border-b-2 border-line-strong pb-2 font-display text-lg uppercase tracking-wide">
+            Planteles por revisar
+          </h2>
+          <p className="max-w-2xl text-sm text-muted">
+            Los replays contaron algo distinto de lo que se habia cargado a mano: alguien que
+            aparecio sin estar anotado, alguien anotado que no jugo, o una linea que cambio. Las
+            lineas ya se corrigieron solas; lo que queda por decidir es de quien es cada cuenta.
+          </p>
+          <ul className="grid gap-0.5 bg-line sm:grid-cols-2">
+            {conNovedades.map((team) => (
+              <li
+                key={team.id}
+                className="flex items-baseline justify-between gap-3 bg-surface px-4 py-2 text-sm"
+              >
+                <Link
+                  href={`/equipos/${team.id}`}
+                  className="min-w-0 truncate transition-colors hover:text-accent"
+                >
+                  {team.name}
+                </Link>
+                <span className="tabular shrink-0 text-xs text-muted">
+                  {team.n === 1 ? '1 novedad' : `${team.n} novedades`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {!tournamentId && (
         <p className="border-2 border-danger/40 bg-danger-dim px-4 py-3 text-sm text-danger">
