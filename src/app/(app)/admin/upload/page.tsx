@@ -20,7 +20,7 @@ export default async function UploadPage() {
         */}
         <p className="mt-2 max-w-2xl text-sm text-muted">
           Después hay que decir de qué cruce es cada una, en{' '}
-          <Link href="/admin/assign" className="text-accent underline-offset-2 hover:underline">
+          <Link href="/admin/asignar" className="text-accent underline-offset-2 hover:underline">
             Asignar partidas
           </Link>
           . Hasta entonces la partida no tiene equipos ni fecha y no aparece en la tabla ni en las
