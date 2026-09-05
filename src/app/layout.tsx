@@ -82,6 +82,19 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <head>
         <InlineScript html={THEME_INIT_SCRIPT} />
+        {/*
+          Lo que hay que mostrar cuando no hay JavaScript. Ver `.sin-js` en
+          globals.css: el navegador solo parsea esto como marcado con el
+          scripting apagado, asi que con JS la regla nunca llega.
+
+          Va como `dangerouslySetInnerHTML` y no como hijos: con JS prendido el
+          contenido de un <noscript> es texto crudo y no DOM, y React no puede
+          hidratar un <style> contra un nodo de texto. Comparando el innerHTML
+          coincide.
+        */}
+        <noscript
+          dangerouslySetInnerHTML={{ __html: "<style>.sin-js{display:revert}</style>" }}
+        />
       </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

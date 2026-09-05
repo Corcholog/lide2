@@ -293,6 +293,28 @@ body {
 }
 
 /*
+ * LO QUE SOBRA CUANDO HAY JAVASCRIPT
+ *
+ * El filtro de equipos de /partidas es un `<form method="get">` con su boton
+ * de enviar: asi anda sin JavaScript, que es la regla de todos los filtros del
+ * sitio —el estado viaja en la URL y la pagina sigue siendo un componente de
+ * servidor—. Con JavaScript el `<select>` navega solo al elegir, y ese boton
+ * pasa a ser un clic de mas para hacer lo que ya paso.
+ *
+ * Se esconde con CSS y no con un `useEffect` que lo saque despues de hidratar:
+ * asi no aparece y desaparece a los 300ms de cargar la pagina. La regla se
+ * levanta desde un <style> dentro del <noscript> del layout, que el navegador
+ * solo aplica cuando el scripting esta apagado.
+ *
+ * `revert` y no `inline-block`: devuelve el display que el navegador le da a
+ * ese elemento, asi que sirve para cualquiera. Va sobre elementos que no
+ * declaren su propio `display`.
+ */
+.sin-js {
+  display: none;
+}
+
+/*
  * LO QUE SOLO SE DESCUBRE CON EL MOUSE
  *
  * Dos afordancias del sitio viven en un `:hover`, y en un telefono el hover no
