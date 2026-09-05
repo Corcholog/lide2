@@ -509,6 +509,14 @@ export interface ChampionMetaRow {
   pick_rate: number | null
   ban_rate: number | null
   presence: number | null
+  /**
+   * The average of each game's KDA, which is not `kda`: that one is the ratio
+   * over the totals. Same distinction as `player_phase_totals`. See
+   * 0027_meta_promedios.sql.
+   */
+  avg_kda: number
+  /** Damage to champions per minute, averaged over the champion's picks. */
+  dpm: number
 }
 
 /** A `match_records` row: a match with what the records need. */

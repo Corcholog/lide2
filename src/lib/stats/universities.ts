@@ -67,39 +67,48 @@ export function universityStandings(data: StatsData): StatBlock | null {
   })
 }
 
-/** Kills per team. Same reason as the damage: see `universityDamage`. */
+/**
+ * Per appearance, which is the unit this whole section is measured in.
+ *
+ * The total was not a ranking of anything: UNLP fielded nine teams and UNER
+ * one, so whoever entered the most teams always won and the order came out
+ * being the signup sheet. Dividing by TEAMS fixed that half and left the other
+ * standing - a university whose teams played four games still doubled one
+ * whose teams played two, so the order still moved with the calendar.
+ *
+ * The appearance - one player in one match - is the unit of every other number
+ * in this section, and it is the one that closes both holes at once: it is how
+ * many kills a player of this university gets in a game, which is a figure that
+ * can be compared between a university with nine teams and one with a single
+ * team playing its first match.
+ *
+ * The line below names the population being averaged, because "3.1 kills" only
+ * means something once you know it is three teams and fifteen players and not
+ * one lucky game.
+ */
+function perAppearance(total: number, row: UniversityTotalsRow): number {
+  return row.appearances > 0 ? total / row.appearances : 0
+}
+
 export function universityKills(data: StatsData): StatBlock | null {
   const rows = universityRanking(data, {
-    value: (row) => row.kills / Math.max(row.teams, 1),
-    display: (value) => formatNumber(Math.round(value)),
-    detail: (row) => `${row.teams} ${row.teams === 1 ? 'equipo' : 'equipos'}`,
+    value: (row) => perAppearance(row.kills, row),
+    display: (value) => `${value.toFixed(1)} por partida`,
   })
 
   return block('universidades-kills', 'Más kills por universidad', rows, {
-    subtitle: 'Kills promedio por equipo de la universidad',
+    subtitle: 'Kills de cada jugador por partida',
   })
 }
 
-/**
- * Damage per team, not total damage.
- *
- * The total was not a ranking of anything: UNLP fielded nine teams and UNER
- * one, so whoever enters the most teams always wins and the order ends up being
- * the signup table. Divided by teams, it measures how hard the university hits
- * and not how many people signed up. It is the same reason `universityOfTheDay`
- * goes by average, and it holds for kills just the same.
- */
 export function universityDamage(data: StatsData): StatBlock | null {
   const rows = universityRanking(data, {
-    value: (row) => row.damage / Math.max(row.teams, 1),
-    display: (value) => formatNumber(Math.round(value)),
-    // No player count: what divides here is teams, and the line that frees up
-    // is needed by the university name.
-    detail: (row) => `${row.teams} ${row.teams === 1 ? 'equipo' : 'equipos'}`,
+    value: (row) => perAppearance(row.damage, row),
+    display: (value) => `${formatNumber(Math.round(value))} por partida`,
   })
 
   return block('universidades-dano', 'Más daño por universidad', rows, {
-    subtitle: 'Daño promedio por equipo de la universidad',
+    subtitle: 'Daño de cada jugador por partida',
   })
 }
 

@@ -3,9 +3,15 @@ import { buildStats, STATS } from '@/lib/stats/registry'
 import { minGamesForAverages } from '@/lib/stats/rank'
 import { bestAverageKda, bestFive, bestKda, mvp } from '@/lib/stats/players'
 import { mostBanned, mostPicked } from '@/lib/stats/champions'
+import { goldDiff, killDiff, topObjectives } from '@/lib/stats/teams'
 import { universityStandings } from '@/lib/stats/universities'
 import type { StatsData, StatScope } from '@/lib/stats/types'
-import type { ChampionStatRow, PlayerPhaseTotalsRow, UniversityTotalsRow } from '@/types/db'
+import type {
+  ChampionStatRow,
+  PlayerPhaseTotalsRow,
+  TeamPhaseTotalsRow,
+  UniversityTotalsRow,
+} from '@/types/db'
 
 /**
  * The presentation layer, with no database.
@@ -96,6 +102,37 @@ function champion(over: Partial<ChampionStatRow>): ChampionStatRow {
     matches: 10,
     matches_with_bans: 0,
     presence: null,
+    ...over,
+  }
+}
+
+function team(over: Partial<TeamPhaseTotalsRow>): TeamPhaseTotalsRow {
+  return {
+    tournament_id: 't1',
+    phase: 'grupos',
+    matchday: null,
+    round_label: null,
+    is_total: true,
+    team_id: over.team_name ?? 'e1',
+    team_name: 'Equipo 01',
+    team_tag: null,
+    group_label: 'Grupo A',
+    team_logo: null,
+    games: 2,
+    wins: 1,
+    losses: 1,
+    win_pct: 0.5,
+    kills: 40,
+    kills_against: 30,
+    kill_diff: 10,
+    gold: 120_000,
+    gold_diff: 4_000,
+    avg_minutes: 30,
+    dragons: 4,
+    barons: 1,
+    heralds: 1,
+    turrets: 10,
+    objectives: 6,
     ...over,
   }
 }
@@ -212,6 +249,31 @@ describe('stats presentation', () => {
     expect(bestAverageKda(data({ players }))!.subtitle).toBe(
       'El KDA de cada partida, promediado',
     )
+  })
+
+  it('the team differences rank per game and not by who played more', () => {
+    const teams = [
+      // Four games and +40: ten a game.
+      team({ team_name: 'Jugó cuatro', games: 4, kill_diff: 40, gold_diff: 40_000, objectives: 20 }),
+      // Two games and +30: fifteen a game. It won by more every time it played.
+      team({ team_name: 'Jugó dos', games: 2, kill_diff: 30, gold_diff: 30_000, objectives: 14 }),
+    ]
+
+    // On totals the first one led all three, which was a ranking of the
+    // fixture: some teams get two games in a matchday and others one.
+    for (const block of [killDiff(data({ teams })), goldDiff(data({ teams })), topObjectives(data({ teams }))]) {
+      expect(block!.rows.map((row) => row.name)).toEqual(['Jugó dos', 'Jugó cuatro'])
+    }
+  })
+
+  it('the per-game figure travels with its unit', () => {
+    const teams = [team({ games: 2, kill_diff: 30, gold_diff: 30_000, objectives: 14 })]
+
+    expect(killDiff(data({ teams }))!.rows[0].display).toBe('+15.0 por partida')
+    expect(goldDiff(data({ teams }))!.rows[0].display).toBe('+15.0k por partida')
+    expect(topObjectives(data({ teams }))!.rows[0].display).toBe('7.0 por partida')
+    // The breakdown stays a count: half a herald is not a thing anybody took.
+    expect(topObjectives(data({ teams }))!.rows[0].detail).toBe('1-1 · 4D · 1B · 1H')
   })
 
   it('the starting five takes the best of each role and not five of one', () => {
