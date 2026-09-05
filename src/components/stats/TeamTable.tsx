@@ -5,6 +5,7 @@ import { GameIcon } from '@/components/match/GameIcon'
 import { SortableTable, type Column } from '@/components/table/SortableTable'
 import { formatDuration, formatGold } from '@/lib/format'
 import type { SortOrder } from '@/lib/table/sort'
+import { teamPath } from '@/lib/routes'
 
 /**
  * The teams within the scope.
@@ -51,7 +52,7 @@ export function TeamTable({ rows, initial }: { rows: TeamRow[]; initial: SortOrd
       sort: (row) => row.name,
       cell: (row) => (
         <Link
-          href={`/equipos/${row.teamId}`}
+          href={teamPath(row.teamId, 'tablas')}
           className="flex items-center gap-2 transition-colors hover:text-accent"
         >
           <GameIcon src={row.logo} alt="" size={24} />

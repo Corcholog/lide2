@@ -5,6 +5,7 @@ import { maybeRow, rows } from '@/lib/supabase/query'
 import { assetVersion, championIcon, championName, championNames } from '@/lib/ddragon'
 import { formatDate, formatNumber, formatPosition, playerName, riotTag } from '@/lib/format'
 import { GameIcon } from '@/components/match/GameIcon'
+import { teamPath } from '@/lib/routes'
 import type {
   MatchPlayerScoreRow,
   MatchSummaryRow,
@@ -145,7 +146,7 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
             */}
             {handle && <span className="text-faint">{handle}</span>}
             {teamId ? (
-              <Link href={`/equipos/${teamId}`} className="transition-colors hover:text-accent">
+              <Link href={teamPath(teamId)} className="transition-colors hover:text-accent">
                 {teamNames.get(teamId) ?? 'Equipo'}
               </Link>
             ) : (

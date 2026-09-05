@@ -13,12 +13,55 @@ import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { maybeRow, rows } from '@/lib/supabase/query'
 import { TOURNAMENT } from '@/lib/lide2/tournament'
-import { formatNumber, formatPosition, playerName, riotTag } from '@/lib/format'
-import type { PlayerTotalsRow, RosterReviewRow, TeamAccountRow, TeamLineupRow } from '@/types/db'
-import { playerPath } from '@/lib/routes'
+import { formatDate, formatDuration, formatNumber, formatPosition, playerName, riotTag } from '@/lib/format'
+import type {
+  MatchSummaryRow,
+  PlayerTotalsRow,
+  RosterReviewRow,
+  TeamAccountRow,
+  TeamLineupRow,
+} from '@/types/db'
+import { isUuid, matchPath, originFrom, playerPath } from '@/lib/routes'
+import { withQuery } from '@/lib/url'
 import { addPlayerAction, deleteTeamAction, removePlayerAction } from '../actions'
 
 export const dynamic = 'force-dynamic'
+
+/**
+ * Cuántas partidas se muestran en la ficha.
+ *
+ * Cinco es lo último, no el historial: la fecha pasada y un poco más de
+ * contexto. El historial entero ya tiene su página —/partidas con el filtro de
+ * equipo puesto—, así que repetirlo acá sería mantener dos listados de lo
+ * mismo, uno de ellos peor.
+ */
+const RECENT_MATCHES = 5
+
+/**
+ * Las columnas del listado de partidas.
+ *
+ * En una sola línea y sin concatenar: supabase-js mira el TIPO de este string
+ * para saber qué devuelve la consulta, y una suma deja de ser un literal y pasa
+ * a ser `string`, lo que vuelve el resultado inusable. Misma razón que
+ * DETAIL_COLUMNS en /partidas.
+ */
+const MATCH_COLUMNS =
+  'id,played_at,round_label,game_length_ms,winning_side,blue_team_id,blue_team_name,red_team_id,red_team_name,blue_kills,red_kills'
+
+type RecentMatch = Pick<
+  MatchSummaryRow,
+  | 'id'
+  | 'played_at'
+  | 'round_label'
+  | 'game_length_ms'
+  | 'winning_side'
+  | 'blue_team_id'
+  | 'blue_team_name'
+  | 'red_team_id'
+  | 'red_team_name'
+  | 'blue_kills'
+  | 'red_kills'
+>
 
 /**
  * Un inscripto de la planilla. Es otra cosa que un `player`: aca esta el nombre
@@ -49,14 +92,19 @@ export async function generateMetadata({ params }: PageProps<'/equipos/[id]'>) {
   return { title: name, description: `Plantel, récord y números de ${name} en la ${TOURNAMENT.name}.` }
 }
 
-export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
+export default async function TeamPage({ params, searchParams }: PageProps<'/equipos/[id]'>) {
   // La ficha se ve sin sesión. Lo que se edita —y los nombres de los
   // inscriptos, que son nombres legales— no.
   const user = await getUser()
   const { id } = await params
 
+  // De dónde vino el que está leyendo. Sin `desde` —un link pegado, un
+  // buscador— la flecha apunta al listado, que es de donde se llega si no se
+  // venía de ningún lado. Ver ORIGINS en @/lib/routes.
+  const volver = originFrom((await searchParams).desde, 'equipos')
+
   const supabase = await createClient()
-  const [teamRes, lineupRes, totalsRes, rosterRes, unisRes, accountsRes, reviewRes] =
+  const [teamRes, lineupRes, totalsRes, rosterRes, unisRes, accountsRes, reviewRes, matchesRes] =
     await Promise.all([
       supabase.from('teams').select('id,name,tag').eq('id', id).maybeSingle(),
       // El plantel son casilleros y no cuentas: los cinco roles están siempre, el
@@ -91,6 +139,20 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
       user
         ? supabase.from('roster_review').select('*').eq('team_id', id)
         : Promise.resolve({ data: [], error: null }),
+      // Las últimas partidas del equipo, de cualquiera de los dos lados.
+      //
+      // `or()` recibe una expresión de filtro cruda y este id viene del path,
+      // así que se comprueba que tenga forma de uuid antes de pegarlo adentro.
+      // Con cualquier otra cosa el equipo tampoco existe y la página termina en
+      // un 404 unas líneas más abajo.
+      isUuid(id)
+        ? supabase
+            .from('match_summaries')
+            .select(MATCH_COLUMNS)
+            .or(`blue_team_id.eq.${id},red_team_id.eq.${id}`)
+            .order('played_at', { ascending: false, nullsFirst: false })
+            .limit(RECENT_MATCHES)
+        : Promise.resolve({ data: [], error: null }),
     ])
 
   const team = maybeRow<{ id: string; name: string; tag: string | null }>(teamRes, 'the team')
@@ -106,6 +168,7 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
   const accounts = rows<TeamAccountRow>(accountsRes as never, 'the team accounts')
   const review = rows<RosterReviewRow>(reviewRes as never, 'the roster review')
   const totals = rows<PlayerTotalsRow>(totalsRes, 'the per-player totals')
+  const matches = rows<RecentMatch>(matchesRes as never, 'las últimas partidas del equipo')
   const memberIds = new Set(lineup.flatMap((slot) => (slot.player_id ? [slot.player_id] : [])))
   const confirmados = memberIds.size
 
@@ -122,8 +185,8 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href="/equipos" className="text-sm text-muted transition-colors hover:text-fg">
-        ← Equipos
+      <Link href={volver.href} className="text-sm text-muted transition-colors hover:text-fg">
+        ← {volver.label}
       </Link>
 
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -313,6 +376,47 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
         </ul>
       </section>
 
+      {/*
+        LAS ÚLTIMAS PARTIDAS. Va debajo del plantel porque responde la segunda
+        pregunta que trae a alguien a la ficha de un equipo: primero quiénes
+        son, después cómo les está yendo. Hasta ahora la ficha no decía una sola
+        palabra de eso —había que ir a /partidas y filtrar por el equipo a mano—
+        y el nombre en el listado ya llevaba para acá, o sea que el camino
+        existía en un solo sentido.
+
+        Cinco y no todas: el historial completo es su propia página y este
+        bloque es un resumen. El botón lleva a /partidas con el filtro ya
+        puesto, que es la misma pantalla a la que se llega desde el menú, no una
+        segunda versión de ella.
+      */}
+      <section className="flex flex-col gap-2">
+        <div className="flex items-baseline justify-between gap-4">
+          <h2 className="text-sm font-medium text-muted">Últimas partidas</h2>
+          {matches.length > 0 && (
+            <Link
+              href={withQuery('/partidas', { equipo: team.id })}
+              className="text-xs font-bold uppercase tracking-wide text-accent transition-colors hover:text-accent-soft"
+            >
+              Historial completo →
+            </Link>
+          )}
+        </div>
+
+        {matches.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-line-strong px-4 py-6 text-center text-sm text-fg-soft">
+            Todavía no hay ninguna partida de este equipo con el replay cargado.
+          </p>
+        ) : (
+          <ul className="divide-y divide-line rounded-lg border border-line">
+            {matches.map((match) => (
+              <li key={match.id}>
+                <RecentMatchRow match={match} teamId={team.id} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       {/* Lo que la fecha dejo por revisar. Va justo debajo del plantel: primero
           se ve como quedo la formacion, despues lo que no cierra de ella. */}
       {user && <RosterReview teamId={team.id} rows={review} />}
@@ -365,5 +469,54 @@ export default async function TeamPage({ params }: PageProps<'/equipos/[id]'>) {
         </section>
       )}
     </div>
+  )
+}
+
+/**
+ * Una partida vista desde el equipo cuya ficha se está mirando.
+ *
+ * El marcador se escribe siempre con este equipo primero, gane o pierda: en un
+ * listado de "cómo viene", leer "12 – 7" y tener que fijarse de qué lado
+ * estaba cada vez es la mitad del trabajo hecho por el que lee. El lado azul o
+ * rojo no aparece porque acá no significa nada —eso se ve en la ficha de la
+ * partida, que está a un clic.
+ */
+function RecentMatchRow({ match, teamId }: { match: RecentMatch; teamId: string }) {
+  const isBlue = match.blue_team_id === teamId
+  const won = match.winning_side === (isBlue ? 100 : 200)
+  const rival = (isBlue ? match.red_team_name : match.blue_team_name) ?? 'Rival sin asignar'
+  const own = (isBlue ? match.blue_kills : match.red_kills) ?? 0
+  const theirs = (isBlue ? match.red_kills : match.blue_kills) ?? 0
+
+  return (
+    <Link
+      href={matchPath(match.id)}
+      className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 text-sm transition-colors hover:bg-raised"
+    >
+      <span
+        className={`w-16 shrink-0 text-xs font-bold uppercase tracking-wide ${
+          won ? 'text-win' : 'text-loss'
+        }`}
+      >
+        {won ? 'Ganó' : 'Perdió'}
+      </span>
+
+      <span className="min-w-0 flex-1 truncate">
+        <span className="text-faint">vs </span>
+        <span className="font-medium">{rival}</span>
+      </span>
+
+      <span className="tabular shrink-0">
+        <span className={won ? 'text-win' : 'text-fg-soft'}>{own}</span>
+        <span className="mx-1 text-dim">–</span>
+        <span className={won ? 'text-fg-soft' : 'text-win'}>{theirs}</span>
+      </span>
+
+      <span className="shrink-0 text-xs text-faint">
+        {[match.round_label, formatDate(match.played_at), `${formatDuration(match.game_length_ms)} min`]
+          .filter(Boolean)
+          .join(' · ')}
+      </span>
+    </Link>
   )
 }
