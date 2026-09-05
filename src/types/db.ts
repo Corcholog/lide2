@@ -273,11 +273,22 @@ export interface FixtureResultRow {
   ended_in_surrender: boolean | null
 
   winner_team_id: string | null
-  status: 'pendiente' | 'sin resultado' | 'jugado'
+  /**
+   * `w.o.` is the matchup that will not be played: the rival did not turn up
+   * within the 15 minutes the rules allow, and it was awarded. It is a separate
+   * value from `pendiente` because that one still might be played.
+   */
+  status: 'pendiente' | 'sin resultado' | 'jugado' | 'w.o.'
 
   /** Each side's university tags, the main one first. */
   team_a_universities: string[] | null
   team_b_universities: string[] | null
+
+  /**
+   * Who took the matchup without playing it. Needed alongside `winner_team_id`
+   * so the fixture can write "W.O." where the scoreline goes.
+   */
+  walkover_team_id: string | null
 }
 
 /** A team resting in a slot: one per group sits out each one. */

@@ -40,7 +40,13 @@ export function Fixture({ rounds }: { rounds: FixtureResultRow[] }) {
     slots.set(key, slot)
   }
 
-  const played = rounds.filter((row) => row.status === 'jugado').length
+  /*
+   * Resolved and not "played": a walkover has an outcome but nobody played it.
+   * Counting it as played would be a lie, and leaving it out would make the
+   * matchday read as though a matchup were still missing. What the number is
+   * for is how much of the fixture is settled, so that is what it says.
+   */
+  const decided = rounds.filter((row) => row.status === 'jugado' || row.status === 'w.o.').length
 
   /*
    * And now one more pass: the slots are grouped by matchday, which is the
@@ -58,7 +64,8 @@ export function Fixture({ rounds }: { rounds: FixtureResultRow[] }) {
       <div className="flex items-end justify-between gap-4">
         <h2 className="border-b-4 border-accent pb-1 text-lg uppercase tracking-tight">Fixture</h2>
         <p className="text-xs text-faint">
-          {rounds.length} partidos · {played === 0 ? 'ninguno jugado' : `${played} jugados`}
+          {rounds.length} partidos ·{' '}
+          {decided === 0 ? 'ninguno definido' : `${decided} definidos`}
         </p>
       </div>
 
@@ -87,7 +94,7 @@ export function Fixture({ rounds }: { rounds: FixtureResultRow[] }) {
           )
           const finished = daySlots
             .flatMap((slot) => [...slot.groups.values()].flat())
-            .filter((row) => row.status === 'jugado').length
+            .filter((row) => row.status === 'jugado' || row.status === 'w.o.').length
 
           return {
             id: `fecha-${matchday}`,
@@ -96,7 +103,7 @@ export function Fixture({ rounds }: { rounds: FixtureResultRow[] }) {
             // played, which is all that can be said about a future matchday.
             detail:
               finished > 0
-                ? `${finished} de ${matchups} jugados`
+                ? `${finished} de ${matchups} definidos`
                 : weekdayAndDate(daySlots[0].kickoff),
           }
         })}
@@ -162,6 +169,10 @@ export function Fixture({ rounds }: { rounds: FixtureResultRow[] }) {
 
 function FixtureRow({ match }: { match: FixtureResultRow }) {
   const played = match.status === 'jugado'
+  // The rival did not turn up inside the 15 minutes the rules allow. There is
+  // no scoreline because there was no game: the names still carry who took it,
+  // through team_a_win / team_b_win.
+  const walkover = match.status === 'w.o.'
 
   return (
     // data-fixture: the mark the highlight looks for to dim the matchups the
@@ -192,6 +203,10 @@ function FixtureRow({ match }: { match: FixtureResultRow }) {
               {match.team_b_kills}
             </span>
           </>
+        ) : walkover ? (
+          <span className="text-faint" title="Ganado por no presentación del rival">
+            W.O.
+          </span>
         ) : (
           <span className="text-dim">vs</span>
         )}
