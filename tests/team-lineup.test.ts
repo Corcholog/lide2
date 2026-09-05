@@ -196,8 +196,11 @@ describe('team lineup', () => {
 
     expect(rows.map((r) => r.column_name).sort()).toEqual([
       // `assigned_role` is the hand assignment exactly as stored (0020); the
-      // effective one - which may come from the matches - is still `role`.
+      // effective one - which now comes from the matches - is still `role`.
       'assigned_role',
+      // Somebody whose nick was typed in and who never turned up (0023). It is
+      // a number, not a name: it says the slot is filled by a promise.
+      'did_not_play',
       // `game_name` and `tag_line` are the Riot account, which has always been
       // public (`player_profiles`). The sheet's name is not there.
       'game_name',

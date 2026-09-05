@@ -213,9 +213,11 @@ export interface AssignRoleResult {
  * uses it, next to every nick on the roster, for the cases where whoever enters
  * the nicks already knows which lane each one plays.
  *
- * It beats the deduced value - see `assign_team_member_role()` and the comment
- * in `supabase/migrations/0020_asignar_posicion.sql` - and it can be cleared by
- * passing `null`, which is how a wrong assignment is undone.
+ * It is a provisional and it loses against the first replay: since 0023 the
+ * lane comes from what was played whenever anything was, because what somebody
+ * was told at signup can be out of date by Sunday and the scoreboard cannot.
+ * What it still does is fill the lineup while there is nothing to deduce from.
+ * Passing `null` clears it, which is how a wrong assignment is undone.
  */
 export async function assignTeamMemberRole(
   teamId: string,
@@ -230,6 +232,60 @@ export async function assignTeamMemberRole(
 
   if (error) return { ok: false, error: error.message }
   return data as AssignRoleResult
+}
+
+export interface MergeAccountResult {
+  ok: boolean
+  error?: string
+  /** The account that stays: the one that actually played. */
+  name?: string
+  /** The hand-typed nick that was absorbed. */
+  previous?: string
+  /** Whether the signup travelled with it, which is what fixes the attribution. */
+  roster_moved?: boolean
+}
+
+/**
+ * Saying that a nick that never played is the old nick of one that did.
+ *
+ * `adopt_manual_accounts()` already covers the happy path: a nick typed in
+ * during the week that turns up spelled the same gets the real PUUID on its own
+ * row and nothing is duplicated. When the nick CHANGED there is nothing to
+ * match on, so the ingest creates a second account and the typed one is left at
+ * zero games forever - holding the signup, and with it the university that
+ * person's matches count towards.
+ *
+ * This is the door for that case, and it is never taken automatically: the
+ * panel proposes a pairing and a person confirms it. A wrong merge hands
+ * somebody's matches to another university and nobody sees it afterwards, which
+ * is the same reason `link_roster_accounts` and `adopt_manual_accounts` do
+ * nothing when in doubt.
+ *
+ * Every validation lives in `merge_manual_account()`. See
+ * `supabase/migrations/0023_plantel_dinamico.sql`.
+ */
+export async function mergeManualAccount(
+  teamId: string,
+  placeholderId: string,
+  realId: string,
+): Promise<MergeAccountResult> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase.rpc('merge_manual_account', {
+    p_team_id: teamId,
+    p_placeholder: placeholderId,
+    p_real: realId,
+  })
+
+  if (error) return { ok: false, error: error.message }
+
+  const result = data as MergeAccountResult
+
+  // The absorbed row took a `team_members` entry with it, so which accounts
+  // belong to the team changed. Relinking re-runs `side_team()` over every
+  // match, which is what decides team names from a scoreboard.
+  if (result.ok) await supabase.rpc('relink_all_matches')
+
+  return result
 }
 
 export async function removePlayerFromTeam(teamId: string, playerId: string): Promise<void> {
