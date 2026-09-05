@@ -145,11 +145,11 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
     bans: Number(row.bans),
     banRate: row.ban_rate === null ? null : Number(row.ban_rate),
     presence: row.presence === null ? null : Number(row.presence),
-    kda: Number(row.kda),
+    kda: Number(row.avg_kda),
     kills: Number(row.kills),
     deaths: Number(row.deaths),
     assists: Number(row.assists),
-    avgDamage: Number(row.avg_damage),
+    dpm: Number(row.dpm),
   }))
 
   const playerRows: PlayerRow[] = filteredPlayers
@@ -223,13 +223,24 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
         <>
           <Section
             title="Campeones"
-            detail={
+            /*
+              El renglón dice sobre qué se promedia. El KDA y el daño de esta
+              tabla son promedios de las partidas en las que se jugó el
+              campeón, o sea de sus picks, y sin decirlo cada uno lee otra
+              cosa: "1.20 de KDA" puede ser el del torneo entero o el de una
+              sola partida. La columna de picks está al lado, así que con la
+              aclaración el denominador se ve.
+            */
+            detail={[
+              'El KDA y el daño son promedios de las partidas en las que se jugó cada campeón (picks).',
               withDraft === 0
-                ? 'Sin drafts cargados todavía: los baneos no salen del .rofl y se cargan a mano.'
+                ? 'Los baneos no salen del .rofl y todavía no se cargó ningún draft.'
                 : withDraft < matches
                   ? `Baneos medidos sobre ${withDraft} de ${matches} partidas: al resto le falta el draft.`
-                  : 'Elegidos, baneados y cómo les fue.'
-            }
+                  : null,
+            ]
+              .filter(Boolean)
+              .join(' ')}
           >
             <ChampionTable
               rows={championRows}
