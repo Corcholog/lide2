@@ -6,6 +6,7 @@ import { tournamentStartDate } from '@/lib/lide2/tournament'
 import { UniversityLogos } from '@/components/tournament/UniversityLogo'
 import { TeamOrderPicker } from '@/components/tournament/TeamOrderPicker'
 import { parseTeamOrder, sortTeams } from '@/lib/teams/order'
+import { teamPath } from '@/lib/routes'
 import { createTeamAction, relinkAction } from './actions'
 
 export const metadata = {
@@ -158,7 +159,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
             return (
               <li key={team.team_id}>
                 <Link
-                  href={`/equipos/${team.team_id}`}
+                  href={teamPath(team.team_id)}
                   className="flex h-full flex-col gap-3 border-2 border-line bg-surface p-4 transition-colors hover:border-accent"
                 >
                   {/*

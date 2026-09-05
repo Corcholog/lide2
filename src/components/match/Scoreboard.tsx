@@ -1,12 +1,16 @@
+import Link from 'next/link'
 import { DamageBar } from './DamageBar'
 import { GameIcon } from './GameIcon'
 import { championIcon, championName, itemIcon, spellIcon } from '@/lib/ddragon'
 import { formatGold, formatKda, formatPosition, playerName, riotTag } from '@/lib/format'
+import { matchOrigin, playerPath, teamPath } from '@/lib/routes'
 import type { MatchTeamStatsRow } from '@/types/db'
 
 export interface ScoreboardPlayer {
   matchPlayerId: string
   side: 100 | 200
+  /** null for an account the ingest could not resolve: there is no page to go to. */
+  playerId: string | null
   champion: string
   position: string | null
   riotGameName: string | null
@@ -31,6 +35,8 @@ export interface ScoreboardPlayer {
 export function Scoreboard({
   side,
   teamName,
+  teamId,
+  matchId,
   players,
   stats,
   version,
@@ -40,6 +46,10 @@ export function Scoreboard({
 }: {
   side: 100 | 200
   teamName: string | null
+  /** null while the match has no matchup assigned: then the name is not a link. */
+  teamId: string | null
+  /** Where the team's page has to come back to. */
+  matchId: string
   players: ScoreboardPlayer[]
   stats: MatchTeamStatsRow | undefined
   version: string
@@ -56,8 +66,20 @@ export function Scoreboard({
   return (
     <section className={`overflow-hidden rounded-lg border border-line border-l-2 ${edge}`}>
       <header className="flex flex-wrap items-center gap-x-4 gap-y-1 bg-surface px-4 py-3">
+        {/*
+          The team's name leads to its page. It is the first thing anyone reads
+          on a scoreboard and it was dead text: to see who else is in that team
+          you had to go to /equipos and find it by name. The `desde` brings the
+          arrow back to this match, which is where the reading was.
+        */}
         <h2 className={`font-semibold ${accent}`}>
-          {teamName ?? (isBlue ? 'Lado azul' : 'Lado rojo')}
+          {teamId ? (
+            <Link href={teamPath(teamId, matchOrigin(matchId))} className="hover:underline">
+              {teamName ?? (isBlue ? 'Lado azul' : 'Lado rojo')}
+            </Link>
+          ) : (
+            (teamName ?? (isBlue ? 'Lado azul' : 'Lado rojo'))
+          )}
         </h2>
         <span
           className={`rounded px-2 py-0.5 text-xs font-medium ${
@@ -155,7 +177,24 @@ export function Scoreboard({
                             MVP
                           </span>
                         )}
-                        {playerName(player.riotGameName)}
+                        {/*
+                          Same as the team: the name of whoever played is the
+                          way into their page, which is where their history and
+                          their champion pool live. The row is not a link whole
+                          because it already holds eight other things - items,
+                          spells, the champion - and a link over all of it
+                          swallows every one of them.
+                        */}
+                        {player.playerId ? (
+                          <Link
+                            href={playerPath(player.playerId)}
+                            className="truncate hover:underline"
+                          >
+                            {playerName(player.riotGameName)}
+                          </Link>
+                        ) : (
+                          playerName(player.riotGameName)
+                        )}
                         {riotTag(player.riotGameName, player.riotTagLine) && (
                           <span className="shrink-0 text-xs font-normal text-faint">
                             {riotTag(player.riotGameName, player.riotTagLine)}

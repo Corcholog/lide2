@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import { teamPath } from '@/lib/routes'
 
 /**
  * Highlights a team everywhere it appears: on hover over any one of them, and
@@ -160,7 +161,7 @@ export function TeamFocus({
               {current.matches} {current.matches === 1 ? 'partido' : 'partidos'}
             </span>
             <Link
-              href={`/equipos/${current.id}`}
+              href={teamPath(current.id, 'portada')}
               className="shrink-0 text-xs font-bold uppercase tracking-wide text-accent transition-colors hover:text-accent-soft"
             >
               Ver equipo
