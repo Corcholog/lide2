@@ -18,9 +18,22 @@ export interface NavSection {
  * That docking is `fixed` and not `sticky`, and not out of preference:
  * `sticky` only holds while the parent is still in view, and the parent here is
  * the hero, which is one screen tall and leaves. So the bar is pulled out of
- * flow by hand when its slot reaches the top of the window, and the outer div -
- * which always measures the same - keeps the space so nothing jumps.
+ * flow by hand when its slot reaches the underside of the site's bar, and the
+ * outer div - which always measures the same - keeps the space so nothing
+ * jumps.
+ *
+ * IT DOCKS UNDER THE SITE'S BAR, not in its place. The site's bar is pinned
+ * now, and this one used to take the top for itself: what was left up there
+ * said which part of the page you were in and offered no way out of the page.
+ * The two stack instead, which is why the other one's height is measured here -
+ * it is both the docking offset and the top of the band the scroll-spy reads.
  */
+
+/** The site bar's height, which is how far down this one docks. */
+function headerHeight(): number {
+  return document.getElementById('barra-del-sitio')?.offsetHeight ?? 0
+}
+
 export function SectionNav({ sections }: { sections: NavSection[] }) {
   const [active, setActive] = useState<string | null>(null)
   const [docked, setDocked] = useState(false)
@@ -31,17 +44,28 @@ export function SectionNav({ sections }: { sections: NavSection[] }) {
     const node = holder.current
     if (!node) return
 
-    // Docked means the space it left has reached the top of the window. The
-    // space is measured and not the bar: once `fixed`, the bar is always at
-    // zero and the condition would be stuck true.
-    const onScroll = () => setDocked(node.getBoundingClientRect().top <= 0)
+    /*
+      Docked means the space it left has reached the underside of the site's
+      bar. The space is measured and not the bar: once `fixed`, the bar sits at
+      that offset and the condition would be stuck true.
+
+      The offset is read on mount and on resize rather than on every scroll:
+      it only moves when the layout does, and `offsetHeight` inside a scroll
+      handler is a forced reflow on every frame.
+    */
+    let offset = headerHeight()
+    const onScroll = () => setDocked(node.getBoundingClientRect().top <= offset)
+    const onResize = () => {
+      offset = headerHeight()
+      onScroll()
+    }
 
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onScroll, { passive: true })
+    window.addEventListener('resize', onResize, { passive: true })
     return () => {
       window.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onScroll)
+      window.removeEventListener('resize', onResize)
     }
   }, [])
 
@@ -83,8 +107,14 @@ export function SectionNav({ sections }: { sections: NavSection[] }) {
         // The first in page order wins: if two are visible, the upper one rules.
         setActive(sections.find((section) => visible.has(section.id))?.id ?? null)
       },
-      // Reading band: from below the bar down to the middle of the screen.
-      { rootMargin: '-56px 0px -55% 0px' },
+      /*
+        Reading band: from below the two bars down to the middle of the screen.
+        It was 56px, which was this bar alone; with the site's on top of it the
+        band started behind them and every section was marked one too early.
+      */
+      {
+        rootMargin: `-${Math.round(headerHeight() + (holder.current?.offsetHeight ?? 0))}px 0px -55% 0px`,
+      },
     )
 
     nodes.forEach((node) => observer.observe(node))
@@ -107,7 +137,7 @@ export function SectionNav({ sections }: { sections: NavSection[] }) {
         data-theme={docked ? (pageTheme ?? undefined) : undefined}
         className={
           docked
-            ? 'fixed inset-x-0 top-0 z-30 border-b-2 border-line-strong bg-canvas/90 text-fg backdrop-blur'
+            ? 'fixed inset-x-0 top-[var(--site-header)] z-30 border-b-2 border-line-strong bg-canvas/90 text-fg backdrop-blur'
             : 'relative'
         }
       >

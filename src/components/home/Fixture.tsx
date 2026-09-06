@@ -60,7 +60,7 @@ export function Fixture({ rounds }: { rounds: FixtureResultRow[] }) {
   const matchdays = [...byMatchday.entries()].sort((a, b) => a[0] - b[0])
 
   return (
-    <section id="fixture" className="flex scroll-mt-16 flex-col gap-4">
+    <section id="fixture" className="flex flex-col gap-4">
       <div className="flex items-end justify-between gap-4">
         <h2 className="border-b-4 border-accent pb-1 text-lg uppercase tracking-tight">Fixture</h2>
         <p className="text-xs text-faint">
