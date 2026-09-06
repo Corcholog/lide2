@@ -5,13 +5,12 @@ import { rows } from '@/lib/supabase/query'
 import { assetVersion, championIcon, championName, championNames } from '@/lib/ddragon'
 import { formatDate, formatDuration, formatKda, ROLES } from '@/lib/format'
 import { tournamentStartDate, TOURNAMENT } from '@/lib/lide2/tournament'
-import { parseTeamFilter } from '@/lib/stats/scope'
 import { resolveTournamentId } from '@/lib/stats/query'
 import { parseScope } from '@/lib/stats/scope'
-import { ScopeNav } from '@/components/stats/ScopeNav'
 import { GameIcon } from '@/components/match/GameIcon'
+import { MatchCount } from '@/components/match/MatchCount'
 import { MatchDetail, type DetailPlayer } from '@/components/match/MatchDetail'
-import { TeamFilter } from '@/components/match/TeamFilter'
+import { MatchFilters } from '@/components/match/MatchFilters'
 import type { MatchPlayerScoreRow, MatchSummaryRow, MatchTeamStatsRow } from '@/types/db'
 
 export const metadata = {
@@ -31,8 +30,13 @@ export const dynamic = 'force-dynamic'
  * THE EXPANDER IS A NATIVE `<details>` and not a client island: it needs no
  * JavaScript, the browser already gives it `aria-expanded`, toggling with Enter
  * and the focus where it belongs, and on top of that it does not draw the
- * content while closed. It is the same reason the filters are links and not
- * React state.
+ * content while closed. It is the same reason the matchday filter is a link and
+ * not React state.
+ *
+ * THE TEAM FILTER IS THE ONE EXCEPTION, and it is the preloading above that
+ * earns it: every match is already here, so picking a team is hiding rows and
+ * not fetching anything. `MatchFilters` explains how, and why the URL is still
+ * where the choice lives.
  *
  * THE DETAIL COMES PRELOADED. The whole tournament is about sixty matches, that
  * is six hundred `match_player_scores` rows: fetching them in one go costs less
@@ -107,12 +111,13 @@ export default async function MatchesPage({ searchParams }: PageProps<'/partidas
     : []
 
   const scope = parseScope(params.fecha, tournamentId ?? '')
-  const teamId = parseTeamFilter(
-    params.equipo,
-    teams.map((team) => team.id),
-  )
-  const filtering = scope.matchday !== null || teamId !== null
 
+  /*
+    `?equipo=` IS NOT READ HERE, on purpose. The team filter is honoured in the
+    browser over the matches this query already brings - see `MatchFilters` -
+    so cutting them here as well would leave it with nothing to widen back out
+    to the moment somebody picked a second team.
+  */
   let query = supabase
     .from('match_summaries')
     .select('*')
@@ -124,10 +129,22 @@ export default async function MatchesPage({ searchParams }: PageProps<'/partidas
   // you had to ask match_context for the matchday's ids first and filter with
   // an `in`.
   if (scope.matchday !== null) query = query.eq('matchday', scope.matchday)
-  if (teamId) query = query.or(`blue_team_id.eq.${teamId},red_team_id.eq.${teamId}`)
 
   const matches = tournamentId ? rows<MatchSummaryRow>(await query, 'the matches') : []
   const ids = matches.map((match) => match.id)
+
+  /*
+    What each team played in this scope, counted here because this is where the
+    matches are. Every team goes in, zeros included: it is also the list of ids
+    the two client components validate `?equipo=` against, and a team that did
+    not play this matchday is still a team you can choose - and be told so.
+  */
+  const counts: Record<string, number> = Object.fromEntries(teams.map((team) => [team.id, 0]))
+  for (const match of matches) {
+    for (const side of [match.blue_team_id, match.red_team_id]) {
+      if (side !== null && side in counts) counts[side] += 1
+    }
+  }
 
   const [scoresRes, statsRes] = await Promise.all([
     ids.length > 0
@@ -207,13 +224,7 @@ export default async function MatchesPage({ searchParams }: PageProps<'/partidas
           {/* The same treatment as stats, tables and admin: moving between
               sections, the title should not change size or shape. */}
           <h1 className="font-display text-3xl uppercase tracking-tight">Partidas</h1>
-          <p className="mt-1 text-sm text-muted">
-            {matches.length === 0
-              ? 'Todavía no hay partidas cargadas.'
-              : `${matches.length} partida${matches.length === 1 ? '' : 's'}${
-                  filtering ? ' en este recorte' : ' cargadas'
-                }.`}
-          </p>
+          <MatchCount counts={counts} total={matches.length} matchday={scope.matchday} />
         </div>
         {user && (
           <Link
@@ -225,153 +236,183 @@ export default async function MatchesPage({ searchParams }: PageProps<'/partidas
         )}
       </div>
 
-      <div className="flex flex-col gap-3">
-        <ScopeNav base="/partidas" matchday={scope.matchday} query={{ equipo: teamId }} />
-        {teams.length > 0 && (
-          <TeamFilter teams={teams} selected={teamId} matchday={scope.matchday} />
-        )}
-      </div>
+      {teams.length > 0 && (
+        <MatchFilters teams={teams} matchday={scope.matchday} counts={counts} />
+      )}
 
       {matches.length === 0 ? (
         <div className="rounded-lg border border-dashed border-line-strong px-6 py-14 text-center">
           {/*
             Three texts because these are three different situations. With a
-            filter on, what is missing is not that anything be played: it is
-            loosening the filter. With no filter and a session this is a
+            matchday picked, what is missing is not that anything be played: it
+            is loosening the filter. With no filter and a session this is a
             working screen and what is missing is uploading the files. With no
             session it is somebody who came to watch the tournament: asking them
             to upload a .rofl is asking for something they cannot do, in a word
             they may not even know.
+
+            The fourth - a team that played nothing in this matchday - is the
+            `#sin-equipo` note further down, because which team is picked is
+            decided in the browser.
           */}
           <p className="text-fg-soft">
-            {filtering
-              ? 'Ninguna partida de este recorte. Probá con otra fecha u otro equipo.'
+            {scope.matchday !== null
+              ? 'Ninguna partida en esta fecha. Probá con otra.'
               : user
                 ? 'Subí los .rofl de las partidas jugadas para empezar.'
                 : `Todavía no se jugó ninguna partida. La ${TOURNAMENT.name} arranca el ${tournamentStartDate()}.`}
           </p>
         </div>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {matches.map((match) => (
-            <li key={match.id}>
-              <details className="group rounded-lg border border-line bg-surface open:border-line-strong">
-                <summary className="flex cursor-pointer list-none items-center gap-4 px-4 py-3 [&::-webkit-details-marker]:hidden">
-                  <div className="w-28 shrink-0 text-xs text-faint">
-                    <p className="tabular">{formatDate(match.played_at)}</p>
-                    <p>
-                      {[match.group_label, match.matchday && `Fecha ${match.matchday}`]
-                        .filter(Boolean)
-                        .join(' · ') ||
-                        [match.stage_label, match.round_label].filter(Boolean).join(' · ') ||
-                        `parche ${match.patch ?? '?'}`}
-                    </p>
-                  </div>
-
-                  {/*
-                    Name, champions, scoreline, champions, name.
-
-                    The two teams sit at the ends and the ten champions against
-                    the scoreline, which is the order it gets read in: who
-                    against whom, with what. Placed below the name they had to
-                    fit in half the row's width and never got past twenty
-                    pixels, which for a champion portrait is a smudge.
-
-                    On small screens the champions are dropped: five 32px ones
-                    per side do not fit beside the names, and what cannot shrink
-                    any further without becoming unreadable is the scoreline.
-                  */}
-                  <div className="flex flex-1 items-center justify-center gap-3">
-                    <SideName
-                      name={match.blue_team_name}
-                      fallback="Lado azul"
-                      won={match.winning_side === 100}
-                      align="right"
-                      accent="aqua"
-                    />
-                    <Champions
-                      players={playersByMatch.get(match.id) ?? []}
-                      side={100}
-                      version={version}
-                      championNames={champNames}
-                    />
-                    <div className="tabular shrink-0 text-center">
-                      <p className="text-lg font-bold">
-                        <span
-                          className={match.winning_side === 100 ? 'text-side-blue' : 'text-muted'}
-                        >
-                          {match.blue_kills ?? 0}
-                        </span>
-                        <span className="mx-1 text-dim">–</span>
-                        <span
-                          className={match.winning_side === 200 ? 'text-side-red' : 'text-muted'}
-                        >
-                          {match.red_kills ?? 0}
-                        </span>
+        <>
+          {/*
+            The id and the `data-equipos` are what the team filter works on: one
+            CSS rule hides every row that does not carry the chosen team. They are
+            plain attributes on server HTML, which is why picking a team costs
+            nothing - no request, no re-render, not even for the ten scoreboards
+            each row is already holding.
+          */}
+          <ul id="partidas" className="flex flex-col gap-2">
+            {matches.map((match) => (
+              <li
+                key={match.id}
+                data-equipos={[match.blue_team_id, match.red_team_id].filter(Boolean).join(' ')}
+              >
+                <details className="group rounded-lg border border-line bg-surface open:border-line-strong">
+                  <summary className="flex cursor-pointer list-none items-center gap-4 px-4 py-3 [&::-webkit-details-marker]:hidden">
+                    <div className="w-28 shrink-0 text-xs text-faint">
+                      <p className="tabular">{formatDate(match.played_at)}</p>
+                      <p>
+                        {[match.group_label, match.matchday && `Fecha ${match.matchday}`]
+                          .filter(Boolean)
+                          .join(' · ') ||
+                          [match.stage_label, match.round_label].filter(Boolean).join(' · ') ||
+                          `parche ${match.patch ?? '?'}`}
                       </p>
-                      <p className="text-xs text-faint">{formatDuration(match.game_length_ms)}</p>
                     </div>
-                    <Champions
-                      players={playersByMatch.get(match.id) ?? []}
-                      side={200}
-                      version={version}
-                      championNames={champNames}
-                    />
-                    <SideName
-                      name={match.red_team_name}
-                      fallback="Lado rojo"
-                      won={match.winning_side === 200}
-                      align="left"
-                      accent="red"
-                    />
-                  </div>
 
-                  <div className="hidden w-52 shrink-0 text-right text-xs md:block">
-                    {match.mvp_champion ? (
-                      <>
-                        <p className="text-fg-soft">
-                          <span className="text-faint">MVP </span>
-                          {match.mvp_name ?? championName(champNames, match.mvp_champion)}
+                    {/*
+                      Name, champions, scoreline, champions, name.
+
+                      The two teams sit at the ends and the ten champions against
+                      the scoreline, which is the order it gets read in: who
+                      against whom, with what. Placed below the name they had to
+                      fit in half the row's width and never got past twenty
+                      pixels, which for a champion portrait is a smudge.
+
+                      On small screens the champions are dropped: five 32px ones
+                      per side do not fit beside the names, and what cannot shrink
+                      any further without becoming unreadable is the scoreline.
+                    */}
+                    <div className="flex flex-1 items-center justify-center gap-3">
+                      <SideName
+                        name={match.blue_team_name}
+                        fallback="Lado azul"
+                        won={match.winning_side === 100}
+                        align="right"
+                        accent="aqua"
+                      />
+                      <Champions
+                        players={playersByMatch.get(match.id) ?? []}
+                        side={100}
+                        version={version}
+                        championNames={champNames}
+                      />
+                      <div className="tabular shrink-0 text-center">
+                        <p className="text-lg font-bold">
+                          <span
+                            className={match.winning_side === 100 ? 'text-side-blue' : 'text-muted'}
+                          >
+                            {match.blue_kills ?? 0}
+                          </span>
+                          <span className="mx-1 text-dim">–</span>
+                          <span
+                            className={match.winning_side === 200 ? 'text-side-red' : 'text-muted'}
+                          >
+                            {match.red_kills ?? 0}
+                          </span>
                         </p>
-                        <p className="tabular text-faint">
-                          {championName(champNames, match.mvp_champion)} ·{' '}
-                          {formatKda(
-                            match.mvp_kills ?? 0,
-                            match.mvp_deaths ?? 0,
-                            match.mvp_assists ?? 0,
-                          )}
-                        </p>
-                      </>
-                    ) : (
-                      <p className="text-dim">sin MVP</p>
-                    )}
-                  </div>
+                        <p className="text-xs text-faint">{formatDuration(match.game_length_ms)}</p>
+                      </div>
+                      <Champions
+                        players={playersByMatch.get(match.id) ?? []}
+                        side={200}
+                        version={version}
+                        championNames={champNames}
+                      />
+                      <SideName
+                        name={match.red_team_name}
+                        fallback="Lado rojo"
+                        won={match.winning_side === 200}
+                        align="left"
+                        accent="red"
+                      />
+                    </div>
+
+                    <div className="hidden w-52 shrink-0 text-right text-xs md:block">
+                      {match.mvp_champion ? (
+                        <>
+                          <p className="text-fg-soft">
+                            <span className="text-faint">MVP </span>
+                            {match.mvp_name ?? championName(champNames, match.mvp_champion)}
+                          </p>
+                          <p className="tabular text-faint">
+                            {championName(champNames, match.mvp_champion)} ·{' '}
+                            {formatKda(
+                              match.mvp_kills ?? 0,
+                              match.mvp_deaths ?? 0,
+                              match.mvp_assists ?? 0,
+                            )}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-dim">sin MVP</p>
+                      )}
+                    </div>
 
 
-                  <svg
-                    viewBox="0 0 12 12"
-                    aria-hidden="true"
-                    className="h-3 w-3 shrink-0 text-faint transition-transform group-open:rotate-90"
-                  >
-                    <path d="M4 2l5 4-5 4V2z" fill="currentColor" />
-                  </svg>
-                </summary>
+                    <svg
+                      viewBox="0 0 12 12"
+                      aria-hidden="true"
+                      className="h-3 w-3 shrink-0 text-faint transition-transform group-open:rotate-90"
+                    >
+                      <path d="M4 2l5 4-5 4V2z" fill="currentColor" />
+                    </svg>
+                  </summary>
 
-                <MatchDetail
-                  matchId={match.id}
-                  players={playersByMatch.get(match.id) ?? []}
-                  teamStats={statsByMatch.get(match.id) ?? new Map()}
-                  teamNames={{
-                    100: match.blue_team_name ?? 'Lado azul',
-                    200: match.red_team_name ?? 'Lado rojo',
-                  }}
-                  version={version}
-                  championNames={champNames}
-                />
-              </details>
-            </li>
-          ))}
-        </ul>
+                  <MatchDetail
+                    matchId={match.id}
+                    players={playersByMatch.get(match.id) ?? []}
+                    teamStats={statsByMatch.get(match.id) ?? new Map()}
+                    teamNames={{
+                      100: match.blue_team_name ?? 'Lado azul',
+                      200: match.red_team_name ?? 'Lado rojo',
+                    }}
+                    version={version}
+                    championNames={champNames}
+                  />
+                </details>
+              </li>
+            ))}
+          </ul>
+
+          {/*
+            The other empty state: matches were played in this matchday, but none
+            of them by the team that is picked. It is drawn hidden and the filter's
+            rule brings it out, because which team that is is decided in the
+            browser - and with the scripting off, by this same page's server
+            render of that rule.
+          */}
+          <div
+            id="sin-equipo"
+            hidden
+            className="rounded-lg border border-dashed border-line-strong px-6 py-14 text-center"
+          >
+            <p className="text-fg-soft">
+              Este equipo no jugó ninguna partida en este recorte. Probá con otra fecha.
+            </p>
+          </div>
+        </>
       )}
     </div>
   )
