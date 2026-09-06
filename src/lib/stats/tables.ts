@@ -10,6 +10,7 @@
  * it use it.
  */
 
+import { formatPosition, ROLES } from '@/lib/format'
 import { GROUPS } from '@/lib/lide2/tournament'
 import { scopeFilter } from './filters'
 import type { StatScope } from './types'
@@ -33,6 +34,52 @@ export function parseGroup(value: string | string[] | undefined): string | null 
   if (!raw) return null
 
   return GROUP_OPTIONS.find((group) => group.id === raw.toUpperCase())?.label ?? null
+}
+
+/**
+ * The five roles, as one selectable option each.
+ *
+ * The three fields are three different alphabets for the same thing and none of
+ * them can stand in for the others: `position` is what the database stores
+ * ("BOTTOM"), `label` is what gets read ("ADC") and `id` is what travels in
+ * `?rol=` ("adc"). The id comes from the label so the URL is in the same
+ * language as the site, like `?grupo=` and `?orden=` already are.
+ *
+ * All three derive from `ROLES` and `formatPosition`, which is what stops the
+ * chips from drifting away from the table's Rol column.
+ */
+export const ROLE_OPTIONS = ROLES.map((position) => ({
+  id: formatPosition(position).toLowerCase(),
+  label: formatPosition(position),
+  position: position as string,
+}))
+
+export type RoleOption = (typeof ROLE_OPTIONS)[number]
+
+/** `?rol=jungla` -> the JUNGLE option, or null (every role) when unreadable. */
+export function parseRole(value: string | string[] | undefined): RoleOption | null {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (!raw) return null
+
+  return ROLE_OPTIONS.find((role) => role.id === raw.toLowerCase()) ?? null
+}
+
+/**
+ * The role filter, applied to whatever was already loaded.
+ *
+ * Same shape as the group one and for a stronger reason: the role is not a
+ * dimension of any view. `champion_meta.position` and
+ * `player_phase_totals.position` are a `mode()` - the role each one was played
+ * in most often - so this picks WHICH ROWS ARE DRAWN and never touches the
+ * numbers inside them. A jungler who filled mid twice still carries those two
+ * games in their averages, and a champion's pick rate stays measured against
+ * every match in the scope, which is the only denominator that makes it a rate.
+ */
+export function byRole<T extends { position: string | null }>(
+  rows: T[],
+  role: RoleOption | null,
+): T[] {
+  return role ? rows.filter((row) => row.position === role.position) : rows
 }
 
 /**
