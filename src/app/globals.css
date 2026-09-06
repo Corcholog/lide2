@@ -96,6 +96,23 @@
 }
 
 /*
+ * DONDE FRENA UN ANCLA
+ *
+ * Las dos barras quedan fijas arriba, asi que un salto a #grupos lo dejaba
+ * abajo de ellas: el titulo de la seccion tapado y la pagina aparentemente en
+ * el lugar equivocado. Esto le dice al navegador que el borde de arriba del
+ * scroll no es el borde de la ventana sino el de abajo de las barras, con medio
+ * renglon de aire.
+ *
+ * Va aca y no como `scroll-mt` en cada seccion —que es como estaba, en seis
+ * lugares con un 4rem escrito a mano— porque la cuenta es de las barras y ellas
+ * se declaran arriba: si cambia el alto de una, esto se acomoda solo.
+ */
+html {
+  scroll-padding-top: calc(var(--site-header) + var(--section-nav) + 0.5rem);
+}
+
+/*
  * TEMA CLARO — humo tibio, no blanco puro
  *
  * El default declarado en <html> es el oscuro; esto vive en :root igual porque

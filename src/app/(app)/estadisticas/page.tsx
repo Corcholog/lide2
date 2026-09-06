@@ -99,7 +99,7 @@ export default async function StatsPage({ searchParams }: PageProps<'/estadistic
           <SectionNav sections={sections.map(({ id, label }) => ({ id, label }))} />
 
           {sections.map((section) => (
-            <section key={section.id} id={section.id} className="flex scroll-mt-16 flex-col gap-3">
+            <section key={section.id} id={section.id} className="flex flex-col gap-3">
               <div className="flex items-baseline gap-3 border-b-2 border-line-strong pb-2">
                 <h2 className="font-display text-lg uppercase tracking-wide">{section.label}</h2>
                 <p className="text-xs text-muted">{section.description}</p>
