@@ -19,6 +19,14 @@ import { ThemeToggle } from '@/components/theme/ThemeToggle'
  * From `md` up the usual bar shows; below it, the links tuck behind the menu
  * button and the panel drops down under the bar.
  *
+ * IT IS PINNED TO THE TOP. Two pages dock a section bar there while you scroll
+ * - the tournament's and the stats' - and with the site bar gone that strip
+ * looked like the site's whole navigation while leading nowhere except further
+ * down the same page: reaching Estadísticas from the bottom of a listing meant
+ * scrolling all the way back up. Pinned, the section bar docks UNDER it
+ * (`--site-header` is where, and `SectionNav` measures this element to know),
+ * so the two read as one stack: where you can go, and where you are.
+ *
  * It is a client component because the menu holds state. The sign-out action
  * arrives as a prop from the layout, which is a server component: a server
  * action can be passed like that and the <form> still runs it on the server.
@@ -84,7 +92,15 @@ export function SiteHeader({
   return (
     <header
       ref={header}
-      className="relative z-40 h-[var(--site-header)] border-b-2 border-line bg-surface/85 backdrop-blur"
+      /*
+        The id is not decoration: `SectionNav` reads this element's height to
+        know how far down to dock. It measures rather than parsing
+        `--site-header` because a variable comes back as "3.875rem", and turning
+        that into pixels means guessing the root font size - while the bar
+        itself already knows what it is worth.
+      */
+      id="barra-del-sitio"
+      className="sticky top-0 z-40 h-[var(--site-header)] border-b-2 border-line bg-surface/85 backdrop-blur"
     >
       <div className="mx-auto flex h-full w-full max-w-6xl items-center gap-4 px-6 sm:gap-6">
         <Link href="/" className="font-display shrink-0 text-xl font-bold uppercase tracking-wide">
@@ -134,9 +150,9 @@ export function SiteHeader({
       </div>
 
       {open && (
-        // No scrim darkening the page: the bar is not pinned, so a `fixed`
-        // scrim would sit there covering everything while the menu scrolls up
-        // and away. The click outside already closes it.
+        // No scrim darkening the page: the click outside already closes it,
+        // and a panel of four links does not need the rest of the site dimmed
+        // to be read. It hangs off the bar, so with the bar pinned it stays.
         <div
           id="menu-del-sitio"
           className="absolute inset-x-0 top-full border-b-2 border-line bg-surface shadow-hard md:hidden"

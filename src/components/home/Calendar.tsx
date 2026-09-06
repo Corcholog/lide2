@@ -4,7 +4,7 @@ import { CALENDAR, TOURNAMENT, type Milestone } from '@/lib/lide2/tournament'
 /** The tournament's six dates, with the next one framed. */
 export function Calendar({ next }: { next: Milestone | undefined }) {
   return (
-    <section id="calendario" className="flex scroll-mt-16 flex-col gap-4">
+    <section id="calendario" className="flex flex-col gap-4">
       <div className="flex items-end justify-between gap-4">
         <h2 className="border-b-4 border-accent pb-1 text-lg uppercase tracking-tight">
           Calendario

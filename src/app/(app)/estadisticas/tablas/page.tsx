@@ -6,10 +6,11 @@ import { tournamentStartDate, TOURNAMENT } from '@/lib/lide2/tournament'
 import { playerName } from '@/lib/format'
 import { resolveTournamentId } from '@/lib/stats/query'
 import { parseScope } from '@/lib/stats/scope'
-import { metaFilter, parseGroup, scopeFilter } from '@/lib/stats/tables'
+import { byRole, metaFilter, parseGroup, parseRole, scopeFilter } from '@/lib/stats/tables'
 import { parseSortOrder } from '@/lib/table/sort'
 import { Empty } from '@/components/stats/Empty'
 import { GroupNav } from '@/components/stats/GroupNav'
+import { RoleNav } from '@/components/stats/RoleNav'
 import { ScopeNav } from '@/components/stats/ScopeNav'
 import { ViewNav } from '@/components/stats/ViewNav'
 import { ChampionTable, type ChampionRow } from '@/components/stats/ChampionTable'
@@ -20,7 +21,7 @@ import type { ChampionMetaRow, PlayerPhaseTotalsRow, TeamPhaseTotalsRow } from '
 export const metadata = {
   title: 'Tablas',
   description:
-    'El meta, los jugadores y los equipos en tablas completas: pick rate, ban rate, presencia y winrate, con filtro por fecha y por grupo.',
+    'El meta, los jugadores y los equipos en tablas completas: pick rate, ban rate, presencia y winrate, con filtro por fecha, por grupo y por rol.',
 }
 
 export const dynamic = 'force-dynamic'
@@ -101,9 +102,14 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
   const params = await searchParams
   const scope = parseScope(params.fecha, tournamentId)
   const group = parseGroup(params.grupo)
+  const role = parseRole(params.rol)
 
-  // The scope each nav carries along so it does not wipe the other's filter.
-  const filters = { fecha: scope.matchday, grupo: group?.slice(-1) ?? null }
+  // The scope each nav carries along so it does not wipe the others' filters.
+  const filters = {
+    fecha: scope.matchday,
+    grupo: group?.slice(-1) ?? null,
+    rol: role?.id ?? null,
+  }
 
   const [metaRes, playersRes, teamsRes, version] = await Promise.all([
     supabase.from('champion_meta').select('*').match(metaFilter(scope, group)),
@@ -130,10 +136,16 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
     ? players.filter((p) => p.team_id !== null && groupOfTeam.get(p.team_id) === group)
     : players
 
+  /*
+    The two counts come off the UNFILTERED meta, and they have to: they are the
+    size of the scope, not of what ends up drawn. Reading them after the role
+    filter, picking a role nobody played would leave `matches` at 0 and the page
+    would answer "nothing has been played here" about a matchday that was.
+  */
   const matches = meta[0]?.matches ?? 0
   const withDraft = meta[0]?.matches_with_bans ?? 0
 
-  const championRows: ChampionRow[] = meta.map((row) => ({
+  const championRows: ChampionRow[] = byRole(meta, role).map((row) => ({
     champion: row.champion,
     name: championName(names, row.champion),
     position: row.position,
@@ -152,7 +164,7 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
     dpm: Number(row.dpm),
   }))
 
-  const playerRows: PlayerRow[] = filteredPlayers
+  const playerRows: PlayerRow[] = byRole(filteredPlayers, role)
     .filter((row): row is PlayerPhaseTotalsRow & { player_id: string } => row.player_id !== null)
     .map((row) => ({
       playerId: row.player_id,
@@ -197,7 +209,7 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
       <header className="flex flex-col gap-1">
         <h1 className="font-display text-3xl uppercase tracking-tight">Estadísticas</h1>
         <p className="text-sm text-muted">
-          {group ?? 'Todos los grupos'} ·{' '}
+          {group ?? 'Todos los grupos'} · {role?.label ?? 'todos los roles'} ·{' '}
           {scope.matchday === null ? 'toda la fase' : `fecha ${scope.matchday}`}
           {matches > 0 && ` · ${matches} ${matches === 1 ? 'partida' : 'partidas'}`}
         </p>
@@ -208,12 +220,15 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
         <ViewNav active="tablas" query={{ fecha: scope.matchday }} />
         <ScopeNav base="/estadisticas/tablas" matchday={scope.matchday} query={filters} />
         <GroupNav base="/estadisticas/tablas" group={group} query={filters} />
+        <RoleNav base="/estadisticas/tablas" role={role} query={filters} />
       </div>
 
       {matches === 0 ? (
         <Empty
           title="Todavía no se jugó nada acá"
           detail={
+            // The role is not in here: it does not change `matches`, so it can
+            // never be the reason this scope came out empty.
             group || scope.matchday !== null
               ? 'Probá con otro recorte: ninguna partida de este grupo y esta fecha tiene el replay cargado.'
               : `La ${TOURNAMENT.name} arranca el ${tournamentStartDate()}. En cuanto se suba el primer replay, esta página se llena sola.`
@@ -233,6 +248,17 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
             */
             detail={[
               'El KDA y el daño son promedios de las partidas en las que se jugó cada campeón (picks).',
+              /*
+                El rol de un campeón es el que más veces se jugó, no el único, y
+                sin decirlo el recorte promete algo que no cumple: al filtrar
+                por Mid, un campeón que se jugó tres veces mid y dos jungla
+                aparece con las cinco adentro de sus promedios, y otro que se
+                jugó dos veces mid y tres jungla no aparece. Es la misma cuenta
+                que ya hace la columna Rol; acá pasa a decidir qué filas se ven.
+              */
+              role
+                ? `Filtrado por ${role.label}: el rol de un campeón es el que más veces se jugó, y sus números siguen siendo los de todos sus picks.`
+                : null,
               withDraft === 0
                 ? 'Los baneos no salen del .rofl y todavía no se cargó ningún draft.'
                 : withDraft < matches
@@ -255,7 +281,14 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
             />
           </Section>
 
-          <Section title="Jugadores" detail="Los números de cada uno en este recorte.">
+          <Section
+            title="Jugadores"
+            detail={
+              role
+                ? 'Los números de cada uno en este recorte. El rol es el que más veces jugó: si llenó en otra línea, esas partidas están adentro de sus promedios.'
+                : 'Los números de cada uno en este recorte.'
+            }
+          >
             <PlayerTable
               rows={playerRows}
               initial={parseSortOrder(
@@ -267,7 +300,19 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
             />
           </Section>
 
-          <Section title="Equipos" detail="Para comparar, no para la tabla de posiciones.">
+          {/*
+            The teams table ignores the role, because a team does not have one.
+            Hiding the section while a role is picked would be worse: the page
+            would appear to have lost a table. It stays whole and says why.
+          */}
+          <Section
+            title="Equipos"
+            detail={
+              role
+                ? 'Para comparar, no para la tabla de posiciones. El filtro por rol no las recorta: un equipo no tiene rol.'
+                : 'Para comparar, no para la tabla de posiciones.'
+            }
+          >
             <TeamTable
               rows={teamRows}
               initial={parseSortOrder(params['orden-equipos'], params['dir-equipos'], TEAM_COLUMNS, {

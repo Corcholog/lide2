@@ -14,7 +14,7 @@ export function GrandFinal() {
   const { day, month } = shortDate(final.date)
 
   return (
-    <section id="final" className="scroll-mt-16">
+    <section id="final">
       <div className="relative overflow-hidden border-2 border-accent bg-gradient-to-br from-accent-dim via-surface to-surface shadow-hard-accent">
         {/* A red glow picking up the colour of the hero's artwork. */}
         <div

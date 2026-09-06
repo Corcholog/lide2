@@ -14,7 +14,7 @@ export function GroupPhase({ standings }: { standings: GroupStandingRow[] }) {
   const groups = byGroup(standings)
 
   return (
-    <section id="grupos" className="flex scroll-mt-16 flex-col gap-4">
+    <section id="grupos" className="flex flex-col gap-4">
       <div className="flex items-end justify-between gap-4">
         <h2 className="border-b-4 border-accent pb-1 text-lg uppercase tracking-tight">
           Fase de grupos
