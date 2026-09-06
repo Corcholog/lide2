@@ -193,15 +193,28 @@ function Side({
 
               <div className="tabular hidden w-16 shrink-0 text-right sm:block">
                 <p>{player.cs} CS</p>
-                <p className="text-xs text-faint">{formatGold(player.goldEarned)}</p>
+                {/* "oro", for the same reason as "daño": the row labels every
+                    other number it draws, and "12.4k" alone under a CS count
+                    is the one that could be anything. */}
+                <p className="text-xs text-faint">{formatGold(player.goldEarned)} oro</p>
               </div>
 
+              {/*
+                Two stats stacked, and both say which one they are. The bar
+                used to carry a bare number with the vision score right
+                underneath: nothing on the row said "damage", and the second
+                line read as that number's subtitle instead of as another
+                stat. The words are the same idiom as "CS" and "KP" to the
+                left, and both lines end flush with the row's right edge, so
+                the pair reads as a column and not as a heading and its note.
+              */}
               <div className="hidden shrink-0 md:block">
                 <DamageBar
                   damage={player.damageToChampions}
                   max={maxDamage}
                   side={side}
                   width="w-14"
+                  label="daño"
                 />
                 <p className="tabular text-right text-xs text-faint">
                   {player.visionScore} visión
