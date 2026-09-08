@@ -90,18 +90,20 @@ export function MatchList({
       {highlight !== null && <style>{markRule(highlight)}</style>}
 
       {/*
-        The id and the `data-equipos` are what /partidas' team filter works on:
-        one CSS rule hides every row that does not carry the chosen team, and a
-        second one underlines that team's side wherever the listing draws it -
-        `SideBlock` in the row, the header in the open detail - which is what
-        `data-team` is for. They are plain attributes on server HTML, which is
-        why picking a team costs nothing there: no request, no re-render, not
-        even for the ten scoreboards each row is already holding.
+        The id and the two attributes on each row are what /partidas' filters
+        work on: one CSS rule hides every row outside the chosen matchday
+        (`data-fecha`), another every row without the chosen team
+        (`data-equipos`), and a third underlines that team's side wherever the
+        listing draws it - `SideBlock` in the row, the header in the open detail
+        - which is what `data-team` is for. They are plain attributes on server
+        HTML, which is why changing the cut costs nothing there: no request, no
+        re-render, not even for the ten scoreboards each row is already holding.
       */}
       <ul id="partidas" className="flex flex-col gap-2">
         {matches.map((match) => (
           <li
             key={match.id}
+            data-fecha={match.matchday ?? undefined}
             data-equipos={[match.blue_team_id, match.red_team_id].filter(Boolean).join(' ')}
           >
             <details className="group rounded-lg border border-line bg-surface open:border-line-strong">

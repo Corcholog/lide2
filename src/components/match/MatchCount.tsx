@@ -1,37 +1,38 @@
 'use client'
 
 import { useSearchParams } from 'next/navigation'
-import { parseTeamFilter } from '@/lib/stats/scope'
+import { countCut, type MatchCut } from '@/components/match/cut'
+import { parseMatchday, parseTeamFilter } from '@/lib/stats/scope'
 
 /**
  * How many matches the listing is showing, the line under the title.
  *
- * It reads the URL instead of being handed a number because the team filter no
- * longer goes to the server (see `MatchFilters`): as server-rendered text this
- * line would keep saying sixty while the listing showed four, which is worse
- * than not having it at all.
- *
- * The matchday IS still a server filter, so `total` arrives already cut to it.
+ * It reads the URL and counts here instead of being handed a number because
+ * NEITHER of the two filters goes to the server any more (see `MatchFilters`):
+ * as server-rendered text this line would keep saying forty while the listing
+ * showed eight, which is worse than not having it at all.
  */
 export function MatchCount({
-  counts,
-  total,
-  matchday,
+  matches,
+  teamIds,
 }: {
-  /** How many matches of this scope each team played. Every team is in here. */
-  counts: Record<string, number>
-  total: number
-  matchday: number | null
+  /** Every match of the phase, reduced to what the filters ask about. */
+  matches: MatchCut[]
+  /** The tournament's teams, to tell a filter from a made-up `?equipo=`. */
+  teamIds: string[]
 }) {
-  const team = parseTeamFilter(useSearchParams().get('equipo') ?? undefined, Object.keys(counts))
-  const shown = team === null ? total : counts[team]
+  const params = useSearchParams()
+  const matchday = parseMatchday(params.get('fecha') ?? undefined)
+  const team = parseTeamFilter(params.get('equipo') ?? undefined, teamIds)
+
+  const shown = countCut(matches, matchday, team)
 
   return (
     <p className="mt-1 text-sm text-muted">
-      {total === 0
+      {matches.length === 0
         ? 'Todavía no hay partidas cargadas.'
         : `${shown} partida${shown === 1 ? '' : 's'}${
-            team !== null || matchday !== null ? ' en este recorte' : ' cargadas'
+            matchday !== null || team !== null ? ' en este recorte' : ' cargadas'
           }.`}
     </p>
   )

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import type { MouseEventHandler } from 'react'
 
 /**
  * The site's filter chip.
@@ -11,11 +12,33 @@ import Link from 'next/link'
  * It is a `<Link>` and not a button because the filter travels in the URL: the
  * page stays a server component, the scope can be shared by pasting the link
  * and it works without JavaScript.
+ *
+ * `prefetch` AND `onClick` ARE BOTH ABOUT THE WAIT after the click, and they
+ * are the two answers to it. A chip whose page has to be asked for gets
+ * `prefetch` - these pages are `force-dynamic`, and Next does not prefetch
+ * those unless it is told to, so without it every chip is a round trip with the
+ * visitor watching. A chip whose page is ALREADY IN THE BROWSER gets an
+ * `onClick` that preventDefaults and writes the URL by hand instead. Neither is
+ * this component's decision: see `ScopeNav`.
  */
-export function Chip({ label, href, active }: { label: string; href: string; active: boolean }) {
+export function Chip({
+  label,
+  href,
+  active,
+  prefetch,
+  onClick,
+}: {
+  label: string
+  href: string
+  active: boolean
+  prefetch?: boolean
+  onClick?: MouseEventHandler<HTMLAnchorElement>
+}) {
   return (
     <Link
       href={href}
+      prefetch={prefetch}
+      onClick={onClick}
       aria-current={active ? 'true' : undefined}
       // py-2 and not py-1: with `text-xs` the chip stood 26px tall and it is
       // the most-tapped control on the site - matchday, group, view and order,
