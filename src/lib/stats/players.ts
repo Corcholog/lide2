@@ -6,7 +6,7 @@
  * writing a function and listing it in the registry.
  */
 
-import { formatKda, formatNumber, formatPosition, ROLES } from '@/lib/format'
+import { formatKda, formatKdaAverage, formatNumber, formatPosition, ROLES } from '@/lib/format'
 import { playerPath } from '@/lib/routes'
 import { block, minGamesForAverages, rankRows } from './rank'
 import type { StatBlock, StatsData } from './types'
@@ -32,8 +32,24 @@ function minimumNote(min: number): string | null {
   return min > 1 ? `Mínimo ${min} partidas` : null
 }
 
+/** How many games it took, which every line below ends with. */
+function played(games: number): string {
+  return `${games} ${games === 1 ? 'partida' : 'partidas'}`
+}
+
+/** The K/D/A of the whole cut. Only for the ranking that sorts by it. */
 function record(row: PlayerPhaseTotalsRow): string {
-  return `${formatKda(row.kills, row.deaths, row.assists)} · ${row.games} ${row.games === 1 ? 'partida' : 'partidas'}`
+  return `${formatKda(row.kills, row.deaths, row.assists)} · ${played(row.games)}`
+}
+
+/** The same, per game: the unit nearly every one of these cards ranks by. */
+function average(row: PlayerPhaseTotalsRow): string {
+  return `${formatKdaAverage(row.avg_kills, row.avg_deaths, row.avg_assists)} · ${played(row.games)}`
+}
+
+/** A total brought down to one game. The view has no average for it. */
+function perGame(total: number, games: number): number {
+  return games > 0 ? total / games : 0
 }
 
 /** The shared base of nearly all of them: who, from where, and their KDA line. */
@@ -54,7 +70,7 @@ function playerRanking(
     // Only the ones with a page: an account with no `player_id` is one the
     // ingest could not resolve, and there is nowhere to send the reader.
     href: (row) => (row.player_id ? playerPath(row.player_id) : null),
-    detail: options.detail ?? record,
+    detail: options.detail ?? average,
     value: options.value,
     display: options.display,
     order: options.order,
@@ -75,8 +91,14 @@ export function mvp(data: StatsData): StatBlock | null {
       name: (row) => row.player_name ?? 'Desconocido',
       href: (row) => (row.player_id ? playerPath(row.player_id) : null),
       subtitle: (row) => [row.team_name, row.university_tag].filter(Boolean).join(' · ') || null,
+      // Per game, like the score above it: this view carries no averages of
+      // its own, so the three come down by the games they took.
       detail: (row) =>
-        `${formatKda(row.kills, row.deaths, row.assists)} · ${Math.round(row.kill_participation * 100)}% de participación`,
+        `${formatKdaAverage(
+          perGame(row.kills, row.games),
+          perGame(row.deaths, row.games),
+          perGame(row.assists, row.games),
+        )} · ${Math.round(row.kill_participation * 100)}% de participación`,
       value: (row) => row.avg_score,
       display: (value) => value.toFixed(2),
       // The view already returns it sorted; mvp_rank is what makes it stable.
@@ -110,7 +132,7 @@ export function bestFive(data: StatsData): StatBlock | null {
         subtitle: who(best),
         logo: null,
         href: best.player_id ? playerPath(best.player_id) : null,
-        detail: record(best),
+        detail: average(best),
         value: best.avg_score,
         display: formatPosition(role),
       },
@@ -129,9 +151,22 @@ export function bestFive(data: StatsData): StatBlock | null {
   come in, and somebody who played four games headed "Carnicero" over somebody
   who played two and killed more in each. That is a ranking of the calendar.
 
-  Nothing is lost by dividing. The line under every name is already the total
-  K/D/A and how many games it took - "26/8/14 · 4 partidas" - so the raw
-  numbers are still right there; what changes is what decides the order.
+  AND THE LINE UNDER THE NAME WENT WITH IT, which for a while it did not. It
+  stayed the total K/D/A and how many games it took - "8/2/27 · 2 partidas" -
+  underneath a number that was per game, and on a card called "Mayor KDA
+  promedio" reading 17.50 the line below looked like the average being ranked
+  and was not. It is the same K/D/A per game now - "4.0/1.0/13.5 · 2 partidas"
+  - so both numbers on the card are in the same unit, and the ranked one is
+  usually right there in the line: the 4.0 of "Carnicero" is the first of the
+  three.
+
+  The totals are not lost. They are the players' table one click away in
+  /estadisticas/tablas, and each player's own page. What was lost was being
+  able to tell which of the two numbers on a card you were reading.
+
+  ONE RANKING KEEPS THEM, "Mejor KDA", because its number IS the totals: every
+  kill and assist of the cut divided by every death. There the line is what the
+  ratio is made of, and the subtitle says which of the two KDAs it is.
 
   What is NOT divided: `best_killing_spree` is a maximum, and the average of a
   record is not a record; the multikills are a count of rare events, and "0.25
@@ -161,6 +196,8 @@ export function bestKda(data: StatsData): StatBlock | null {
     value: (row) => row.kda,
     display: (value) => value.toFixed(2),
     eligible: (row) => row.games >= min,
+    // The one line that stays a total, because this ratio is made of it.
+    detail: record,
   })
   return block('kda', 'Mejor KDA', rows, {
     subtitle: ['Sobre el total del recorte', minimumNote(min)].filter(Boolean).join(' · '),
