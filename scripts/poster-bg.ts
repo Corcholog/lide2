@@ -39,7 +39,7 @@ async function main(): Promise<void> {
   const image = sharp(SOURCE)
   const { width, height } = await image.metadata()
 
-  if (!width || !height) throw new Error(`No pude leer el tamaño de ${SOURCE}`)
+  if (!width || !height) throw new Error(`Could not read the size of ${SOURCE}`)
 
   const cropWidth = Math.round(height * (WIDTH / HEIGHT))
   const centred = Math.round(width * FOCUS_X - cropWidth / 2)
@@ -54,8 +54,8 @@ async function main(): Promise<void> {
     .toFile(OUTPUT)
 
   console.log(
-    `${OUTPUT}: ${info.width}x${info.height}, ${Math.round(info.size / 1024)} KB ` +
-      `(recorte de ${cropWidth}x${height} desde x=${left})`,
+    `${OUTPUT} · ${info.width}x${info.height} · ${Math.round(info.size / 1024)} KB ` +
+      `(cut ${cropWidth}x${height} from x=${left})`,
   )
 }
 
