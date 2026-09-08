@@ -3,6 +3,7 @@ import { DamageBar } from '@/components/match/DamageBar'
 import { GameIcon } from '@/components/match/GameIcon'
 import { championIcon, championName } from '@/lib/ddragon'
 import { formatGold, formatKda, playerName, riotTag } from '@/lib/format'
+import type { DetailPlayer } from '@/lib/matches'
 import type { MatchTeamStatsRow } from '@/types/db'
 import { playerPath } from '@/lib/routes'
 
@@ -20,32 +21,12 @@ import { playerPath } from '@/lib/routes'
  * at here; the match page, one click further down, is there for that.
  */
 
-/** The minimum of a player for the detail. No items or spells, on purpose. */
-export interface DetailPlayer {
-  matchPlayerId: string
-  side: 100 | 200
-  playerId: string | null
-  champion: string
-  position: string | null
-  riotGameName: string | null
-  riotTagLine: string | null
-  kills: number
-  deaths: number
-  assists: number
-  killParticipation: number
-  cs: number
-  csm: number
-  goldEarned: number
-  damageToChampions: number
-  visionScore: number
-  isMvp: boolean
-}
-
 export function MatchDetail({
   matchId,
   players,
   teamStats,
   teamNames,
+  teamIds,
   version,
   championNames: names,
 }: {
@@ -54,6 +35,12 @@ export function MatchDetail({
   /** Each side's totals, for the objectives. */
   teamStats: Map<100 | 200, MatchTeamStatsRow>
   teamNames: { 100: string; 200: string }
+  /**
+   * Who each side is, when it is known. Only used to mark the team a listing is
+   * about - see `markRule` - so it is optional: the match page draws this same
+   * detail with no team to mark.
+   */
+  teamIds?: { 100: string | null; 200: string | null }
   version: string
   championNames: Record<string, string>
 }) {
@@ -68,6 +55,7 @@ export function MatchDetail({
             key={side}
             side={side}
             name={teamNames[side]}
+            teamId={teamIds?.[side] ?? null}
             stats={teamStats.get(side)}
             players={players.filter((player) => player.side === side)}
             maxDamage={maxDamage}
@@ -96,6 +84,7 @@ const SIDE_TONE = {
 function Side({
   side,
   name,
+  teamId,
   stats,
   players,
   maxDamage,
@@ -104,6 +93,7 @@ function Side({
 }: {
   side: 100 | 200
   name: string
+  teamId: string | null
   stats: MatchTeamStatsRow | undefined
   players: DetailPlayer[]
   maxDamage: number
@@ -115,7 +105,11 @@ function Side({
   return (
     <section className={`border-2 border-line border-l-4 ${tone.border}`}>
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-surface px-3 py-2">
-        <h3 className={`text-sm font-bold ${tone.text}`}>{name}</h3>
+        {/* `data-team` is what `markRule` paints: opened from a listing that
+            is about one team, this says which of the two scoreboards is theirs. */}
+        <h3 data-team={teamId ?? undefined} className={`text-sm font-bold ${tone.text}`}>
+          {name}
+        </h3>
         <span className={`text-xs ${stats?.win ? 'text-win' : 'text-loss'}`}>
           {stats?.win ? 'Victoria' : 'Derrota'}
         </span>

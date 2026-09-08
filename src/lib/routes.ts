@@ -35,8 +35,8 @@ export function playerPath(playerId: string): string {
  * So the link that leads to the team says where it is leading FROM, in a
  * `desde` that travels in the URL. It is a key and not a path on purpose: the
  * value is read straight off a URL that anybody can type, and a key that is
- * looked up in this table can only ever come out as one of these three
- * destinations. A path taken as given is an open door to sending the visitor
+ * looked up in this table can only ever come out as one of the destinations
+ * below. A path taken as given is an open door to sending the visitor
  * wherever the person who wrote the link wanted.
  *
  * The keys stay in Spanish because they end up in shared links, like `fecha`
@@ -50,6 +50,10 @@ export const ORIGINS = {
   // back at all. The anchor is the `id` the section already carries.
   grupos: { href: '/#grupos', label: 'Portada' },
   equipos: { href: '/equipos', label: 'Equipos' },
+  // From the match listing, where every team name leads to its page. Not to be
+  // read as the singular `partida.<uuid>` below: that one comes from ONE match
+  // and leads back to it.
+  partidas: { href: '/partidas', label: 'Partidas' },
   tablas: { href: '/estadisticas/tablas', label: 'Tablas' },
 } as const
 

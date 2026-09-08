@@ -4,6 +4,7 @@ import { AddAccount } from '@/components/admin/AddAccount'
 import { AssignAccount } from '@/components/admin/AssignAccount'
 import { AssignRole } from '@/components/admin/AssignRole'
 import { RosterReview } from '@/components/admin/RosterReview'
+import { LIST_COLUMNS, MatchList, type ListMatch } from '@/components/match/MatchList'
 import { OpggLink } from '@/components/tournament/OpggLink'
 import {
   UniversityLogo,
@@ -12,16 +13,17 @@ import {
 import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { maybeRow, rows } from '@/lib/supabase/query'
+import { assetVersion, championNames } from '@/lib/ddragon'
 import { TOURNAMENT } from '@/lib/lide2/tournament'
-import { formatDate, formatDuration, formatNumber, formatPosition, playerName, riotTag } from '@/lib/format'
+import { loadMatchDetails } from '@/lib/matches'
+import { formatNumber, formatPosition, playerName, riotTag } from '@/lib/format'
 import type {
-  MatchSummaryRow,
   PlayerTotalsRow,
   RosterReviewRow,
   TeamAccountRow,
   TeamLineupRow,
 } from '@/types/db'
-import { isUuid, matchPath, originFrom, playerPath } from '@/lib/routes'
+import { isUuid, originFrom, playerPath } from '@/lib/routes'
 import { withQuery } from '@/lib/url'
 import { addPlayerAction, deleteTeamAction, removePlayerAction } from '../actions'
 
@@ -36,32 +38,6 @@ export const dynamic = 'force-dynamic'
  * mismo, uno de ellos peor.
  */
 const RECENT_MATCHES = 5
-
-/**
- * Las columnas del listado de partidas.
- *
- * En una sola línea y sin concatenar: supabase-js mira el TIPO de este string
- * para saber qué devuelve la consulta, y una suma deja de ser un literal y pasa
- * a ser `string`, lo que vuelve el resultado inusable. Misma razón que
- * DETAIL_COLUMNS en /partidas.
- */
-const MATCH_COLUMNS =
-  'id,played_at,round_label,game_length_ms,winning_side,blue_team_id,blue_team_name,red_team_id,red_team_name,blue_kills,red_kills'
-
-type RecentMatch = Pick<
-  MatchSummaryRow,
-  | 'id'
-  | 'played_at'
-  | 'round_label'
-  | 'game_length_ms'
-  | 'winning_side'
-  | 'blue_team_id'
-  | 'blue_team_name'
-  | 'red_team_id'
-  | 'red_team_name'
-  | 'blue_kills'
-  | 'red_kills'
->
 
 /**
  * Un inscripto de la planilla. Es otra cosa que un `player`: aca esta el nombre
@@ -148,7 +124,7 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
       isUuid(id)
         ? supabase
             .from('match_summaries')
-            .select(MATCH_COLUMNS)
+            .select(LIST_COLUMNS)
             .or(`blue_team_id.eq.${id},red_team_id.eq.${id}`)
             .order('played_at', { ascending: false, nullsFirst: false })
             .limit(RECENT_MATCHES)
@@ -168,7 +144,23 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
   const accounts = rows<TeamAccountRow>(accountsRes as never, 'the team accounts')
   const review = rows<RosterReviewRow>(reviewRes as never, 'the roster review')
   const totals = rows<PlayerTotalsRow>(totalsRes, 'the per-player totals')
-  const matches = rows<RecentMatch>(matchesRes as never, 'las últimas partidas del equipo')
+  const matches = rows<ListMatch>(matchesRes as never, 'las últimas partidas del equipo')
+
+  /*
+    Lo que la fila compartida dibuja además del marcador: los diez campeones, el
+    detalle que se abre y los nombres para escribirlos. Son dos consultas y un
+    catálogo por cinco partidas —ver `loadMatchDetails`—, y van después del
+    lote de arriba porque necesitan los ids que ese lote trae.
+  */
+  const version = await assetVersion(null)
+  const [detalle, champNames] = await Promise.all([
+    loadMatchDetails(
+      supabase,
+      matches.map((match) => match.id),
+    ),
+    championNames(version),
+  ])
+
   const memberIds = new Set(lineup.flatMap((slot) => (slot.player_id ? [slot.player_id] : [])))
   const confirmados = memberIds.size
 
@@ -388,6 +380,14 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
         bloque es un resumen. El botón lleva a /partidas con el filtro ya
         puesto, que es la misma pantalla a la que se llega desde el menú, no una
         segunda versión de ella.
+
+        SON LAS MISMAS FILAS QUE /partidas, y antes no lo eran: acá había un
+        listado propio de una línea —"Ganó · vs Rival · 12 – 7"— escrito desde
+        el punto de vista del equipo. Mantener dos listados de lo mismo terminó
+        como termina siempre: el de allá se llevó los campeones, el MVP y el
+        detalle que se abre, y este se quedó con el marcador pelado. Lo único
+        que hacía mejor —decir cuál de los dos números es del equipo— lo hace
+        ahora el resaltado, que es el mismo que pone el filtro en /partidas.
       */}
       <section className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-4">
@@ -407,13 +407,15 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
             Todavía no hay ninguna partida de este equipo con el replay cargado.
           </p>
         ) : (
-          <ul className="divide-y divide-line rounded-lg border border-line">
-            {matches.map((match) => (
-              <li key={match.id}>
-                <RecentMatchRow match={match} teamId={team.id} />
-              </li>
-            ))}
-          </ul>
+          <MatchList
+            from="equipos"
+            matches={matches}
+            playersByMatch={detalle.playersByMatch}
+            statsByMatch={detalle.statsByMatch}
+            version={version}
+            championNames={champNames}
+            highlight={team.id}
+          />
         )}
       </section>
 
@@ -469,54 +471,5 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
         </section>
       )}
     </div>
-  )
-}
-
-/**
- * Una partida vista desde el equipo cuya ficha se está mirando.
- *
- * El marcador se escribe siempre con este equipo primero, gane o pierda: en un
- * listado de "cómo viene", leer "12 – 7" y tener que fijarse de qué lado
- * estaba cada vez es la mitad del trabajo hecho por el que lee. El lado azul o
- * rojo no aparece porque acá no significa nada —eso se ve en la ficha de la
- * partida, que está a un clic.
- */
-function RecentMatchRow({ match, teamId }: { match: RecentMatch; teamId: string }) {
-  const isBlue = match.blue_team_id === teamId
-  const won = match.winning_side === (isBlue ? 100 : 200)
-  const rival = (isBlue ? match.red_team_name : match.blue_team_name) ?? 'Rival sin asignar'
-  const own = (isBlue ? match.blue_kills : match.red_kills) ?? 0
-  const theirs = (isBlue ? match.red_kills : match.blue_kills) ?? 0
-
-  return (
-    <Link
-      href={matchPath(match.id)}
-      className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2.5 text-sm transition-colors hover:bg-raised"
-    >
-      <span
-        className={`w-16 shrink-0 text-xs font-bold uppercase tracking-wide ${
-          won ? 'text-win' : 'text-loss'
-        }`}
-      >
-        {won ? 'Ganó' : 'Perdió'}
-      </span>
-
-      <span className="min-w-0 flex-1 truncate">
-        <span className="text-faint">vs </span>
-        <span className="font-medium">{rival}</span>
-      </span>
-
-      <span className="tabular shrink-0">
-        <span className={won ? 'text-win' : 'text-fg-soft'}>{own}</span>
-        <span className="mx-1 text-dim">–</span>
-        <span className={won ? 'text-fg-soft' : 'text-win'}>{theirs}</span>
-      </span>
-
-      <span className="shrink-0 text-xs text-faint">
-        {[match.round_label, formatDate(match.played_at), `${formatDuration(match.game_length_ms)} min`]
-          .filter(Boolean)
-          .join(' · ')}
-      </span>
-    </Link>
   )
 }
