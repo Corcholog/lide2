@@ -41,7 +41,6 @@ export function matchdayNumbers(data: StatsData): StatBlock | null {
   if (records.length === 0) return null
 
   const kills = records.reduce((total, row) => total + row.total_kills, 0)
-  const totalMs = records.reduce((total, row) => total + row.game_length_ms, 0)
   const longest = pick(records, (row) => row.game_length_ms)
   const shortest = pick(records, (row) => row.game_length_ms, 'asc')
   // The closest one is measured by gold: you can win 20-5 and have been level
@@ -59,7 +58,11 @@ export function matchdayNumbers(data: StatsData): StatBlock | null {
       name: 'Partidas jugadas',
       value: records.length,
       display: formatNumber(records.length),
-      detail: `${formatDuration(totalMs)} de juego`,
+      // No line under it. It used to add up every game's length - "434:31 de
+      // juego" - and seven hours of League is not a fact about the matchday:
+      // it is the same count of matches again, multiplied by how long a game
+      // lasts. The rows below already say what the long and the short ones
+      // were, which is the part of the duration anybody reads.
     },
     {
       id: 'kills',
