@@ -107,7 +107,11 @@ export function mvp(data: StatsData): StatBlock | null {
   )
 
   return block('mvp', 'MVP', rows, {
-    subtitle: 'Promedio del score: KDA con techo, participación en kills y un extra por ganar',
+    // "KDA con techo" was the honest description - the score caps it so a game
+    // without deaths does not run away with the ranking - and it was also the
+    // half of the line nobody could act on: a cap is an implementation detail
+    // of the formula, not something a reader can look up on the card.
+    subtitle: 'Promedio del score: KDA, participación en kills y un extra por ganar',
   })
 }
 
@@ -139,7 +143,9 @@ export function bestFive(data: StatsData): StatBlock | null {
     ]
   })
 
-  return block('quinteto', 'El quinteto', rows, { subtitle: 'El mejor score promedio de cada rol' })
+  return block('quinteto', 'El quinteto', rows, {
+    subtitle: 'El mejor score (KDA) promedio de cada rol',
+  })
 }
 
 /*

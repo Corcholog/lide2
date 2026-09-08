@@ -33,6 +33,69 @@ const GLOW = [
   'radial-gradient(60% 45% at -10% 100%, color-mix(in srgb, var(--color-steel) 26%, transparent) 0%, transparent 60%)',
 ].join(', ')
 
+/*
+ * WHAT SITS BETWEEN THE ARTWORK AND THE TEXT.
+ *
+ * The piece now carries the hero's painting behind it - see `poster-bg.ts` for
+ * the crop - and a poster is not a hero: there the text lives on the washed
+ * left and the picture keeps the right, while here the title, five rows and a
+ * footnote cover the whole 1080. So the painting can only ever be a texture,
+ * and this is what turns it into one.
+ *
+ * HEAVIEST AT THE TOP, which is the opposite of what a backdrop usually wants.
+ * The artwork's sky is nearly white and the title is 96px of Archivo Black over
+ * it: unwashed, that is 96px of nothing. Downwards the painting darkens on its
+ * own - it is black armour from the chest down - so the wash can ease off, and
+ * it closes again at the foot where the smallest text of the piece is.
+ *
+ * THESE ARE THE NUMBERS TO TURN. More painting: drop them. More text: raise
+ * them. The one with the least room is the first, because it is the one over
+ * the sky: the greys of a row's second line stop holding against white long
+ * before they stop holding against the armour further down.
+ */
+const BACKDROP = [
+  // Vignette, the same idea as the hero's: closes the corners so the piece
+  // ends in the tournament's black and not in a torn photo.
+  'radial-gradient(120% 75% at 50% 24%, transparent 24%, color-mix(in srgb, var(--canvas) 55%, transparent) 100%)',
+  // The wash.
+  [
+    'linear-gradient(to bottom',
+    'color-mix(in srgb, var(--canvas) 86%, transparent) 0%',
+    'color-mix(in srgb, var(--canvas) 78%, transparent) 38%',
+    'color-mix(in srgb, var(--canvas) 84%, transparent) 72%',
+    'color-mix(in srgb, var(--canvas) 93%, transparent) 100%)',
+  ].join(', '),
+].join(', ')
+
+/*
+ * WHAT KEEPS THE SMALL TEXT ON TOP OF THE PAINTING.
+ *
+ * The white holds by itself; the greys did not. "434:31 de juego" landing on
+ * the artwork's pale hair is grey on grey, and the reason is not the wash being
+ * too light: it is that the tokens under `fg-soft` were tuned to sit on a solid
+ * canvas, where `faint` and `dim` are a legible bottom step. Over a painting
+ * they are a smudge, and no amount of shadow saves a colour that close to what
+ * is behind it.
+ *
+ * So the piece uses TWO greys and not four: `fg` for what is being read - the
+ * title, the names - and `fg-soft` for everything that qualifies it. What
+ * separates the tiers here is size and weight, which a poster has plenty of:
+ * 96px against 28px says more about hierarchy than two shades of the same grey
+ * ever did.
+ *
+ * And every one of them carries this halo. Stacked shadows and not one: a
+ * single soft shadow moves the problem a few pixels, while four of increasing
+ * radius build a small dark ground that travels with the glyph, which is what
+ * makes a grey readable over a texture rather than merely over a colour. It is
+ * inherited from the content's wrapper, so nothing has to remember it.
+ */
+const HALO = [
+  '0 1px 2px color-mix(in srgb, var(--canvas) 92%, transparent)',
+  '0 0 6px color-mix(in srgb, var(--canvas) 92%, transparent)',
+  '0 0 16px color-mix(in srgb, var(--canvas) 85%, transparent)',
+  '0 0 34px color-mix(in srgb, var(--canvas) 70%, transparent)',
+].join(', ')
+
 export function StatPoster({
   block,
   kicker,
@@ -111,14 +174,31 @@ export function StatPoster({
             style={{ width: format.width, height: format.height }}
             className="relative flex flex-col overflow-hidden bg-canvas px-[72px] py-[64px] text-fg"
           >
+            {/*
+              The artwork. It is the file cut for this - 1080 x 1920, the taller
+              of the two formats - so the story uses it whole and the post takes
+              the same thing anchored at the top, losing the bottom. No
+              `crossOrigin`: it comes from this same origin, which is also what
+              lets html-to-image inline it without tainting the canvas.
+            */}
+            <img
+              src="/lide2-poster.jpg"
+              alt=""
+              aria-hidden
+              className="absolute inset-0 size-full object-cover object-top"
+            />
+            <div className="absolute inset-0" style={{ background: BACKDROP }} aria-hidden />
             <div className="absolute inset-0" style={{ background: GLOW }} aria-hidden />
 
-            <div className="relative flex h-full flex-col">
+            <div className="relative flex h-full flex-col" style={{ textShadow: HALO }}>
               <header className="flex items-baseline justify-between">
                 <span className="font-display text-[44px] uppercase leading-none tracking-tight">
-                  LIDE
+                  LIDE 2
                 </span>
-                <span className="text-[28px] uppercase tracking-[0.18em] text-accent">
+                {/* Bold: it is the only red on the piece until the first place
+                    below, and at 28px in a wide tracking the accent was reading
+                    as a grey that happened to be warm. */}
+                <span className="text-[28px] font-bold uppercase tracking-[0.18em] text-accent">
                   {kicker}
                 </span>
               </header>
@@ -157,9 +237,9 @@ export function StatPoster({
               </ol>
 
               <footer className="flex items-end justify-between border-t-2 border-line pt-[24px]">
-                <span className="text-[26px] text-dim">LIDE 2 · Red UNCI</span>
+                <span className="text-[26px] text-fg-soft">LIDE 2 · Red UNCI</span>
                 {block.note && (
-                  <span className="max-w-[60%] text-right text-[24px] leading-tight text-faint">
+                  <span className="max-w-[60%] text-right text-[24px] leading-tight text-fg-soft">
                     {block.note}
                   </span>
                 )}
@@ -204,7 +284,12 @@ function Row({
           src={row.logo}
           alt=""
           crossOrigin="anonymous"
-          className="size-[72px] shrink-0 object-contain"
+          // 96 and not 72: in "Los más elegidos" this is the champion's
+          // portrait, and the portrait IS what that ranking is about - at 72 it
+          // sat below the name beside it and read as a bullet point. It clears
+          // the two lines of the row (a 50px name over a 28px line), so nothing
+          // grows to make room for it.
+          className="size-[96px] shrink-0 object-contain"
         />
       )}
 
@@ -217,7 +302,7 @@ function Row({
           {row.name}
         </p>
         {(row.subtitle || row.detail) && (
-          <p className="mt-[6px] truncate text-[28px] leading-tight text-faint">
+          <p className="mt-[6px] truncate text-[28px] leading-tight text-fg-soft">
             {[row.subtitle, row.detail].filter(Boolean).join(' · ')}
           </p>
         )}
