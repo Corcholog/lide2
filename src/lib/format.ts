@@ -27,6 +27,26 @@ export function formatKda(kills: number, deaths: number, assists: number): strin
 }
 
 /**
+ * The same three numbers, per game: "4/1/13.5".
+ *
+ * A DECIMAL ONLY WHERE THERE IS ONE. Four kills a game is four kills a game,
+ * and writing it "4.0" to match the assists beside it spends a character on
+ * saying nothing - three of them, on a line that already competes for room
+ * with the champion or the university next to it.
+ *
+ * It rounds before deciding, so a total divided by its games cannot come out
+ * as "6.0" for what is exactly six: the float that lands on 5.999999 is a six.
+ */
+export function formatKdaAverage(kills: number, deaths: number, assists: number): string {
+  return [kills, deaths, assists].map(oneDecimal).join('/')
+}
+
+function oneDecimal(value: number): string {
+  const rounded = Math.round(value * 10) / 10
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+}
+
+/**
  * The five roles, in lane order. It is the order a lineup is read in and the
  * one a scoreboard is drawn in.
  *

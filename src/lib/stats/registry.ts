@@ -28,7 +28,7 @@ export const SECTIONS: { id: StatSection; label: string; description: string }[]
   {
     id: 'universidades',
     label: 'Universidades',
-    description: 'Medido por jugador, no por equipo',
+    description: 'Cada jugador suma para su universidad, no para la de su equipo',
   },
   { id: 'meta', label: 'Meta', description: 'Qué se jugó y qué funcionó' },
   { id: 'records', label: 'Partidas', description: 'Las que se van a recordar' },
