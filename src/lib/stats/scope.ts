@@ -25,16 +25,26 @@ export const MATCHDAYS = CALENDAR.filter((milestone) => milestone.phase === 'gru
   (milestone, index) => ({ matchday: index + 1, label: milestone.label }),
 )
 
-/** `?fecha=2`, or the accumulated total when it is missing or unreadable. */
+/**
+ * `?fecha=2`, or the accumulated total when it is missing or unreadable.
+ *
+ * It is apart from `parseScope` because /partidas reads the matchday without a
+ * scope around it: there the cut is not a query to the database but a rule in
+ * the browser, so a tournament id would be a parameter with nothing to do.
+ */
+export function parseMatchday(value: string | string[] | undefined): number | null {
+  const raw = Array.isArray(value) ? value[0] : value
+  const matchday = Number(raw)
+
+  return MATCHDAYS.some((entry) => entry.matchday === matchday) ? matchday : null
+}
+
+/** The same, as the slice the stats queries are filtered by. */
 export function parseScope(
   value: string | string[] | undefined,
   tournamentId: string,
 ): StatScope {
-  const raw = Array.isArray(value) ? value[0] : value
-  const matchday = Number(raw)
-  const valid = MATCHDAYS.some((entry) => entry.matchday === matchday)
-
-  return { tournamentId, phase: 'grupos', matchday: valid ? matchday : null }
+  return { tournamentId, phase: 'grupos', matchday: parseMatchday(value) }
 }
 
 /**
