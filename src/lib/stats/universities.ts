@@ -35,7 +35,8 @@ function universityRanking(
     logo: (row) => row.university_logo,
     detail:
       options.detail ??
-      ((row) => `${row.teams} ${row.teams === 1 ? 'equipo' : 'equipos'} · ${row.players} jugadores`),
+      ((row) =>
+        `${counted(row.teams, 'equipo', 'equipos')} · ${counted(row.players, 'jugador', 'jugadores')}`),
     value: options.value,
     display: options.display,
     eligible: options.eligible,
@@ -49,22 +50,63 @@ function universityRanking(
  * With a minimum number of appearances so a university that fielded one player
  * in one match cannot head the table on 100%.
  */
+/**
+ * HOW THIS SECTION COUNTS, on every card of it.
+ *
+ * A team is not a university here. Most represent one, but the ones put
+ * together out of loose signups represent up to three, and the numbers of this
+ * section are each PLAYER'S, filed under the university they signed up with:
+ * a mixed five winning a game hands that game to the two or three universities
+ * standing in it, one appearance each. That is the only measure that compares a
+ * university with nine teams against one with a single team - see
+ * `perAppearance` - and it is also the one that surprises whoever reads "51-47"
+ * expecting their team's record.
+ *
+ * It goes on the four cards and not only on the table, and as a `note` and not
+ * as a line of the section, because a card is read alone: these get exported
+ * one at a time to Instagram, where the section heading it was sitting under
+ * does not travel and the note does - see `StatPoster`.
+ */
+const PER_PLAYER =
+  'Cuenta por jugador: en un plantel mixto, la misma partida suma para más de una universidad.'
+
 export function universityStandings(data: StatsData): StatBlock | null {
   const min = minGamesForAverages() * 5
   const rows = universityRanking(data, {
     value: (row) => row.win_pct,
     display: (value) => `${Math.round(value * 100)}%`,
     eligible: (row) => row.appearances >= min,
-    // The record only: "51-47 across 98 appearances" states the same fact
-    // twice - 51 plus 47 ARE the 98 - and that line is needed by the long
-    // university name, which is what actually did not fit.
-    detail: (row) => `${row.wins}-${row.losses}`,
+    /*
+      The record, and how many players it took.
+
+      Not the appearances: 47 plus 0 ARE the 47, and a line that says the same
+      thing twice is the reason this one was the record alone. The players are
+      another fact, and the one that keeps "47-0" from being read as matches -
+      which is exactly how it reads, and UNLP played nine. Twenty-six players
+      say at once that these are their games and not the university's.
+    */
+    detail: (row) => `${row.wins}-${row.losses} · ${counted(row.players, 'jugador', 'jugadores')}`,
   })
 
   return block('universidades', 'Tabla de universidades', rows, {
     subtitle: 'Porcentaje de victorias de sus jugadores',
-    note: 'Se cuenta por jugador y no por partido: hay equipos que representan a varias universidades a la vez.',
+    note: PER_PLAYER,
   })
+}
+
+/**
+ * "1 equipo", "3 equipos", "1 jugador", "15 jugadores".
+ *
+ * The singular was being handled for the teams and not for the players: a
+ * university that entered one player read "1 equipo · 1 jugadores".
+ *
+ * Both words are spelled out rather than derived. Spanish does not make its
+ * plural the same way twice - "equipo" takes an -s and "jugador" an -es - and
+ * a rule that guesses turns the bug around: it fixed the players and started
+ * printing "6 equipoes".
+ */
+function counted(n: number, singular: string, plural: string): string {
+  return `${n} ${n === 1 ? singular : plural}`
 }
 
 /**
@@ -98,6 +140,7 @@ export function universityKills(data: StatsData): StatBlock | null {
 
   return block('universidades-kills', 'Más kills por universidad', rows, {
     subtitle: 'Kills de cada jugador por partida',
+    note: PER_PLAYER,
   })
 }
 
@@ -109,6 +152,7 @@ export function universityDamage(data: StatsData): StatBlock | null {
 
   return block('universidades-dano', 'Más daño por universidad', rows, {
     subtitle: 'Daño de cada jugador por partida',
+    note: PER_PLAYER,
   })
 }
 
@@ -133,5 +177,6 @@ export function universityOfTheDay(data: StatsData): StatBlock | null {
 
   return block('universidad-fecha', 'Universidad destacada', rows, {
     subtitle: 'Mejor score promedio de sus jugadores',
+    note: PER_PLAYER,
   })
 }
