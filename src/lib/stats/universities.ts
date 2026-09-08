@@ -176,7 +176,7 @@ export function universityOfTheDay(data: StatsData): StatBlock | null {
   })
 
   return block('universidad-fecha', 'Universidad destacada', rows, {
-    subtitle: 'Mejor score promedio de sus jugadores',
+    subtitle: 'Mejor score (KDA) promedio de sus jugadores',
     note: PER_PLAYER,
   })
 }
