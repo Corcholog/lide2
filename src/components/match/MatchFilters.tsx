@@ -1,6 +1,7 @@
 'use client'
 
 import { useSearchParams } from 'next/navigation'
+import { markRule } from '@/components/match/mark'
 import { ScopeNav } from '@/components/stats/ScopeNav'
 import { parseTeamFilter } from '@/lib/stats/scope'
 import { GROUP_OPTIONS } from '@/lib/stats/tables'
@@ -33,6 +34,11 @@ import { withQuery } from '@/lib/url'
  * `useSearchParams` reads the URL of the request - writes that same rule into
  * the HTML. The filter works with the scripting off, which is what the submit
  * button hidden by `.sin-js` is for.
+ *
+ * THE ROWS THAT STAY SAY WHICH TEAM YOU PICKED. The style also marks that
+ * team's name wherever the listing draws it - the row, and the detail's header
+ * once it is opened. That is `markRule`, shared with a team's page so a
+ * listing filtered by hand and one that is already about a team read the same.
  *
  * THE MATCHDAY IS STILL A SERVER FILTER: it changes which matches get read at
  * all. It is rendered from in here so its links carry whichever team is chosen:
@@ -140,19 +146,31 @@ export function MatchFilters({
 }
 
 /**
- * The filter itself, written as CSS.
+ * The filter itself, written as CSS: which rows stay, and the team marked in
+ * the ones that do.
  *
  * `~=` matches one word of `data-equipos`, which carries the match's two team
  * ids: the row stays if the chosen team is one of the two. When that team has
  * nothing in this matchday the listing goes and the note takes its place, which
  * is the case the server used to answer with an empty list.
  *
+ * THE MARK IS THE OTHER HALF OF THE FILTER, and not decoration: cut to one
+ * team, every row still reads "A against B" with nothing saying which of the
+ * two you asked for. It is `markRule`, the same rule a team's page writes on
+ * the server, which is what keeps the two looking alike.
+ *
  * The id is interpolated into a selector, so it can only ever be one that came
  * out of the database: `parseTeamFilter` checks it against the tournament's
  * teams before it gets here, and anything else is not a filter at all.
  */
 function filterRule(teamId: string, empty: boolean): string {
-  const hide = `#partidas > li:not([data-equipos~="${teamId}"]) { display: none }`
+  const rules = [
+    `#partidas > li:not([data-equipos~="${teamId}"]) { display: none }`,
+    markRule(teamId),
+  ]
 
-  return empty ? `${hide} #partidas { display: none } #sin-equipo { display: block }` : hide
+  // Nothing played: the listing goes and the note that explains it comes out.
+  if (empty) rules.push('#partidas { display: none }', '#sin-equipo { display: block }')
+
+  return rules.join(' ')
 }
