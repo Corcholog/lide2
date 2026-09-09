@@ -103,6 +103,40 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
     matches.map((match) => match.id),
   )
 
+  /*
+    LO QUE HACE POR MINUTO, y no por partida.
+
+    Daño, CS y visión crecían con lo que duraba el partido: 12.000 de daño en
+    una de 40 minutos es la mitad de trabajo que 12.000 en una de 20, y
+    promediados por partida los dos jugadores salían iguales. El de un equipo
+    que cierra rápido quedaba siempre abajo, y eso no es cómo jugó sino cuánto
+    duró.
+
+    SE DIVIDE EN CADA PARTIDA Y RECIÉN DESPUÉS SE PROMEDIA, que no es lo mismo
+    que dividir los totales: así las dos partidas pesan igual, y la larga no
+    arrastra el número hacia ella por el solo hecho de haber durado más.
+
+    El daño y el CS por minuto ya los calcula la base partida por partida
+    —`dpm` y `csm` de match_player_scores— y son los mismos que promedia
+    player_phase_totals para la tabla de jugadores: se usan esos y no una cuenta
+    propia, porque el mismo jugador tiene que dar el mismo número acá y allá. La
+    visión es la única que la base no trae por minuto.
+
+    El piso de un minuto es el de la base (0010 divide por
+    `greatest(game_length_ms / 60000, 1)`): sin él, un remake de treinta
+    segundos multiplicaría por dos todo lo que pasó en él.
+  */
+  const minutes = new Map(
+    matches.map((match) => [match.id, Math.max((match.game_length_ms ?? 0) / 60000, 1)]),
+  )
+
+  const rated = scores.filter((score) => minutes.has(score.match_id))
+  const mean = (of: (score: MatchPlayerScoreRow) => number) =>
+    rated.length > 0 ? rated.reduce((total, score) => total + of(score), 0) / rated.length : 0
+
+  const dpm = mean((score) => Number(score.dpm))
+  const csm = mean((score) => Number(score.csm))
+  const vpm = mean((score) => score.vision_score / minutes.get(score.match_id)!)
   const version = await assetVersion(matches[0]?.patch ?? null)
   const champNames = await championNames(version)
   const name = playerName(player.riot_game_name, player.display_name)
@@ -183,14 +217,19 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
               hint="de las jugadas"
               accent
             />
+            {/*
+              El KDA es del recorte entero —todas las kills y asistencias sobre
+              todas las muertes— y la línea de abajo es lo que hace en una
+              partida. Los tres que siguen son por minuto: ver arriba.
+            */}
             <Stat
               label="KDA"
               value={totals.kda}
-              hint={`${totals.avg_kills}/${totals.avg_deaths}/${totals.avg_assists}`}
+              hint={`${totals.avg_kills}/${totals.avg_deaths}/${totals.avg_assists} por partida`}
             />
-            <Stat label="Daño" value={formatNumber(totals.avg_damage)} hint="promedio" />
-            <Stat label="CS" value={totals.avg_cs} hint="promedio" />
-            <Stat label="Visión" value={totals.avg_vision} hint="promedio" />
+            <Stat label="Daño" value={formatNumber(Math.round(dpm))} hint="por minuto" />
+            <Stat label="CS" value={csm.toFixed(1)} hint="por minuto" />
+            <Stat label="Visión" value={vpm.toFixed(2)} hint="por minuto" />
           </section>
 
           <section className="flex flex-col gap-2">
