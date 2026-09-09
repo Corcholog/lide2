@@ -67,6 +67,34 @@ export function multisearchUrl(accounts: OpggAccount[]): string | null {
   return `https://op.gg/${LOCALE}/lol/multisearch/${REGION}?summoners=${summoners.join(SEPARATOR)}`
 }
 
+/**
+ * ONE account's own page, which is a different URL and not a multisearch of
+ * one.
+ *
+ * The Riot ID travels in the PATH here, and that changes how it has to be
+ * written: spaces go as %20 - the `+` above is a query-string convention and in
+ * a path it would be read as a literal plus - and the `#` between the name and
+ * the tag becomes a hyphen.
+ *
+ *   https://op.gg/es/lol/summoners/las/Axitas%20Alexis%2099-LAS
+ *
+ * The name and the tag are joined BEFORE encoding, and that is what leaves the
+ * hyphen readable: `encodeURIComponent` does not touch one. It also means a
+ * nick carrying a hyphen of its own comes out with both, which is what op.gg's
+ * own links do - it reads the tag off the last one.
+ *
+ * Without a tag there is no link, for the reason `multisearchUrl` gives: a
+ * Riot ID is not unique without it.
+ */
+export function summonerUrl(account: OpggAccount): string | null {
+  const gameName = account.gameName?.trim()
+  const tagLine = account.tagLine?.trim()
+
+  if (!gameName || !tagLine) return null
+
+  return `https://op.gg/${LOCALE}/lol/summoners/${REGION}/${encodeURIComponent(`${gameName}-${tagLine}`)}`
+}
+
 /** How many of those accounts op.gg can actually look up. */
 export function searchableCount(accounts: OpggAccount[]): number {
   return accounts.filter((account) => account.gameName?.trim() && account.tagLine?.trim()).length

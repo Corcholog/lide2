@@ -414,7 +414,7 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
             statsByMatch={detalle.statsByMatch}
             version={version}
             championNames={champNames}
-            highlight={team.id}
+            team={team.id}
           />
         )}
       </section>
