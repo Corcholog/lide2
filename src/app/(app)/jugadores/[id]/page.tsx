@@ -7,6 +7,7 @@ import { formatNumber, formatPosition, playerName, riotTag } from '@/lib/format'
 import { loadMatchDetails } from '@/lib/matches'
 import { GameIcon } from '@/components/match/GameIcon'
 import { LIST_COLUMNS, MatchList, type ListMatch } from '@/components/match/MatchList'
+import { OpggPlayerLink } from '@/components/tournament/OpggLink'
 import { teamPath } from '@/lib/routes'
 import type {
   MatchPlayerScoreRow,
@@ -146,14 +147,26 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
           </p>
         </div>
 
-        {totals && totals.mvp_count > 0 && (
-          <p className="text-sm text-muted">
-            <span className="mr-2 rounded bg-accent-strong px-1.5 py-0.5 text-xs font-bold text-white">
-              {totals.mvp_count}
-            </span>
-            {totals.mvp_count === 1 ? 'MVP' : 'MVPs'} en {totals.games} partidas
-          </p>
-        )}
+        {/*
+          El rango, el pool y las rankeds de la cuenta: lo mismo que la ficha de
+          un equipo linkea para los cinco, acá para uno. Va en el mismo rincón
+          del encabezado que allá —a la derecha, enfrentado al nombre— porque es
+          la misma puerta: quien aprendió qué hace el cuadrado azul en un lado no
+          tiene que volver a aprenderlo en el otro.
+        */}
+        <div className="flex items-center gap-3">
+          <OpggPlayerLink
+            account={{ gameName: player.riot_game_name, tagLine: player.riot_tag_line }}
+          />
+          {totals && totals.mvp_count > 0 && (
+            <p className="text-sm text-muted">
+              <span className="mr-2 rounded bg-accent-strong px-1.5 py-0.5 text-xs font-bold text-white">
+                {totals.mvp_count}
+              </span>
+              {totals.mvp_count === 1 ? 'MVP' : 'MVPs'} en {totals.games} partidas
+            </p>
+          )}
+        </div>
       </header>
 
       {!totals ? (
