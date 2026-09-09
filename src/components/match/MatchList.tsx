@@ -67,7 +67,8 @@ export function MatchList({
   version,
   championNames: champNames,
   from,
-  highlight = null,
+  team = null,
+  player = null,
 }: {
   matches: ListMatch[]
   /** Each match's ten players, in lane order. See `loadMatchDetails`. */
@@ -76,18 +77,31 @@ export function MatchList({
   statsByMatch: Map<string, Map<100 | 200, MatchTeamStatsRow>>
   version: string
   championNames: Record<string, string>
-  /** Where the team names lead FROM, for the back arrow on their page. */
-  from: Origin
   /**
-   * A team to mark in every row, for a listing that is already about it. On
-   * /partidas it is left out: there the team is picked in the browser and it is
-   * `MatchFilters` that writes the same rule.
+   * Where the team names lead FROM, for the back arrow on their page. Left out
+   * where no entry of the table fits - a player's page is reached from the
+   * tables and from a match, and neither is this listing.
    */
-  highlight?: string | null
+  from?: Origin
+  /**
+   * A team to underline in every row, for a listing that is already about it.
+   * On /partidas it is left out: there the team is picked in the browser and it
+   * is `MatchFilters` that writes the same rule.
+   */
+  team?: string | null
+  /**
+   * A player to ring in every row, on the portrait of whatever they played.
+   *
+   * It is the other half of the same question the underline answers - which of
+   * these ten is the one I came for - asked one level down: a player's history
+   * is rows of a match, and without this the champion they played is one of ten
+   * portraits with nothing to tell it apart.
+   */
+  player?: string | null
 }) {
   return (
     <>
-      {highlight !== null && <style>{markRule(highlight)}</style>}
+      {team !== null && <style>{markRule(team)}</style>}
 
       {/*
         The id and the two attributes on each row are what /partidas' filters
@@ -141,6 +155,7 @@ export function MatchList({
                     version={version}
                     championNames={champNames}
                     from={from}
+                    player={player}
                   />
                   <div className="tabular shrink-0 text-center">
                     <p className="text-lg font-bold">
@@ -161,6 +176,7 @@ export function MatchList({
                     version={version}
                     championNames={champNames}
                     from={from}
+                    player={player}
                   />
                 </div>
 
@@ -227,25 +243,39 @@ function Champions({
   side,
   version,
   championNames: names,
+  player,
 }: {
   players: DetailPlayer[]
   side: 100 | 200
   version: string
   championNames: Record<string, string>
+  /** The one to ring, when the listing is about somebody. */
+  player: string | null
 }) {
-  const onSide = players.filter((player) => player.side === side)
+  const onSide = players.filter((entry) => entry.side === side)
   if (onSide.length === 0) return null
 
   return (
     <div className="hidden shrink-0 gap-0.5 md:flex">
-      {onSide.map((player) => {
-        const champion = championName(names, player.champion)
+      {onSide.map((entry) => {
+        const champion = championName(names, entry.champion)
+        const theirs = player !== null && entry.playerId === player
+
         return (
           <GameIcon
-            key={player.matchPlayerId}
-            src={championIcon(version, player.champion)}
-            alt={champion}
+            key={entry.matchPlayerId}
+            src={championIcon(version, entry.champion)}
+            // The ring is meaning and not decoration, so it is said out loud
+            // too: read aloud, the row is otherwise ten champions in a line.
+            alt={theirs ? `${champion}, el que jugó` : champion}
             size={32}
+            /*
+              Inside the portrait's own box and not around it: at 32px in a row
+              of five with two pixels between them, an outline drawn outside
+              would sit on the neighbour, and a border would push the other four
+              along. `-outline-offset-2` costs two pixels of art and no layout.
+            */
+            className={theirs ? 'outline-2 -outline-offset-2 outline-accent' : ''}
           />
         )
       })}
@@ -272,13 +302,15 @@ function SideBlock({
   version,
   championNames: names,
   from,
+  player,
 }: {
   match: ListMatch
   side: 100 | 200
   players: DetailPlayer[]
   version: string
   championNames: Record<string, string>
-  from: Origin
+  from?: Origin
+  player: string | null
 }) {
   const blue = side === 100
   const teamId = blue ? match.blue_team_id : match.red_team_id
@@ -298,7 +330,13 @@ function SideBlock({
           won={match.winning_side === side}
           from={from}
         />
-        <Champions players={players} side={side} version={version} championNames={names} />
+        <Champions
+          players={players}
+          side={side}
+          version={version}
+          championNames={names}
+          player={player}
+        />
       </div>
     </div>
   )
@@ -329,7 +367,8 @@ function SideName({
   teamId: string | null
   side: 100 | 200
   won: boolean
-  from: Origin
+  /** Without one the link is the bare path, and the arrow there falls back. */
+  from?: Origin
 }) {
   const blue = side === 100
   const color = won ? (blue ? 'text-side-blue' : 'text-side-red') : 'text-fg-soft'

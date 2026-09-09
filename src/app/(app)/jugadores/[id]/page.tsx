@@ -3,25 +3,19 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { maybeRow, rows } from '@/lib/supabase/query'
 import { assetVersion, championIcon, championName, championNames } from '@/lib/ddragon'
-import { formatDate, formatNumber, formatPosition, playerName, riotTag } from '@/lib/format'
+import { formatNumber, formatPosition, playerName, riotTag } from '@/lib/format'
+import { loadMatchDetails } from '@/lib/matches'
 import { GameIcon } from '@/components/match/GameIcon'
+import { LIST_COLUMNS, MatchList, type ListMatch } from '@/components/match/MatchList'
 import { teamPath } from '@/lib/routes'
 import type {
   MatchPlayerScoreRow,
-  MatchSummaryRow,
   PlayerChampionRow,
   PlayerProfileRow,
   PlayerTotalsRow,
 } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
-
-/** Una partida del historial: el score del jugador más el contexto del partido. */
-interface Game {
-  score: MatchPlayerScoreRow
-  summary: MatchSummaryRow | undefined
-  opponent: string | null
-}
 
 function percent(part: number, total: number): string {
   return total > 0 ? `${Math.round((part / total) * 100)}%` : '—'
@@ -84,35 +78,31 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
     rows<{ id: string; name: string }>(teamsRes, 'the teams').map((team) => [team.id, team.name]),
   )
 
-  // El contexto de cada partida (fecha, etapa, rival) vive en match_summaries.
-  const { data: summariesData } = scores.length
-    ? await supabase
-        .from('match_summaries')
-        .select('*')
-        .in('id', scores.map((score) => score.match_id))
-    : { data: [] }
+  /*
+    Las partidas que jugó, pedidas como las pide /partidas: las mismas columnas
+    y el mismo detalle, porque abajo se dibujan con la misma fila. El orden lo
+    hace Postgres y no un sort acá, que es donde estaba.
+  */
+  const matches = scores.length
+    ? rows<ListMatch>(
+        await supabase
+          .from('match_summaries')
+          .select(LIST_COLUMNS)
+          .in(
+            'id',
+            scores.map((score) => score.match_id),
+          )
+          .order('played_at', { ascending: false, nullsFirst: false }),
+        'las partidas del jugador',
+      )
+    : []
 
-  const summaries = new Map(
-    ((summariesData ?? []) as MatchSummaryRow[]).map((summary) => [summary.id, summary]),
+  const detalle = await loadMatchDetails(
+    supabase,
+    matches.map((match) => match.id),
   )
 
-  const games: Game[] = scores
-    .map((score) => {
-      const summary = summaries.get(score.match_id)
-      return {
-        score,
-        summary,
-        // El rival es el equipo del otro lado del que jugó.
-        opponent: (score.side === 100 ? summary?.red_team_name : summary?.blue_team_name) ?? null,
-      }
-    })
-    .sort((a, b) => {
-      const at = a.summary?.played_at ? new Date(a.summary.played_at).getTime() : 0
-      const bt = b.summary?.played_at ? new Date(b.summary.played_at).getTime() : 0
-      return bt - at
-    })
-
-  const version = await assetVersion(games[0]?.summary?.patch ?? null)
+  const version = await assetVersion(matches[0]?.patch ?? null)
   const champNames = await championNames(version)
   const name = playerName(player.riot_game_name, player.display_name)
   // El Riot ID que va debajo del nombre. Ver el comentario en el header.
@@ -224,72 +214,27 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
           </section>
 
           <section className="flex flex-col gap-2">
-            <h2 className="text-sm font-medium text-muted">Historial ({games.length})</h2>
-            <ul className="flex flex-col gap-2">
-              {games.map(({ score, summary, opponent }) => (
-                <li key={score.match_player_id}>
-                  <Link
-                    href={`/partidas/${score.match_id}`}
-                    className={`flex items-center gap-3 rounded-lg border bg-surface px-3 py-2.5 transition-colors hover:border-accent ${
-                      score.win ? 'border-accent-dim' : 'border-line'
-                    }`}
-                  >
-                    <span
-                      className={`w-6 shrink-0 text-center text-xs font-bold ${
-                        score.win ? 'text-win' : 'text-loss'
-                      }`}
-                    >
-                      {score.win ? 'V' : 'D'}
-                    </span>
+            <h2 className="text-sm font-medium text-muted">Historial ({matches.length})</h2>
+            {/*
+              LAS MISMAS FILAS QUE /partidas, con el anillo rojo sobre el
+              campeón que jugó. Acá había un listado propio —V/D, campeón,
+              rival, KDA, daño— y era el tercero de la misma cosa en el sitio.
+              Lo que ese decía de más no se perdió: la línea completa del
+              jugador está en el detalle que la fila despliega, con su MVP, su
+              CS y su oro, y de paso están los otros nueve.
 
-                    <GameIcon
-                      src={championIcon(version, score.champion)}
-                      alt={championName(champNames, score.champion)}
-                      size={32}
-                    />
-
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {championName(champNames, score.champion)}
-                      </p>
-                      <p className="truncate text-xs text-faint">
-                        {opponent ? `vs ${opponent}` : formatPosition(score.position)}
-                      </p>
-                    </div>
-
-                    <div className="hidden w-28 shrink-0 text-xs text-faint sm:block">
-                      <p className="tabular">{formatDate(summary?.played_at ?? null)}</p>
-                      <p className="truncate">
-                        {[summary?.stage_label, summary?.round_label].filter(Boolean).join(' · ') ||
-                          '—'}
-                      </p>
-                    </div>
-
-                    <div className="tabular w-20 shrink-0 text-right text-sm">
-                      <p>
-                        {score.kills}/{score.deaths}/{score.assists}
-                      </p>
-                      <p className="text-xs text-faint">{score.kda} KDA</p>
-                    </div>
-
-                    <div className="tabular hidden w-20 shrink-0 text-right text-xs text-faint md:block">
-                      <p>{formatNumber(score.damage_to_champions)}</p>
-                      <p>{score.cs} CS</p>
-                    </div>
-
-                    <div className="tabular w-14 shrink-0 text-right">
-                      {score.match_rank === 1 ? (
-                        <span className="rounded bg-accent-strong px-1.5 py-0.5 text-xs font-bold text-white">
-                          MVP
-                        </span>
-                      ) : (
-                        <span className="text-xs text-faint">{score.score}</span>
-                      )}
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+              El anillo es lo que reemplaza al ícono suelto que había a la
+              izquierda: en una fila de diez campeones hay que poder decir cuál
+              es el suyo sin abrir nada.
+            */}
+            <MatchList
+              matches={matches}
+              playersByMatch={detalle.playersByMatch}
+              statsByMatch={detalle.statsByMatch}
+              version={version}
+              championNames={champNames}
+              player={id}
+            />
           </section>
         </>
       )}
