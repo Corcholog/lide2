@@ -65,31 +65,83 @@ export function parseRole(value: string | string[] | undefined): RoleOption | nu
 }
 
 /**
- * The role filter, applied to whatever was already loaded.
+ * The role filter for the PLAYERS table, applied to what was already loaded.
  *
- * Same shape as the group one and for a stronger reason: the role is not a
- * dimension of any view, so this picks WHICH ROWS ARE DRAWN and never touches
- * the numbers inside them. A jungler who filled mid twice still carries those
- * two games in their averages, and a champion's pick rate stays measured
- * against every match in the scope, which is the only denominator that makes it
- * a rate.
+ * Here the role really is a filter on rows and not a dimension:
+ * `player_phase_totals.position` is a `mode()` - the lane each one played most
+ * - so this picks which people are drawn and never touches their numbers. A
+ * jungler who filled mid twice still carries those two games in their averages.
  *
- * A ROW WITH A LIST OF ROLES MATCHES ON ANY OF THEM. Champions carry one -
- * Camille gets played top and support - and while the filter compared against
- * `position`, which is only the commonest, that Camille answered to Top and to
- * nothing else: asking for supports hid a champion that had been played there.
- * Rows with a single `position` - players - are unchanged, and they are a
- * `mode()` too, so filling in another lane still does not move anybody.
+ * The champions do NOT come through here any more: see `championsInRole`.
  */
-export function byRole<T extends { position: string | null; positions?: string[] }>(
+export function byRole<T extends { position: string | null }>(
   rows: T[],
   role: RoleOption | null,
 ): T[] {
-  if (!role) return rows
+  return role ? rows.filter((row) => row.position === role.position) : rows
+}
 
-  return rows.filter((row) =>
-    row.positions ? row.positions.includes(role.position) : row.position === role.position,
-  )
+/**
+ * The champion rows a role asks for: that role's, or the whole champion's.
+ *
+ * The role is a DIMENSION of `champion_meta` and not a filter over it (0030).
+ * The view returns, for one scope, the row of each champion whole and one row
+ * per role it was played in, and `all_roles` says which is which - so choosing
+ * a role is choosing which rows to read, not which to throw away.
+ *
+ * It had to be that way round. Filtering the whole-champion rows was the first
+ * try and it answers the wrong question twice over: with `position` being only
+ * the commonest role, asking for supports hid a Camille that had been played
+ * support, and the Camille that did show up carried the numbers of all three of
+ * her picks - two of them from top. A promise of a role, delivering the
+ * champion. And it could not be fixed afterwards either: `avg_kda` and `dpm`
+ * are averages over picks, and there is no arithmetic that takes an average
+ * apart.
+ *
+ * Both kinds of row come back in the same query, unfiltered, because the page
+ * needs the whole-champion ones anyway: they are what carry the size of the
+ * scope - `matches`, `matches_with_bans` - and reading that off a role nobody
+ * played would say a matchday that WAS played is empty.
+ */
+export function championsInRole<T extends { all_roles?: boolean; position: string | null }>(
+  rows: T[],
+  role: RoleOption | null,
+): T[] {
+  return role
+    ? rows.filter((row) => row.all_roles === false && row.position === role.position)
+    : rows.filter(isWholeChampion)
+}
+
+/**
+ * Is this the row of a champion across every role?
+ *
+ * `!== false` and not a plain truth test, and `all_roles` optional: a view that
+ * predates 0030 does not have the column at all, and every row it returns IS a
+ * whole champion. Read as truthy, the unfiltered table - the one everybody
+ * lands on - would come out empty until the migration is run, and so would the
+ * scope's match count, which is worse: the page would answer "nothing has been
+ * played here" about a tournament that is half over.
+ *
+ * That is not hypothetical. It is what the page did the first time this was
+ * written, because the same idea was spelled out twice and only one of the two
+ * was careful.
+ */
+function isWholeChampion(row: { all_roles?: boolean }): boolean {
+  return row.all_roles !== false
+}
+
+/**
+ * One whole-champion row, for the things that are about the SCOPE and not about
+ * any champion: how many matches it holds and how many have their draft in.
+ *
+ * Every row carries them, but the per-role ones must not be the source: pick a
+ * role nobody played and there are none, and the count would read zero.
+ */
+export function scopeCounts<T extends { all_roles?: boolean; matches: number; matches_with_bans: number }>(
+  rows: T[],
+): { matches: number; withDraft: number } {
+  const whole = rows.find(isWholeChampion)
+  return { matches: whole?.matches ?? 0, withDraft: whole?.matches_with_bans ?? 0 }
 }
 
 /**

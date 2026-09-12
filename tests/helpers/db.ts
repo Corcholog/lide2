@@ -65,6 +65,7 @@ export const MIGRATIONS = [
   '0027_meta_promedios.sql',
   '0028_desempate_directo.sql',
   '0029_roles_por_campeon.sql',
+  '0030_estadisticas_por_rol.sql',
 ]
 
 /**
