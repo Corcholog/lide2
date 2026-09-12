@@ -59,6 +59,11 @@ describe('champion meta', () => {
       `select * from public.champion_meta
         where tournament_id = $1
           and phase = 'grupos'
+          -- The champion whole, which is the only thing this view returned
+          -- before 0030 gave it a role dimension. What the per-role rows say is
+          -- checked in champion-roles.test.ts; here they would be noise, and
+          -- without this line every scope would come back doubled.
+          and all_roles
           and all_groups = $2
           and group_label is not distinct from $3
           and all_matchdays = $4

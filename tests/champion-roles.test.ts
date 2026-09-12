@@ -25,6 +25,19 @@ interface RolesRow {
   picks: number
 }
 
+/** What a role row has to answer, beyond naming the role. */
+interface ScopedRow {
+  wins: number
+  win_pct: number | null
+  kda: number
+  avg_kda: number
+  bans: number | null
+  ban_rate: number | null
+  presence: number | null
+  pick_rate: number | null
+  matches: number
+}
+
 const RED = ['Darius', 'Zed', 'Orianna', 'Caitlyn', 'Leona']
 
 describe('the roles a champion was played in', () => {
@@ -101,11 +114,11 @@ describe('the roles a champion was played in', () => {
     await play('SUPPORT', 3)
   }, 60_000)
 
-  /** The champion's row in the accumulated scope of each view. */
+  /** The champion whole, in the accumulated scope of each view. */
   async function row(view: 'champion_meta' | 'champion_stats', champion: string) {
     const total =
       view === 'champion_meta'
-        ? 'all_groups and all_matchdays'
+        ? 'all_groups and all_matchdays and all_roles'
         : 'is_total'
 
     const { rows } = await db.query<RolesRow>(
@@ -113,6 +126,20 @@ describe('the roles a champion was played in', () => {
          from public.${view}
         where tournament_id = $1 and phase = 'grupos' and ${total} and champion = $2`,
       [tournamentId, champion],
+    )
+    return rows[0]
+  }
+
+  /** The champion in ONE role, which is what a filtered table draws. */
+  async function inRole(champion: string, role: string) {
+    const { rows } = await db.query<RolesRow & ScopedRow>(
+      `select champion, position, positions, picks, wins, win_pct, kda, avg_kda,
+              bans, ban_rate, presence, pick_rate, matches
+         from public.champion_meta
+        where tournament_id = $1 and phase = 'grupos'
+          and all_groups and all_matchdays and not all_roles
+          and champion = $2 and position = $3`,
+      [tournamentId, champion, role],
     )
     return rows[0]
   }
@@ -148,4 +175,73 @@ describe('the roles a champion was played in', () => {
       })
     })
   }
+
+  describe('the stats of one role', () => {
+    /*
+     * This is the half that 0029 was missing. Showing "Top, Soporte" beside a
+     * champion and then handing over the numbers of all three picks means the
+     * filter promises a role and delivers the whole champion.
+     *
+     * Camille's support pick is one game; her top picks are two. Any column
+     * that comes back with three behind it has not been split.
+     */
+    it('counts only the picks of that role', async () => {
+      const whole = await row('champion_meta', 'Camille')
+      const support = await inRole('Camille', 'SUPPORT')
+      const top = await inRole('Camille', 'TOP')
+
+      expect(whole.picks).toBe(3)
+      expect(support.picks).toBe(1)
+      expect(top.picks).toBe(2)
+    })
+
+    it('names the role it is about, and only that one', async () => {
+      const support = await inRole('Camille', 'SUPPORT')
+
+      expect(support.position).toBe('SUPPORT')
+      expect(support.positions).toEqual(['SUPPORT'])
+    })
+
+    it('splits the averages too, which is what could not be done afterwards', async () => {
+      // An average cannot be taken apart once it is taken: there is no way to
+      // get the support row out of the champion's row, which is why the role
+      // had to become a dimension of the view.
+      const support = await inRole('Camille', 'SUPPORT')
+
+      expect(Number(support.win_pct)).toBe(1)
+      expect(Number(support.wins)).toBe(1)
+      expect(Number(support.avg_kda)).toBeGreaterThan(0)
+    })
+
+    it('keeps the scope size, so a rate still has a denominator', async () => {
+      const support = await inRole('Camille', 'SUPPORT')
+
+      // Three matches were played; Camille went support in one of them.
+      expect(Number(support.matches)).toBe(3)
+      expect(Number(support.pick_rate)).toBeCloseTo(1 / 3, 2)
+    })
+
+    it('leaves the bans empty, because a ban has no role', async () => {
+      // Not zero: nobody banned "Camille support", the question does not exist.
+      const support = await inRole('Camille', 'SUPPORT')
+
+      expect(support.bans).toBeNull()
+      expect(support.ban_rate).toBeNull()
+      expect(support.presence).toBeNull()
+    })
+
+    it('has no row for a role the champion never played', async () => {
+      expect(await inRole('Camille', 'JUNGLE')).toBeUndefined()
+    })
+
+    it('adds its roles back up to the champion whole', async () => {
+      const whole = await row('champion_meta', 'Camille')
+      const parts = await Promise.all(
+        ['TOP', 'SUPPORT'].map((role) => inRole('Camille', role)),
+      )
+
+      expect(parts.reduce((total, part) => total + Number(part.picks), 0)).toBe(whole.picks)
+    })
+  })
 })
+
