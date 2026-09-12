@@ -131,9 +131,13 @@ describe('entering bans', () => {
     const guardados = await bansGuardados()
     expect(guardados[0].champion).toBe('FiddleSticks')
 
+    // `all_roles` because since 0030 the view also returns one row per role the
+    // champion was played in, and what is being counted here is the champion:
+    // that it is ONE and not two, the picks under one spelling and the bans
+    // under another.
     const { rows } = await db.query<{ picks: number; bans: number }>(
       `select picks, bans from public.champion_meta
-        where all_groups and all_matchdays and champion = 'FiddleSticks'`,
+        where all_groups and all_matchdays and all_roles and champion = 'FiddleSticks'`,
     )
 
     expect(rows).toHaveLength(1)

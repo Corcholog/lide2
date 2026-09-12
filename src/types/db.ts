@@ -496,6 +496,15 @@ export interface ChampionMetaRow {
   all_groups: boolean
   /** true = the row for the whole phase; false = one matchday's. */
   all_matchdays: boolean
+  /**
+   * true = the champion across every role; false = the champion in the one role
+   * `position` names, with every number counted over those picks alone.
+   *
+   * It is a dimension and not a filter, the same as the group and the matchday:
+   * an average cannot be taken apart after the fact, so the row for a role has
+   * to be aggregated as such.
+   */
+  all_roles: boolean
 
   champion: string
   /** The role it was played in most often. */
@@ -512,7 +521,12 @@ export interface ChampionMetaRow {
   kda: number
   avg_damage: number
   avg_score: number
-  bans: number
+  /**
+   * NULL on a per-role row. A ban is on the champion, not on a lane: "the times
+   * Camille was banned as a support" is not a quantity. Same for `ban_rate` and
+   * `presence`, which are built on it.
+   */
+  bans: number | null
   matches: number
   /** How many matches in the scope the bans were measured over. */
   matches_with_bans: number

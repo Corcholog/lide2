@@ -37,7 +37,8 @@ export interface ChampionRow {
   losses: number
   winPct: number | null
   pickRate: number | null
-  bans: number
+  /** Null when the rows are a single role: a ban is on the champion, not a lane. */
+  bans: number | null
   banRate: number | null
   presence: number | null
   /** The average of each game's KDA, not the ratio over the totals. */
@@ -63,7 +64,10 @@ export function ChampionTable({
   rows: ChampionRow[]
   version: string
   initial: SortOrder
-  /** Whether at least one match has its draft entered. */
+  /**
+   * Whether to draw the three ban columns. Off with no draft entered, and off
+   * with a role selected: bans have no role to be counted in.
+   */
   hasBans: boolean
 }) {
   const columns: Column<ChampionRow>[] = [
@@ -125,7 +129,9 @@ export function ChampionTable({
             id: 'bans',
             label: 'Bans',
             sort: (row) => row.bans,
-            cell: (row) => row.bans,
+            // Only ever drawn with `hasBans`, which the page turns off the
+            // moment a role is picked, so the null never reaches the screen.
+            cell: (row) => row.bans ?? '—',
           },
           {
             id: 'banrate',
