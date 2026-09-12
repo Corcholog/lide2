@@ -448,7 +448,14 @@ export interface UniversityTotalsRow extends StatScopeColumns {
  */
 export interface ChampionStatRow extends StatScopeColumns {
   champion: string
+  /** The role it was played in most often. */
   position: string | null
+  /**
+   * Every role it was played in, unordered: a champion is not one lane, and
+   * `position` alone hides the rest. Reading order is the UI's - the main one
+   * first, then the others by lane - see `championRoles` in `@/lib/format`.
+   */
+  positions: string[]
   picks: number
   wins: number
   losses: number
@@ -491,7 +498,10 @@ export interface ChampionMetaRow {
   all_matchdays: boolean
 
   champion: string
+  /** The role it was played in most often. */
   position: string | null
+  /** Every role it was played in, unordered. See `ChampionStatRow.positions`. */
+  positions: string[]
   picks: number
   wins: number
   losses: number

@@ -88,6 +88,7 @@ function champion(over: Partial<ChampionStatRow>): ChampionStatRow {
     is_total: true,
     champion: 'Ahri',
     position: 'MIDDLE',
+    positions: ['MIDDLE'],
     picks: 5,
     wins: 3,
     losses: 2,
