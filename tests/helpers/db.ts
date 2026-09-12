@@ -63,6 +63,7 @@ export const MIGRATIONS = [
   '0025_kda_promedio.sql',
   '0026_minimo_una_partida.sql',
   '0027_meta_promedios.sql',
+  '0028_desempate_directo.sql',
 ]
 
 /**

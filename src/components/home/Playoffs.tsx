@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Tabs } from '@/components/nav/Tabs'
 import { dayAndMonth } from '@/lib/lide2/dates'
-import { forSlot, type SlotProjection } from '@/lib/lide2/projection'
+import { forSlot, type SlotCandidate, type SlotProjection } from '@/lib/lide2/projection'
 import { FINAL_ROUND, seriesWinner } from '@/lib/lide2/winner'
 import { teamPath } from '@/lib/routes'
 import type { SeriesResultRow } from '@/types/db'
@@ -19,31 +19,36 @@ const ROUNDS = [
 ]
 
 /**
- * What an empty slot has to show instead of its placeholder, or null when there
- * is nothing to say.
+ * The team that goes into an empty slot, or null while there is none to name.
+ *
+ * TWO CONDITIONS, both needed. The team has to have played every game of its
+ * group, and the slot has to be settled - it takes that place however the games
+ * still to come turn out. Anything short of that shows nothing at all: no list
+ * of possibles, no hedge.
+ *
+ * The arithmetic knows more than this. The head to head settles most places
+ * with a matchday still to go, and the projection can name them. Saying so is
+ * what takes the air out of the last matchday, so the bracket waits until a
+ * team is actually done. It is a decision about running a tournament and not
+ * about being right, which is why it lives here and not in `projection.ts` -
+ * that one keeps saying everything it can work out, and this picks what is
+ * worth showing.
  *
  * The team the organizers wrote down always wins: once `team_a_id` is filled
- * in, the group phase is over and the projection has nothing to add. And a slot
- * whose group is not being projected - the semis and the final, which hang off
- * other series and not off a table - returns null and keeps its placeholder.
- *
- * A slot whose list names the whole group does have something to say - that
- * nobody is out of it yet - and `Possibles` is where that gets said. It used to
- * be swallowed here, and an empty slot beside one carrying three names does not
- * read as "anybody can still get there": it reads as a number the site failed
- * to work out.
+ * in, the group phase is over and there is nothing to project. And a slot that
+ * comes from another series - the semis and the final - has no group table
+ * behind it and keeps its placeholder.
  */
 function preview(
   slots: SlotProjection[],
   teamId: string | null,
   label: string | null,
-): SlotProjection | null {
+): SlotCandidate | null {
   if (teamId) return null
 
-  const slot = forSlot(slots, label)
-  if (!slot || (!slot.locked && slot.candidates.length === 0)) return null
+  const settled = forSlot(slots, label)?.locked ?? null
 
-  return slot
+  return settled?.finished ? settled : null
 }
 
 export function Playoffs({
@@ -224,7 +229,7 @@ function SeriesCard({ series, slots }: { series: SeriesResultRow; slots: SlotPro
         id={series.team_a_id}
         name={series.team_a_name}
         slot={series.slot_a_label}
-        projection={preview(slots, series.team_a_id, series.slot_a_label)}
+        settled={preview(slots, series.team_a_id, series.slot_a_label)}
         wins={series.wins_a}
         won={decided && series.winner_team_id === series.team_a_id}
         pending={!decided}
@@ -233,7 +238,7 @@ function SeriesCard({ series, slots }: { series: SeriesResultRow; slots: SlotPro
         id={series.team_b_id}
         name={series.team_b_name}
         slot={series.slot_b_label}
-        projection={preview(slots, series.team_b_id, series.slot_b_label)}
+        settled={preview(slots, series.team_b_id, series.slot_b_label)}
         wins={series.wins_b}
         won={decided && series.winner_team_id === series.team_b_id}
         pending={!decided}
@@ -246,11 +251,12 @@ function SeriesCard({ series, slots }: { series: SeriesResultRow; slots: SlotPro
  * One side of a series: the team, or where it is going to come from.
  *
  * Three states now instead of two. With the team entered it is drawn as it
- * always was. With the slot already settled by arithmetic the projected name
+ * always was. With the group finished and the slot settled, the projected name
  * takes the place of the placeholder and goes in red, which is the site's way
  * of saying "this one is in" - the group table paints the two qualifying rows
- * with the same accent. With the place still open the placeholder stays and the
- * teams that can reach it go underneath.
+ * with the same accent. While the group is still being played, everything is
+ * shown as what can still happen, settled or not, and the teams that can reach
+ * the place go underneath the placeholder.
  *
  * Every name that has a team behind it leads to that team's page, the same as
  * in the group tables and in the fixture, and the projected ones lead there
@@ -266,7 +272,7 @@ function SeriesTeam({
   id,
   name,
   slot,
-  projection,
+  settled,
   wins,
   won,
   pending,
@@ -274,17 +280,16 @@ function SeriesTeam({
   id: string | null
   name: string | null
   slot: string | null
-  projection: SlotProjection | null
+  settled: SlotCandidate | null
   wins: number
   won: boolean
   pending: boolean
 }) {
-  const locked = projection?.locked ?? null
-  const shown = name ?? locked?.teamName ?? null
-  const teamId = id ?? locked?.teamId ?? null
+  const shown = name ?? settled?.teamName ?? null
+  const teamId = id ?? settled?.teamId ?? null
 
   // Projected: the name is not in the database yet, arithmetic put it there.
-  const projected = !name && locked !== null
+  const projected = !name && settled !== null
   const tone = won
     ? 'font-semibold'
     : projected
@@ -320,71 +325,6 @@ function SeriesTeam({
           {wins}
         </span>
       </div>
-
-      {!locked && projection && projection.candidates.length > 0 && (
-        <Possibles projection={projection} />
-      )}
-    </div>
-  )
-}
-
-/**
- * The teams that can still take the slot.
- *
- * Chips and not a comma-separated line: in a 229px column three names run
- * together into one string of words, and each one has to be picked out as a
- * unit for the highlight to be any use. They wrap, so four candidates take two
- * rows and the card grows instead of truncating - a list of possibles cut off
- * halfway is worse than no list.
- *
- * The tick is for the team that is already through and is only waiting to find
- * out whether it goes in as first or second. It is a glyph and not a colour
- * because that distinction is the point of the row, and the group table's own
- * comment explains why colour alone does not carry it.
- *
- * WHEN THE LIST IS THE WHOLE GROUP it is written out in words instead of drawn.
- * Five chips that leave nobody out are five names' worth of room to say
- * "anybody", and before the first matchday every one of the eight cards would
- * be carrying them - forty names that rule nothing out. Saying it in one line
- * is the same fact in a tenth of the space.
- *
- * What it must not do is stay quiet, which is what it did at first: a slot with
- * nothing under it next to one listing three teams does not read as "this one
- * is wide open", it reads as a gap in the page.
- */
-function Possibles({ projection }: { projection: SlotProjection }) {
-  const { candidates, teams, group } = projection
-
-  if (candidates.length >= teams) {
-    return (
-      <p className="mt-1 text-[10px] leading-tight text-dim">
-        <span className="uppercase tracking-wide">Posibles</span> · todavía cualquiera del grupo{' '}
-        {group}
-      </p>
-    )
-  }
-
-  return (
-    <div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] leading-tight">
-      <span className="uppercase tracking-wide text-dim">Posibles</span>
-      {candidates.map((candidate) => (
-        <Link
-          key={candidate.teamId}
-          href={teamPath(candidate.teamId, 'playoffs')}
-          data-team={candidate.teamId}
-          className="border border-line bg-raised px-1 py-0.5 text-faint transition-colors hover:border-accent hover:text-accent"
-        >
-          {candidate.qualified && (
-            <>
-              <span aria-hidden className="text-accent">
-                ✓{' '}
-              </span>
-              <span className="sr-only">ya clasificado: </span>
-            </>
-          )}
-          {candidate.teamName}
-        </Link>
-      ))}
     </div>
   )
 }
