@@ -55,7 +55,7 @@ export const STATS: StatDefinition[] = [
   { id: 'kill-diff', title: 'Diferencia de kills', section: 'equipos', build: teams.killDiff },
   { id: 'gold-diff', title: 'Diferencia de oro', section: 'equipos', build: teams.goldDiff },
   { id: 'objetivos', title: 'Más objetivos', section: 'equipos', build: teams.topObjectives },
-  { id: 'duracion-equipo', title: 'Los más expeditivos', section: 'equipos', build: teams.fastestTeams },
+  { id: 'duracion-equipo', title: 'Partidas más cortas', section: 'equipos', build: teams.fastestTeams },
 
   {
     id: 'universidades',
