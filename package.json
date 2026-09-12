@@ -15,9 +15,8 @@
     "ingest": "tsx --env-file=.env.local scripts/ingest-local.ts",
     "storage:audit": "tsx --env-file=.env.local scripts/storage-audit.ts",
     "seed:lide2": "tsx --env-file=.env.local scripts/seed-lide2.ts",
-    "seed:bans": "tsx --env-file=.env.local scripts/seed-bans.ts",
+    "logos": "tsx scripts/normalize-logos.ts",
     "ingest:no-upload": "tsx --env-file=.env.local scripts/ingest-no-upload.ts",
-    "seed:results": "tsx --env-file=.env.local scripts/seed-results.ts",
     "og": "tsx scripts/og-image.ts",
     "poster:bg": "tsx scripts/poster-bg.ts"
   },
@@ -37,6 +36,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.3",
+    "sharp": "^0.35.3",
     "tailwindcss": "^4",
     "tsx": "^4.23.12",
     "typescript": "^5",
