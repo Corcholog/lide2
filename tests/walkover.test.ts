@@ -181,7 +181,7 @@ describe('a matchup nobody turned up for', () => {
     expect(rows.reduce((n, r) => n + r.wins, 0)).toBe(rows.reduce((n, r) => n + r.losses, 0))
   })
 
-  it('brings no kills, so it does not move the first tiebreak', async () => {
+  it('brings no kills, so it leaves the kill difference where it was', async () => {
     // Both win one. Team 10 won it playing, 20 to 5; Team 01 by forfeit.
     await jugar('Equipo 10 vs Equipo 15', 'Equipo 10', 'Equipo 15', [20, 5])
     await darPorGanado('Equipo 01 vs Equipo 07', 'Equipo 01')
@@ -190,11 +190,16 @@ describe('a matchup nobody turned up for', () => {
     const uno = rows.find((r) => r.team_name === 'Equipo 01')!
     const diez = rows.find((r) => r.team_name === 'Equipo 10')!
 
+    // The point is the walkover: a win that adds nothing to either kill column.
     expect(uno).toMatchObject({ wins: 1, kills: 0, kill_diff: 0 })
     expect(diez).toMatchObject({ wins: 1, kills: 20, kill_diff: 15 })
 
-    // Level on wins, the one who won on the rift finishes above.
-    expect(diez.position).toBeLessThan(uno.position)
+    // It used to be asserted here that the one who won on the rift finished
+    // above, which was true while the kill difference broke ties. Since 0028 it
+    // is the game between the two teams that does, and these two have not
+    // played each other: nothing separates them and the order between them
+    // means nothing. What a walkover IS worth for that tiebreak - the team that
+    // did not turn up lost the game - is in tests/group-tiebreak.test.ts.
   })
 
   it('stays out of the average duration instead of dragging it to zero', async () => {

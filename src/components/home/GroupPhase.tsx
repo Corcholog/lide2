@@ -71,9 +71,15 @@ function GroupTable({ label, rows }: { label: string; rows: GroupStandingRow[] }
             <th className="w-14 px-2 py-2 text-right font-medium">G-P</th>
             {/*
               "Dif. de kills" and not "Dif.": it is the difference between the
-              kills the team scored and the ones it conceded, and it breaks ties
-              when two end up on the same record. Abbreviated, nobody guesses
-              it.
+              kills the team scored and the ones it conceded. Abbreviated,
+              nobody guesses it.
+
+              IT DOES NOT BREAK TIES, whatever this comment used to say. The
+              rulebook's tiebreak (2.2) is the game between the two teams, and
+              since 0028 that is what orders the table. This column is worth
+              reading - it says how a team wins, not only how often - but it
+              decides nothing, and a reader who takes it for the criterion will
+              read the two top rows wrong exactly when it matters.
 
               w-16 and the heading wrapped onto two lines. It is a column of
               two-digit numbers, so giving it the 78px the full heading measures
