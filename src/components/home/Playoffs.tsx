@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Tabs } from '@/components/nav/Tabs'
 import { dayAndMonth } from '@/lib/lide2/dates'
-import { forSlot, type SlotCandidate, type SlotProjection } from '@/lib/lide2/projection'
+import { forSlot, type SlotProjection } from '@/lib/lide2/projection'
 import { FINAL_ROUND, seriesWinner } from '@/lib/lide2/winner'
 import { teamPath } from '@/lib/routes'
 import type { SeriesResultRow } from '@/types/db'
@@ -27,12 +27,11 @@ const ROUNDS = [
  * whose group is not being projected - the semis and the final, which hang off
  * other series and not off a table - returns null and keeps its placeholder.
  *
- * THE LIST OF POSSIBLES HAS TO NARROW SOMETHING DOWN. Before the first matchday
- * every team in the group can still come first, which is true and worth
- * nothing: the eight cards of the bracket would carry forty names between them
- * and none of them would rule anything out. While the list is the whole group
- * the placeholder stays, and the preview turns up on its own as the results
- * start eliminating teams.
+ * A slot whose list names the whole group does have something to say - that
+ * nobody is out of it yet - and `Possibles` is where that gets said. It used to
+ * be swallowed here, and an empty slot beside one carrying three names does not
+ * read as "anybody can still get there": it reads as a number the site failed
+ * to work out.
  */
 function preview(
   slots: SlotProjection[],
@@ -42,9 +41,7 @@ function preview(
   if (teamId) return null
 
   const slot = forSlot(slots, label)
-  if (!slot) return null
-  if (slot.locked) return slot
-  if (slot.candidates.length === 0 || slot.candidates.length >= slot.teams) return null
+  if (!slot || (!slot.locked && slot.candidates.length === 0)) return null
 
   return slot
 }
@@ -285,7 +282,6 @@ function SeriesTeam({
   const locked = projection?.locked ?? null
   const shown = name ?? locked?.teamName ?? null
   const teamId = id ?? locked?.teamId ?? null
-  const candidates = locked ? [] : (projection?.candidates ?? [])
 
   // Projected: the name is not in the database yet, arithmetic put it there.
   const projected = !name && locked !== null
@@ -325,7 +321,9 @@ function SeriesTeam({
         </span>
       </div>
 
-      {candidates.length > 0 && <Possibles candidates={candidates} />}
+      {!locked && projection && projection.candidates.length > 0 && (
+        <Possibles projection={projection} />
+      )}
     </div>
   )
 }
@@ -343,8 +341,29 @@ function SeriesTeam({
  * out whether it goes in as first or second. It is a glyph and not a colour
  * because that distinction is the point of the row, and the group table's own
  * comment explains why colour alone does not carry it.
+ *
+ * WHEN THE LIST IS THE WHOLE GROUP it is written out in words instead of drawn.
+ * Five chips that leave nobody out are five names' worth of room to say
+ * "anybody", and before the first matchday every one of the eight cards would
+ * be carrying them - forty names that rule nothing out. Saying it in one line
+ * is the same fact in a tenth of the space.
+ *
+ * What it must not do is stay quiet, which is what it did at first: a slot with
+ * nothing under it next to one listing three teams does not read as "this one
+ * is wide open", it reads as a gap in the page.
  */
-function Possibles({ candidates }: { candidates: SlotCandidate[] }) {
+function Possibles({ projection }: { projection: SlotProjection }) {
+  const { candidates, teams, group } = projection
+
+  if (candidates.length >= teams) {
+    return (
+      <p className="mt-1 text-[10px] leading-tight text-dim">
+        <span className="uppercase tracking-wide">Posibles</span> · todavía cualquiera del grupo{' '}
+        {group}
+      </p>
+    )
+  }
+
   return (
     <div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] leading-tight">
       <span className="uppercase tracking-wide text-dim">Posibles</span>
