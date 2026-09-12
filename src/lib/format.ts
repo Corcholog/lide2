@@ -74,6 +74,45 @@ export function formatPosition(position: string | null): string {
 }
 
 /**
+ * Every role something was played in, read in order: the main one first and the
+ * rest by lane.
+ *
+ * A champion is not one lane. Camille gets played top and support, and saying
+ * only "Top" is not a rounding of the truth - it is the half that the role
+ * filter then uses to decide what gets drawn, so that same Camille turned up
+ * nowhere when you asked for supports.
+ *
+ * The order is the point of this function, and it is the reason the views hand
+ * the roles over as an unordered set. The main one leads because it is the
+ * answer to "what is this champion", and the others follow in lane order - TOP,
+ * JUNGLE, MID, ADC, SUP - which is how a team is read everywhere else on the
+ * site. Sorting them alphabetically would put Camille as "Soporte, Top".
+ *
+ * `main` is allowed to be missing from the list, and a role in the list is
+ * allowed to be one this file has no name for: both come back as they are
+ * rather than being dropped, because a role nobody expected is something to
+ * see, not something to hide.
+ */
+export function championRoles(positions: string[], main: string | null): string[] {
+  const rest = positions.filter((role) => role !== main)
+  rest.sort((a, b) => {
+    const lane = (role: string) => {
+      const index = ROLES.indexOf(role as (typeof ROLES)[number])
+      return index === -1 ? ROLES.length : index
+    }
+    return lane(a) - lane(b) || a.localeCompare(b)
+  })
+
+  return main ? [main, ...rest] : rest
+}
+
+/** Those same roles, written the way they get read: "Top, Soporte". */
+export function formatRoles(positions: string[], main: string | null): string {
+  const roles = championRoles(positions, main)
+  return roles.length === 0 ? formatPosition(main) : roles.map(formatPosition).join(', ')
+}
+
+/**
  * How a player is named across the site: the alias the admin panel set, or
  * their Riot name **without the `#TAG`**.
  *

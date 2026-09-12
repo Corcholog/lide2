@@ -68,18 +68,28 @@ export function parseRole(value: string | string[] | undefined): RoleOption | nu
  * The role filter, applied to whatever was already loaded.
  *
  * Same shape as the group one and for a stronger reason: the role is not a
- * dimension of any view. `champion_meta.position` and
- * `player_phase_totals.position` are a `mode()` - the role each one was played
- * in most often - so this picks WHICH ROWS ARE DRAWN and never touches the
- * numbers inside them. A jungler who filled mid twice still carries those two
- * games in their averages, and a champion's pick rate stays measured against
- * every match in the scope, which is the only denominator that makes it a rate.
+ * dimension of any view, so this picks WHICH ROWS ARE DRAWN and never touches
+ * the numbers inside them. A jungler who filled mid twice still carries those
+ * two games in their averages, and a champion's pick rate stays measured
+ * against every match in the scope, which is the only denominator that makes it
+ * a rate.
+ *
+ * A ROW WITH A LIST OF ROLES MATCHES ON ANY OF THEM. Champions carry one -
+ * Camille gets played top and support - and while the filter compared against
+ * `position`, which is only the commonest, that Camille answered to Top and to
+ * nothing else: asking for supports hid a champion that had been played there.
+ * Rows with a single `position` - players - are unchanged, and they are a
+ * `mode()` too, so filling in another lane still does not move anybody.
  */
-export function byRole<T extends { position: string | null }>(
+export function byRole<T extends { position: string | null; positions?: string[] }>(
   rows: T[],
   role: RoleOption | null,
 ): T[] {
-  return role ? rows.filter((row) => row.position === role.position) : rows
+  if (!role) return rows
+
+  return rows.filter((row) =>
+    row.positions ? row.positions.includes(role.position) : row.position === role.position,
+  )
 }
 
 /**
