@@ -3,7 +3,7 @@
 import { GameIcon } from '@/components/match/GameIcon'
 import { SortableTable, type Column } from '@/components/table/SortableTable'
 import { championIcon } from '@/lib/ddragon'
-import { formatNumber, formatPosition, ROLES } from '@/lib/format'
+import { formatNumber, formatRoles, ROLES } from '@/lib/format'
 import type { SortOrder } from '@/lib/table/sort'
 
 /**
@@ -28,7 +28,10 @@ export interface ChampionRow {
   champion: string
   /** The name that gets read: "Wukong" and not "MonkeyKing". */
   name: string
+  /** The role it was played in most often, which is what the column sorts on. */
   position: string | null
+  /** Every role it was played in. One champion is not one lane. */
+  positions: string[]
   picks: number
   wins: number
   losses: number
@@ -85,13 +88,21 @@ export function ChampionTable({
     },
     {
       id: 'posicion',
-      label: 'Rol',
+      // Plural because most champions get played in more than one, and the
+      // column used to name only the commonest - which is how Camille, played
+      // top and support, read as a top laner and nothing else.
+      label: 'Roles',
       align: 'left',
       firstClick: 'asc',
-      // By lane order and not alphabetically: TOP, JUNGLE, MID, ADC, SUP is
-      // how a team is read. The ones with no position go last.
+      // Sorted on the MAIN role: a column of lists has no order of its own, and
+      // grouping the champions by the lane each one mostly plays is what
+      // somebody sorting this column is after. By lane order and not
+      // alphabetically - TOP, JUNGLE, MID, ADC, SUP is how a team is read - and
+      // the ones with no role at all go last.
       sort: (row) => (row.position ? ROLES.indexOf(row.position as (typeof ROLES)[number]) : null),
-      cell: (row) => <span className="text-fg-soft">{formatPosition(row.position)}</span>,
+      cell: (row) => (
+        <span className="text-fg-soft">{formatRoles(row.positions, row.position)}</span>
+      ),
     },
     {
       id: 'picks',

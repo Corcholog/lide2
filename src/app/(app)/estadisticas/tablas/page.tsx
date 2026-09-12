@@ -149,6 +149,11 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
     champion: row.champion,
     name: championName(names, row.champion),
     position: row.position,
+    // `?? []` because the column arrives with 0029 and the deploy of the code
+    // and of the migration are two separate acts: until the view has it, the
+    // table falls back to naming the main role on its own, which is what it
+    // did before. It is not a null the view can return.
+    positions: row.positions ?? [],
     picks: Number(row.picks),
     wins: Number(row.wins),
     losses: Number(row.losses),
@@ -249,15 +254,19 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
             detail={[
               'El KDA y el daño son promedios de las partidas en las que se jugó cada campeón (picks).',
               /*
-                El rol de un campeón es el que más veces se jugó, no el único, y
-                sin decirlo el recorte promete algo que no cumple: al filtrar
-                por Mid, un campeón que se jugó tres veces mid y dos jungla
-                aparece con las cinco adentro de sus promedios, y otro que se
-                jugó dos veces mid y tres jungla no aparece. Es la misma cuenta
-                que ya hace la columna Rol; acá pasa a decidir qué filas se ven.
+                El filtro toma TODOS los roles en los que se jugó el campeón, no
+                el más frecuente: un campeón jugado tres veces mid y dos jungla
+                aparece en los dos recortes, que es lo que antes no pasaba —con
+                el rol más frecuente, el segundo rol de cada campeón no existía
+                para el filtro—.
+
+                Lo que sigue haciendo falta aclarar es el denominador: sus
+                números son los de todos sus picks, no los del rol filtrado. Es
+                el precio de no partir las estadísticas por rol, que ademas es
+                lo que mantiene comparable el pick rate.
               */
               role
-                ? `Filtrado por ${role.label}: el rol de un campeón es el que más veces se jugó, y sus números siguen siendo los de todos sus picks.`
+                ? `Filtrado por ${role.label}: entra todo campeón que se haya jugado ahí alguna vez, y sus números siguen siendo los de todos sus picks.`
                 : null,
               withDraft === 0
                 ? 'Los baneos no salen del .rofl y todavía no se cargó ningún draft.'

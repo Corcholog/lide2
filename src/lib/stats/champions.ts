@@ -12,7 +12,7 @@
  */
 
 import { championIcon, championName } from '@/lib/ddragon'
-import { formatNumber, formatPosition } from '@/lib/format'
+import { formatNumber, formatRoles } from '@/lib/format'
 import { block, rankRows } from './rank'
 import type { StatBlock, StatsData } from './types'
 import type { ChampionStatRow } from '@/types/db'
@@ -64,7 +64,9 @@ function championRanking(
   return rankRows(data.champions, {
     id: (row) => row.champion,
     name: (row) => championName(names, row.champion),
-    subtitle: (row) => formatPosition(row.position),
+    // Every role and not just the commonest, the same as the table: the two
+    // read the same champion and cannot disagree about what it plays.
+    subtitle: (row) => formatRoles(row.positions, row.position),
     // The champion portrait. Without the ddragon version there is no URL to
     // build and the ranking comes out iconless, which is exactly what happens
     // when Riot does not answer: it reads the same.
