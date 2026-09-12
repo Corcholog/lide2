@@ -129,7 +129,7 @@ export function fastestTeams(data: StatsData): StatBlock | null {
     display: (value) => `${value.toFixed(1)} min`,
     order: 'asc',
   })
-  return block('duracion-equipo', 'Los más expeditivos', rows, {
+  return block('duracion-equipo', 'Partidas más cortas', rows, {
     subtitle: 'Menor duración promedio',
   })
 }
