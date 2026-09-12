@@ -17,15 +17,26 @@ import type { FixtureResultRow, GroupStandingRow } from '@/types/db'
  * probability: a name only replaces a placeholder when the arithmetic leaves no
  * other outcome.
  *
- * WHAT IT DOES NOT DECIDE. `group_standings` breaks a tie on wins by kill
- * difference, and a scenario says who wins a game, not by how much. So two
- * teams level on record with a game still to play are left UNRESOLVED against
- * each other, and both come out as candidates for both places. The alternative
- * - carrying today's kill difference over - would print a name that a single
- * bloody game could take away, which is the one thing this must never do. The
- * tiebreak is applied only between two teams that have finished playing, where
- * it cannot move any more: on the last matchday, with one of the two games
- * already uploaded, that is what settles the group.
+ * THE RULEBOOK'S TIEBREAK IS THE HEAD TO HEAD (2.2): the two teams with the
+ * most points in each group go through, level teams are separated by the game
+ * between them, and whatever that still leaves level the organizers decide.
+ *
+ * That is what makes this worth drawing. A tiebreak on kill difference could
+ * never be projected - a scenario says WHO wins a game, not by how much, so two
+ * teams level on record would stay unresolved until the last replay was
+ * uploaded. The head to head is the opposite: it is always known. Either those
+ * two have already played, or the game between them is one of the ones being
+ * played out, and then the scenario itself says who won it. Two teams level on
+ * points are separated in every scenario, every time.
+ *
+ * WHAT IS LEFT TO THE ORGANIZERS. Three or more teams level are read as a mini
+ * league: their games against each other, counted only among themselves, which
+ * is the natural reading of "enfrentamiento directo" and reduces to exactly the
+ * head to head when there are two of them. What that does not separate - three
+ * teams in a cycle, each beating the next - is left unresolved on purpose, and
+ * the slot shows them all as possibles. The rulebook hands that case to the
+ * organizers, and inventing a rule they never wrote is how the bracket would
+ * end up printing a name that the organizers then overrule.
  */
 
 /** How many of each group go through. It is what "qualified" means here. */
@@ -86,26 +97,18 @@ interface Contender {
   teamName: string
   wins: number
   losses: number
-  killDiff: number
   /** Its place in today's table, which orders candidates level on scenarios. */
   position: number
-  /** Games of its own left: while it has any, its kill difference can move. */
-  pending: number
 }
 
-/** A group, with its teams and the matchups still to be decided. */
+/** A group: its teams, the games already played and the ones still open. */
 interface Ladder {
   group: string
   teams: Contender[]
-  /** The undecided matchups, as pairs of indexes into `teams`. */
+  /** Games with a winner, as [winner, loser] pairs of indexes into `teams`. */
+  decided: [number, number][]
+  /** Games still to be decided, as pairs of indexes. One bit of a scenario each. */
   pending: [number, number][]
-}
-
-/** A team's record inside one scenario. */
-interface Projected {
-  team: Contender
-  wins: number
-  losses: number
 }
 
 /** What all the scenarios together say about one team. */
@@ -155,9 +158,7 @@ export function projectBracketSlots(
       // Settled is not the same as being the only candidate: it is having no
       // other place left to finish in, and that is what a name written into the
       // bracket has to rest on.
-      const settled = reachable.find(
-        ({ look }) => look.best === position && look.worst === position,
-      )
+      const settled = reachable.find(({ look }) => look.best === position && look.worst === position)
 
       projection.push({
         position,
@@ -194,13 +195,17 @@ export function forSlot(
 }
 
 /**
- * Buckets the table into groups and hangs the undecided matchups off each one.
+ * Buckets the table into groups and hangs each group's games off it.
  *
  * The group comes out of its label's last letter - "Grupo A" - which is how the
- * seed pairs the two up as well. The matchups are located by team and not by
- * their own label: both sides of a matchup sit in the same group by
- * construction, and a fixture whose teams are not in the table is one that
- * belongs to no group being projected.
+ * seed pairs the two up as well. The games are located by team and not by their
+ * own label: both sides of a matchup sit in the same group by construction, and
+ * a fixture whose teams are not in the table belongs to no group being
+ * projected.
+ *
+ * The games that ARE decided are kept too, which they did not use to be. The
+ * wins they are worth were already counted by the table, but the head to head
+ * needs to know who beat whom, and that is nowhere in an aggregate.
  */
 function ladders(standings: GroupStandingRow[], fixture: FixtureResultRow[]): Ladder[] {
   const byGroup = new Map<string, Ladder>()
@@ -208,7 +213,7 @@ function ladders(standings: GroupStandingRow[], fixture: FixtureResultRow[]): La
 
   for (const row of standings) {
     const group = row.group_label.trim().slice(-1).toUpperCase()
-    const ladder = byGroup.get(group) ?? { group, teams: [], pending: [] }
+    const ladder = byGroup.get(group) ?? { group, teams: [], decided: [], pending: [] }
     byGroup.set(group, ladder)
 
     placed.set(row.team_id, { ladder, index: ladder.teams.length })
@@ -217,24 +222,25 @@ function ladders(standings: GroupStandingRow[], fixture: FixtureResultRow[]): La
       teamName: row.team_name,
       wins: row.wins,
       losses: row.losses,
-      killDiff: row.kill_diff,
       position: row.position,
-      pending: 0,
     })
   }
 
   for (const row of fixture) {
-    // A walkover has a winner and no match, and `winner_team_id` already
-    // carries it: what is left over is what can still go either way.
-    if (row.winner_team_id !== null) continue
-
     const a = placed.get(row.team_a_id)
     const b = placed.get(row.team_b_id)
     if (!a || !b || a.ladder !== b.ladder) continue
 
-    a.ladder.pending.push([a.index, b.index])
-    a.ladder.teams[a.index].pending += 1
-    b.ladder.teams[b.index].pending += 1
+    // A walkover has a winner and no match, and `winner_team_id` carries it:
+    // the team that did not turn up lost the game for every purpose, the head
+    // to head included.
+    if (row.winner_team_id === null) {
+      a.ladder.pending.push([a.index, b.index])
+    } else if (row.winner_team_id === row.team_a_id) {
+      a.ladder.decided.push([a.index, b.index])
+    } else if (row.winner_team_id === row.team_b_id) {
+      a.ladder.decided.push([b.index, a.index])
+    }
   }
 
   return [...byGroup.values()].sort((a, b) => a.group.localeCompare(b.group))
@@ -245,9 +251,9 @@ function ladders(standings: GroupStandingRow[], fixture: FixtureResultRow[]): La
  * finish in.
  *
  * One bit of the counter per undecided game: set means the second team won.
- * That walks every combination exactly once, and the rows are written over
- * instead of rebuilt so a thousand scenarios do not leave five thousand
- * objects behind.
+ * That walks every combination exactly once, and the arrays are written over
+ * instead of rebuilt so a thousand scenarios do not leave thousands of objects
+ * behind.
  *
  * Null when the group branches past the ceiling.
  */
@@ -255,35 +261,70 @@ function outlooks(ladder: Ladder): Outlook[] | null {
   const scenarios = 1 << ladder.pending.length
   if (scenarios > MAX_SCENARIOS) return null
 
-  const table: Projected[] = ladder.teams.map((team) => ({ team, wins: 0, losses: 0 }))
-  const outlook: Outlook[] = ladder.teams.map(() => ({
-    reach: new Map(),
-    best: ladder.teams.length,
-    worst: 1,
-  }))
+  const size = ladder.teams.length
+  const outlook: Outlook[] = ladder.teams.map(() => ({ reach: new Map(), best: size, worst: 1 }))
+
+  const wins = new Array<number>(size)
+  const losses = new Array<number>(size)
+  /** Wins against the teams level with it: the mini league that breaks the tie. */
+  const head = new Array<number>(size)
+
+  // Who beat whom, flattened: `beat[i * size + j]` is "i won the game against
+  // j". The games already played are the same in every scenario, so they are
+  // laid down once and copied over each time.
+  const played = new Uint8Array(size * size)
+  for (const [winner, loser] of ladder.decided) played[winner * size + loser] = 1
+  const beat = new Uint8Array(size * size)
 
   for (let scenario = 0; scenario < scenarios; scenario += 1) {
-    for (const row of table) {
-      row.wins = row.team.wins
-      row.losses = row.team.losses
+    for (let index = 0; index < size; index += 1) {
+      wins[index] = ladder.teams[index].wins
+      losses[index] = ladder.teams[index].losses
     }
+    beat.set(played)
 
     ladder.pending.forEach(([a, b], bit) => {
       const winner = (scenario >> bit) & 1 ? b : a
       const loser = winner === a ? b : a
-      table[winner].wins += 1
-      table[loser].losses += 1
+      wins[winner] += 1
+      losses[loser] += 1
+      beat[winner * size + loser] = 1
     })
 
-    for (let index = 0; index < table.length; index += 1) {
+    /*
+     * The mini league, counted only among the teams that share a record. Two
+     * teams level have the same set of rivals to count against - each other's
+     * level group is the same group - so the two figures are comparable, which
+     * is what lets them be used as a plain sort key.
+     */
+    for (let index = 0; index < size; index += 1) {
+      let won = 0
+      for (let other = 0; other < size; other += 1) {
+        if (other === index) continue
+        if (wins[other] !== wins[index] || losses[other] !== losses[index]) continue
+        if (beat[index * size + other]) won += 1
+      }
+      head[index] = won
+    }
+
+    for (let index = 0; index < size; index += 1) {
       let ahead = 0
       let level = 0
 
-      for (let other = 0; other < table.length; other += 1) {
+      for (let other = 0; other < size; other += 1) {
         if (other === index) continue
-        const verdict = compare(table[other], table[index])
-        if (verdict === 'ahead') ahead += 1
-        else if (verdict === 'level') level += 1
+
+        if (wins[other] !== wins[index]) {
+          if (wins[other] > wins[index]) ahead += 1
+        } else if (losses[other] !== losses[index]) {
+          if (losses[other] < losses[index]) ahead += 1
+        } else if (head[other] > head[index]) {
+          ahead += 1
+        } else if (head[other] === head[index]) {
+          // Level on points and level on the games between them: this is the
+          // one the rulebook hands to the organizers.
+          level += 1
+        }
       }
 
       // Everyone above it is a place taken; everyone it cannot be separated
@@ -300,32 +341,4 @@ function outlooks(ladder: Ladder): Outlook[] | null {
   }
 
   return outlook
-}
-
-/** 'level' is not a draw: it is a tie this scenario has no way of breaking. */
-type Verdict = 'ahead' | 'behind' | 'level'
-
-/**
- * Does `a` finish above `b`?
- *
- * The same criteria as `group_standings`, in the same order: wins, losses, kill
- * difference, name. The last two are only reachable once neither side has a
- * game left, because a scenario decides who wins and not by how many kills.
- *
- * `localeCompare` stands in for the view's `order by t.name asc`, which runs on
- * the database's collation. For "Equipo 01" against "Equipo 02" the two agree;
- * where they could not - two teams with the same name - the tie is left
- * unbroken rather than guessed.
- */
-function compare(a: Projected, b: Projected): Verdict {
-  if (a.wins !== b.wins) return a.wins > b.wins ? 'ahead' : 'behind'
-  if (a.losses !== b.losses) return a.losses < b.losses ? 'ahead' : 'behind'
-  if (a.team.pending > 0 || b.team.pending > 0) return 'level'
-
-  if (a.team.killDiff !== b.team.killDiff) {
-    return a.team.killDiff > b.team.killDiff ? 'ahead' : 'behind'
-  }
-
-  const byName = a.team.teamName.localeCompare(b.team.teamName)
-  return byName === 0 ? 'level' : byName < 0 ? 'ahead' : 'behind'
 }

@@ -9,10 +9,12 @@ import type { FixtureResultRow, GroupStandingRow } from '@/types/db'
  * something you can check by looking at the page - you would have to wait for
  * the group phase to end and see whether it lied - so it is checked here.
  *
- * The awkward case, and the one most of these are about, is the kill difference:
- * it is the table's first tiebreak and a scenario says who wins a game, not by
- * how much. Two teams level on record with a game to play must come out as
- * possibles for both places and not be separated by today's numbers.
+ * Most of these are about the tiebreak, which is the rulebook's (2.2): level on
+ * points, the game between them decides. What makes it projectable is that it
+ * is always known - either those two have played already, or the game between
+ * them is one of the ones being played out and the scenario says who won it -
+ * and what it does not settle, three teams beating each other in a circle, goes
+ * to the organizers and has to come out of here unresolved.
  */
 
 /** A `group_standings` row with only what the projection reads filled in. */
@@ -20,7 +22,6 @@ function standing(
   id: string,
   wins: number,
   losses: number,
-  killDiff: number,
   position: number,
   group = 'Grupo A',
 ): GroupStandingRow {
@@ -40,7 +41,7 @@ function standing(
     losses,
     kills: 0,
     kills_against: 0,
-    kill_diff: killDiff,
+    kill_diff: 0,
     gold_diff: 0,
     avg_minutes: null,
     last_played_at: null,
@@ -50,7 +51,10 @@ function standing(
   }
 }
 
-/** A matchup. With no winner it is still to be decided; with one it is settled. */
+/**
+ * A matchup. `winner` is the id of whoever took it, or null while it is still
+ * to be played.
+ */
 function matchup(a: string, b: string, winner: string | null = null): FixtureResultRow {
   return {
     id: `${a}-${b}`,
@@ -94,97 +98,224 @@ function slot(projection: SlotProjection[], label: string): SlotProjection {
 const names = (projection: SlotProjection) =>
   projection.candidates.map((candidate) => candidate.teamName)
 
-describe('a group with nothing left to play', () => {
-  // 4-0, 3-1, 2-2, 1-3, 0-4: the whole round robin of a group of five.
+describe('the head to head separates two teams level on points', () => {
+  /*
+   * The case that prompted the rule, in the shape it turned up in: two teams
+   * that can both finish 3-1, and one of them has already beaten the other.
+   * Under the old kill-difference tiebreak neither place could be settled until
+   * the last game was uploaded; under the rulebook's, the game between them was
+   * played on matchday 1 and the order has been fixed ever since.
+   */
   const table = [
-    standing('e', 0, 4, -20, 5),
-    standing('c', 2, 2, 0, 3),
-    standing('a', 4, 0, 20, 1),
-    standing('d', 1, 3, -10, 4),
-    standing('b', 3, 1, 10, 2),
+    standing('a', 3, 0, 1),
+    standing('b', 2, 1, 2),
+    standing('c', 1, 2, 3),
+    standing('d', 0, 3, 4),
   ]
 
-  const projection = projectBracketSlots(table, [])
+  const fixture = [
+    matchup('a', 'b', 'a'), // the head to head, already played
+    matchup('a', 'c', 'a'),
+    matchup('a', 'd', 'a'),
+    matchup('b', 'c', 'b'),
+    matchup('b', 'd', 'b'),
+    matchup('c', 'd', 'c'),
+  ]
 
-  it('settles both places on the table itself', () => {
+  it('settles the whole table with nothing left to play', () => {
+    const projection = projectBracketSlots(table, fixture)
+
     expect(slot(projection, '1º A').locked?.teamName).toBe('Equipo a')
     expect(slot(projection, '2º A').locked?.teamName).toBe('Equipo b')
   })
 
-  it('leaves one scenario, which is the one that happened', () => {
-    expect(slot(projection, '1º A').pending).toBe(0)
-    expect(slot(projection, '1º A').scenarios).toBe(1)
-    expect(names(slot(projection, '1º A'))).toEqual(['Equipo a'])
+  it('is the case that was reported: two at 3-1, and one beat the other', () => {
+    /*
+     * The whole group of five played out, with `a` and `b` both on 3-1 and the
+     * game between them won by `a` back on matchday 1. `d` and `e` end level
+     * too, at the bottom, and the same rule orders them.
+     */
+    const five = [
+      standing('a', 3, 1, 1),
+      standing('b', 3, 1, 2),
+      standing('c', 2, 2, 3),
+      standing('d', 1, 3, 4),
+      standing('e', 1, 3, 5),
+    ]
+    const games = [
+      matchup('a', 'b', 'a'),
+      matchup('a', 'c', 'a'),
+      matchup('a', 'd', 'a'),
+      matchup('a', 'e', 'e'),
+      matchup('b', 'c', 'b'),
+      matchup('b', 'd', 'b'),
+      matchup('b', 'e', 'b'),
+      matchup('c', 'd', 'c'),
+      matchup('c', 'e', 'c'),
+      matchup('d', 'e', 'd'),
+    ]
+
+    const projection = projectBracketSlots(five, games)
+
+    expect(slot(projection, '1º A').locked?.teamName).toBe('Equipo a')
+    expect(slot(projection, '2º A').locked?.teamName).toBe('Equipo b')
   })
 
-  it('gives the place to whoever has the better kill difference on level wins', () => {
-    const level = projectBracketSlots(
-      [standing('a', 3, 1, 5, 2), standing('b', 3, 1, 15, 1), standing('c', 0, 4, -20, 3)],
-      [],
-    )
+  it('settles a place before the group ends, which kill difference never could', () => {
+    /*
+     * `a` and `b` have played their four and both finished 3-1; the game still
+     * to come is between `c` and `d`, neither of whom can get past 2-2. So the
+     * two places are settled with a game still to play, and what settles them
+     * is the head to head - on points alone the pair is level.
+     *
+     * Under a kill-difference tiebreak neither place could be called: `c` and
+     * `d` cannot catch them, but their game moves nobody's kill difference
+     * either, and the pair would stay unresolved for no reason at all.
+     */
+    const open = [
+      standing('a', 3, 1, 1),
+      standing('b', 3, 1, 2),
+      standing('c', 1, 2, 3),
+      standing('d', 1, 2, 4),
+      standing('e', 1, 3, 5),
+    ]
+    const games = [
+      matchup('a', 'b', 'a'),
+      matchup('a', 'c', 'a'),
+      matchup('a', 'd', 'a'),
+      matchup('a', 'e', 'e'),
+      matchup('b', 'c', 'b'),
+      matchup('b', 'd', 'b'),
+      matchup('b', 'e', 'b'),
+      matchup('c', 'e', 'c'),
+      matchup('d', 'e', 'd'),
+      matchup('c', 'd'), // the only one left
+    ]
 
-    expect(slot(level, '1º A').locked?.teamName).toBe('Equipo b')
-    expect(slot(level, '2º A').locked?.teamName).toBe('Equipo a')
+    const projection = projectBracketSlots(open, games)
+
+    expect(slot(projection, '1º A').pending).toBe(1)
+    expect(slot(projection, '1º A').scenarios).toBe(2)
+    expect(slot(projection, '1º A').locked?.teamName).toBe('Equipo a')
+    expect(slot(projection, '2º A').locked?.teamName).toBe('Equipo b')
+    expect(slot(projection, '1º A').locked?.qualified).toBe(true)
+  })
+
+  it('settles them even when the game between them is one of the ones left', () => {
+    /*
+     * Neither has played the other yet, so who comes first depends on that
+     * game - but whoever wins it is first in that scenario, so the pair is
+     * separated in every one of them and the two of them are through either
+     * way. What is not settled is which place each takes.
+     */
+    const table2 = [standing('a', 2, 0, 1), standing('b', 2, 0, 2), standing('c', 0, 2, 3), standing('d', 0, 2, 4)]
+    const games = [
+      matchup('a', 'c', 'a'),
+      matchup('a', 'd', 'a'),
+      matchup('b', 'c', 'b'),
+      matchup('b', 'd', 'b'),
+      matchup('a', 'b'), // to play: it decides the order
+      matchup('c', 'd'), // to play: it decides nothing up top
+    ]
+
+    const projection = projectBracketSlots(table2, games)
+
+    expect(slot(projection, '1º A').locked).toBeNull()
+    expect(names(slot(projection, '1º A'))).toEqual(['Equipo a', 'Equipo b'])
+    expect(slot(projection, '1º A').candidates.every((entry) => entry.qualified)).toBe(true)
+    // Each is first in the two scenarios where it wins the head to head.
+    expect(slot(projection, '1º A').candidates.map((entry) => entry.scenarios)).toEqual([2, 2])
   })
 })
 
-describe('two teams already through with the order still open', () => {
+describe('three teams in a circle are left to the organizers', () => {
   /*
-   * A group of four with two games left: the two in front have beaten both of
-   * the others and only have each other to play. Whoever wins that game
-   * finishes first, so neither place is settled - but both teams are through
-   * whatever happens, and neither of the other two can reach either place.
+   * `a` beat `b`, `b` beat `c`, `c` beat `a`, and the three finish level. The
+   * mini league gives them one win each, so "enfrentamiento directo" separates
+   * nothing and the rulebook hands the case over. The three have to come out as
+   * possibles for both places instead of one of them being written in.
    */
-  const table = [
-    standing('a', 2, 0, 12, 1),
-    standing('b', 2, 0, 8, 2),
-    standing('c', 0, 2, -8, 3),
-    standing('d', 0, 2, -12, 4),
+  const table = [standing('a', 2, 1, 1), standing('b', 2, 1, 2), standing('c', 2, 1, 3), standing('d', 0, 3, 4)]
+
+  const fixture = [
+    matchup('a', 'b', 'a'),
+    matchup('b', 'c', 'b'),
+    matchup('c', 'a', 'c'),
+    matchup('a', 'd', 'a'),
+    matchup('b', 'd', 'b'),
+    matchup('c', 'd', 'c'),
   ]
 
-  const fixture = [matchup('a', 'b'), matchup('c', 'd')]
   const projection = projectBracketSlots(table, fixture)
 
-  it('writes no name into either place', () => {
+  it('writes nobody in, with the group finished', () => {
+    expect(slot(projection, '1º A').pending).toBe(0)
     expect(slot(projection, '1º A').locked).toBeNull()
     expect(slot(projection, '2º A').locked).toBeNull()
   })
 
-  it('offers the same two as possibles for both places', () => {
-    expect(names(slot(projection, '1º A'))).toEqual(['Equipo a', 'Equipo b'])
-    expect(names(slot(projection, '2º A'))).toEqual(['Equipo a', 'Equipo b'])
+  it('leaves the three as possibles for both places', () => {
+    expect(names(slot(projection, '1º A'))).toEqual(['Equipo a', 'Equipo b', 'Equipo c'])
+    expect(names(slot(projection, '2º A'))).toEqual(['Equipo a', 'Equipo b', 'Equipo c'])
   })
 
-  it('says both are already through', () => {
-    expect(slot(projection, '1º A').candidates.map((entry) => entry.qualified)).toEqual([
-      true,
-      true,
-    ])
+  it('does not call any of them through: one of the three misses out', () => {
+    expect(slot(projection, '1º A').candidates.some((entry) => entry.qualified)).toBe(false)
   })
+})
 
-  it('counts the four ways the group can end', () => {
-    expect(slot(projection, '1º A').pending).toBe(2)
-    expect(slot(projection, '1º A').scenarios).toBe(4)
-    // Each of them is first in the two scenarios where it wins the head to head.
-    expect(slot(projection, '1º A').candidates.map((entry) => entry.scenarios)).toEqual([2, 2])
+describe('three teams level that the mini league does separate', () => {
+  /*
+   * The same three level on points, but without the circle: `a` beat both, `b`
+   * beat `c`. Read as a mini league that is 2, 1 and 0 wins among themselves, so
+   * the order is settled and nothing goes to the organizers.
+   */
+  const table = [standing('a', 2, 1, 1), standing('b', 2, 1, 2), standing('c', 2, 1, 3), standing('d', 0, 3, 4)]
+
+  const fixture = [
+    matchup('a', 'b', 'a'),
+    matchup('a', 'c', 'a'),
+    matchup('b', 'c', 'b'),
+    matchup('a', 'd', 'd'),
+    matchup('b', 'd', 'b'),
+    matchup('c', 'd', 'c'),
+  ]
+
+  const projection = projectBracketSlots(table, fixture)
+
+  it('orders them by the games among themselves', () => {
+    expect(slot(projection, '1º A').locked?.teamName).toBe('Equipo a')
+    expect(slot(projection, '2º A').locked?.teamName).toBe('Equipo b')
   })
 })
 
 describe('a first place nobody can take away', () => {
   /*
-   * Same group of four with one game to play. The leader has won its three and
-   * is out of reach; the other three end up level on 1-2 if the game goes one
-   * way, and since two of them still have a game their kill difference cannot
-   * separate them, so second place is open to all three.
+   * A group of five with the last matchday to play. `a` has won its four and is
+   * out of reach whatever happens, so the slot carries its name while the rest
+   * of the group is still moving.
    */
   const table = [
-    standing('a', 3, 0, 30, 1),
-    standing('b', 1, 1, 2, 2),
-    standing('c', 1, 2, -10, 3),
-    standing('d', 0, 2, -22, 4),
+    standing('a', 4, 0, 1),
+    standing('b', 2, 1, 2),
+    standing('c', 2, 2, 3),
+    standing('e', 0, 2, 4),
+    standing('d', 0, 3, 5),
   ]
 
-  const fixture = [matchup('b', 'd')]
+  const fixture = [
+    matchup('a', 'b', 'a'),
+    matchup('a', 'c', 'a'),
+    matchup('a', 'd', 'a'),
+    matchup('a', 'e', 'a'),
+    matchup('b', 'c', 'b'),
+    matchup('b', 'd', 'b'),
+    matchup('c', 'd', 'c'),
+    matchup('c', 'e', 'c'),
+    matchup('b', 'e'), // to play
+    matchup('d', 'e'), // to play
+  ]
+
   const projection = projectBracketSlots(table, fixture)
 
   it('writes the leader in', () => {
@@ -193,31 +324,41 @@ describe('a first place nobody can take away', () => {
     expect(names(slot(projection, '1º A'))).toEqual(['Equipo a'])
   })
 
-  it('leaves second place to the three that can still reach it', () => {
+  it('counts the four ways the group can still end', () => {
+    expect(slot(projection, '1º A').pending).toBe(2)
+    expect(slot(projection, '1º A').scenarios).toBe(4)
+    expect(slot(projection, '1º A').teams).toBe(5)
+  })
+
+  it('leaves second place open, because one branch ends in a circle', () => {
+    /*
+     * `b` is second in three of the four scenarios. In the fourth - `e` beating
+     * both `b` and `d` - `b`, `c` and `e` all finish 2-2 with a win each over
+     * the next: `b` beat `c`, `c` beat `e`, `e` beat `b`. Nothing separates
+     * them, so the three share the second and third places and the slot cannot
+     * be written in.
+     */
     const second = slot(projection, '2º A')
 
     expect(second.locked).toBeNull()
-    // Whoever gets there in both scenarios goes first; the current table breaks
-    // the tie between the other two.
-    expect(names(second)).toEqual(['Equipo b', 'Equipo c', 'Equipo d'])
-    expect(second.candidates.map((entry) => entry.scenarios)).toEqual([2, 1, 1])
-  })
-
-  it('does not call any of the three through, because none of them is', () => {
-    expect(slot(projection, '2º A').candidates.every((entry) => entry.qualified)).toBe(false)
+    expect(names(second)).toEqual(['Equipo b', 'Equipo c', 'Equipo e'])
+    expect(second.candidates.map((entry) => entry.scenarios)).toEqual([4, 1, 1])
+    // Second in four scenarios out of four is still not "through": in that
+    // fourth one it can just as well come third.
+    expect(second.candidates[0].qualified).toBe(false)
   })
 })
 
 describe('a group where nothing has been played', () => {
   /*
    * Four teams, the whole round robin to play. Every one of them wins its three
-   * in one of the sixteen scenarios, so every one of them is a possible for both
-   * places: the projection says so, and it is the bracket that has to decide
-   * that a list of the whole group is not worth drawing (see `preview`, in
-   * Playoffs).
+   * in one of the sixty-four scenarios, so every one is a possible for both
+   * places: the projection says so, and it is the bracket that decides a list
+   * of the whole group is worth one line and not four chips (see `Possibles`,
+   * in Playoffs).
    */
   const teams = ['a', 'b', 'c', 'd']
-  const table = teams.map((id, index) => standing(id, 0, 0, 0, index + 1))
+  const table = teams.map((id, index) => standing(id, 0, 0, index + 1))
   const fixture = teams.flatMap((a, index) => teams.slice(index + 1).map((b) => matchup(a, b)))
 
   const projection = projectBracketSlots(table, fixture)
@@ -240,21 +381,26 @@ describe('a group where nothing has been played', () => {
 })
 
 describe('what counts as a game still to be decided', () => {
-  const table = [
-    standing('a', 2, 1, 10, 1),
-    standing('b', 1, 1, 0, 2),
-    standing('c', 1, 2, -10, 3),
-  ]
+  const table = [standing('a', 2, 0, 1), standing('b', 1, 1, 2), standing('c', 0, 2, 3)]
 
-  it('takes a walkover as settled: it has a winner and no game to play', () => {
-    const decided = projectBracketSlots(table, [matchup('b', 'c', 'b')])
+  it('takes a walkover as settled, and it counts for the head to head', () => {
+    /*
+     * `b` did not turn up against `c`, so `c` took the game. The two finish
+     * level on 1-1 and the game between them - the one nobody played - is what
+     * puts `c` second.
+     */
+    const decided = projectBracketSlots(
+      [standing('a', 2, 0, 1), standing('b', 1, 1, 2), standing('c', 1, 1, 3)],
+      [matchup('a', 'b', 'a'), matchup('a', 'c', 'a'), matchup('b', 'c', 'c')],
+    )
 
     expect(decided.every((entry) => entry.pending === 0)).toBe(true)
     expect(slot(decided, '1º A').locked?.teamName).toBe('Equipo a')
+    expect(slot(decided, '2º A').locked?.teamName).toBe('Equipo c')
   })
 
   it('takes a matchup with no result yet as open', () => {
-    const open = projectBracketSlots(table, [matchup('b', 'c')])
+    const open = projectBracketSlots(table, [matchup('a', 'b', 'a'), matchup('b', 'c')])
 
     expect(slot(open, '1º A').pending).toBe(1)
   })
@@ -269,12 +415,12 @@ describe('what counts as a game still to be decided', () => {
 describe('the groups are kept apart', () => {
   const projection = projectBracketSlots(
     [
-      standing('a1', 2, 0, 10, 1, 'Grupo A'),
-      standing('a2', 0, 2, -10, 2, 'Grupo A'),
-      standing('b1', 2, 0, 10, 1, 'Grupo B'),
-      standing('b2', 0, 2, -10, 2, 'Grupo B'),
+      standing('a1', 1, 0, 1, 'Grupo A'),
+      standing('a2', 0, 1, 2, 'Grupo A'),
+      standing('b1', 1, 0, 1, 'Grupo B'),
+      standing('b2', 0, 1, 2, 'Grupo B'),
     ],
-    [],
+    [matchup('a1', 'a2', 'a1'), matchup('b1', 'b2', 'b1')],
   )
 
   it('projects each group off its own table', () => {
@@ -289,8 +435,8 @@ describe('the groups are kept apart', () => {
 
 describe('reading a slot label', () => {
   const projection = projectBracketSlots(
-    [standing('a', 1, 0, 5, 1), standing('b', 0, 1, -5, 2)],
-    [],
+    [standing('a', 1, 0, 1), standing('b', 0, 1, 2)],
+    [matchup('a', 'b', 'a')],
   )
 
   it('accepts the ways a place gets written', () => {
@@ -315,7 +461,7 @@ describe('a group that branches too far', () => {
    * grinding through it.
    */
   const teams = ['a', 'b', 'c', 'd', 'e', 'f']
-  const table = teams.map((id, index) => standing(id, 0, 0, 0, index + 1))
+  const table = teams.map((id, index) => standing(id, 0, 0, index + 1))
   const fixture = teams.flatMap((a, index) => teams.slice(index + 1).map((b) => matchup(a, b)))
 
   it('is left unprojected', () => {
