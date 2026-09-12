@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { championRoles, formatRoles } from '@/lib/format'
-import { byRole, parseRole } from '@/lib/stats/tables'
+import { byRole, championsInRole, parseRole, scopeCounts } from '@/lib/stats/tables'
 
 /*
  * The two halves of showing a champion's roles that do not live in SQL: the
@@ -58,41 +58,114 @@ describe('the order the roles are read in', () => {
   })
 })
 
-describe('the role filter', () => {
-  const camille = { champion: 'Camille', position: 'TOP', positions: ['TOP', 'SUPPORT'] }
-  const thresh = { champion: 'Thresh', position: 'SUPPORT', positions: ['SUPPORT'] }
-  const ahri = { champion: 'Ahri', position: 'MIDDLE', positions: ['MIDDLE'] }
-  const champions = [camille, thresh, ahri]
+describe('which champion rows a role asks for', () => {
+  /*
+   * `champion_meta` returns, for one scope, the row of each champion whole and
+   * one row per role it was played in. Choosing a role is choosing which of
+   * those to read - so the numbers on screen are that role's - and not throwing
+   * rows away, which is what it used to do and is why a filtered Camille showed
+   * the stats of her three picks when only one of them was the role asked for.
+   */
+  const rows = [
+    { champion: 'Camille', all_roles: true, position: 'TOP', picks: 3 },
+    { champion: 'Camille', all_roles: false, position: 'TOP', picks: 2 },
+    { champion: 'Camille', all_roles: false, position: 'SUPPORT', picks: 1 },
+    { champion: 'Thresh', all_roles: true, position: 'SUPPORT', picks: 4 },
+    { champion: 'Thresh', all_roles: false, position: 'SUPPORT', picks: 4 },
+    { champion: 'Ahri', all_roles: true, position: 'MIDDLE', picks: 2 },
+    { champion: 'Ahri', all_roles: false, position: 'MIDDLE', picks: 2 },
+  ]
 
-  it('takes a champion by any role it was played in', () => {
-    // This is the bug: Camille had been played support and asking for supports
-    // did not show her, because the filter only knew her commonest lane.
-    expect(byRole(champions, role('Soporte')).map((row) => row.champion)).toEqual([
-      'Camille',
-      'Thresh',
+  it('gives the whole champion when no role is chosen', () => {
+    expect(championsInRole(rows, null).map((row) => [row.champion, row.picks])).toEqual([
+      ['Camille', 3],
+      ['Thresh', 4],
+      ['Ahri', 2],
     ])
   })
 
-  it('still takes it by its main one', () => {
-    expect(byRole(champions, role('Top')).map((row) => row.champion)).toEqual(['Camille'])
+  it('gives the numbers of that role and not of the champion', () => {
+    const support = championsInRole(rows, role('Soporte'))
+
+    // One pick, not three: this is the whole point of the change.
+    expect(support.map((row) => [row.champion, row.picks])).toEqual([
+      ['Camille', 1],
+      ['Thresh', 4],
+    ])
+  })
+
+  it('takes a champion by a role that is not its commonest', () => {
+    // Camille's main lane is top, and she still has to answer to support.
+    expect(championsInRole(rows, role('Soporte')).map((row) => row.champion)).toContain('Camille')
+  })
+
+  it('never mixes the whole-champion row into a filtered table', () => {
+    // That row would double the champion and carry the wrong numbers with it.
+    expect(championsInRole(rows, role('Top')).every((row) => !row.all_roles)).toBe(true)
+    expect(championsInRole(rows, role('Top')).map((row) => row.picks)).toEqual([2])
   })
 
   it('leaves out the ones that never played there', () => {
-    expect(byRole(champions, role('Jungla'))).toEqual([])
+    expect(championsInRole(rows, role('Jungla'))).toEqual([])
+  })
+
+  it('still fills the table from a view that has no role dimension yet', () => {
+    // The column arrives with 0030 and the code deploys before the migration
+    // is run. Every row of the old view is a whole champion, and the unfiltered
+    // table - the one everybody lands on - has to keep working.
+    const old = [
+      { champion: 'Camille', position: 'TOP', picks: 3 },
+      { champion: 'Thresh', position: 'SUPPORT', picks: 4 },
+    ]
+
+    expect(championsInRole(old, null)).toHaveLength(2)
+  })
+})
+
+describe('the size of the scope', () => {
+  /*
+   * It is read off a whole-champion row and never off a per-role one: ask for a
+   * role nobody played and there are no rows of that kind, and the page would
+   * answer "nothing has been played here" about a tournament that is half over.
+   */
+  const rows = [
+    { champion: 'Camille', all_roles: true, matches: 31, matches_with_bans: 4 },
+    { champion: 'Camille', all_roles: false, matches: 31, matches_with_bans: 4 },
+  ]
+
+  it('comes off the champion row', () => {
+    expect(scopeCounts(rows)).toEqual({ matches: 31, withDraft: 4 })
+  })
+
+  it('survives a view that has no role dimension yet', () => {
+    // The trap that broke the page: read as truthy, a missing `all_roles` finds
+    // nothing and the whole tables page falls into its "nothing played" state.
+    const old = [{ champion: 'Camille', matches: 31, matches_with_bans: 4 }]
+
+    expect(scopeCounts(old)).toEqual({ matches: 31, withDraft: 4 })
+  })
+
+  it('is zero when there is nothing at all', () => {
+    expect(scopeCounts([])).toEqual({ matches: 0, withDraft: 0 })
+  })
+})
+
+describe('the role filter for players', () => {
+  /*
+   * Players keep the old behaviour, and should: `player_phase_totals.position`
+   * is a `mode()`, so this picks who is drawn and their averages still hold
+   * every game they played, filling in another lane included.
+   */
+  const players = [
+    { player_id: 'p1', position: 'JUNGLE' },
+    { player_id: 'p2', position: 'SUPPORT' },
+  ]
+
+  it('takes them by their role', () => {
+    expect(byRole(players, role('Jungla')).map((row) => row.player_id)).toEqual(['p1'])
   })
 
   it('shows everybody with no role chosen', () => {
-    expect(byRole(champions, null)).toHaveLength(3)
-  })
-
-  it('still matches on the single role of a row that has no list', () => {
-    // Players come through the same filter and carry one `position`, which is
-    // a mode as well: filling in another lane does not move them.
-    const players = [
-      { player_id: 'p1', position: 'JUNGLE' },
-      { player_id: 'p2', position: 'SUPPORT' },
-    ]
-
-    expect(byRole(players, role('Jungla')).map((row) => row.player_id)).toEqual(['p1'])
+    expect(byRole(players, null)).toHaveLength(2)
   })
 })

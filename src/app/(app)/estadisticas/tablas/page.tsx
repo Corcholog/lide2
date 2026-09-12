@@ -6,7 +6,15 @@ import { tournamentStartDate, TOURNAMENT } from '@/lib/lide2/tournament'
 import { playerName } from '@/lib/format'
 import { resolveTournamentId } from '@/lib/stats/query'
 import { parseScope } from '@/lib/stats/scope'
-import { byRole, metaFilter, parseGroup, parseRole, scopeFilter } from '@/lib/stats/tables'
+import {
+  byRole,
+  championsInRole,
+  metaFilter,
+  scopeCounts,
+  parseGroup,
+  parseRole,
+  scopeFilter,
+} from '@/lib/stats/tables'
 import { parseSortOrder } from '@/lib/table/sort'
 import { Empty } from '@/components/stats/Empty'
 import { GroupNav } from '@/components/stats/GroupNav'
@@ -137,15 +145,22 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
     : players
 
   /*
-    The two counts come off the UNFILTERED meta, and they have to: they are the
-    size of the scope, not of what ends up drawn. Reading them after the role
-    filter, picking a role nobody played would leave `matches` at 0 and the page
-    would answer "nothing has been played here" about a matchday that was.
+    The two counts come off a WHOLE-CHAMPION row, and they have to: they are the
+    size of the scope, not of what ends up drawn. Read off the role rows,
+    picking a role nobody played would leave `matches` at 0 and the page would
+    answer "nothing has been played here" about a matchday that was.
   */
-  const matches = meta[0]?.matches ?? 0
-  const withDraft = meta[0]?.matches_with_bans ?? 0
+  const { matches, withDraft } = scopeCounts(meta)
 
-  const championRows: ChampionRow[] = byRole(meta, role).map((row) => ({
+  /*
+    The bans have no role to be read in. You ban a champion, not a lane, so the
+    view leaves those three columns empty on a role row and the table drops
+    them: a ban count sitting in a table that promises one role would be
+    answering a different question than every column beside it.
+  */
+  const showBans = withDraft > 0 && role === null
+
+  const championRows: ChampionRow[] = championsInRole(meta, role).map((row) => ({
     champion: row.champion,
     name: championName(names, row.champion),
     position: row.position,
@@ -159,7 +174,7 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
     losses: Number(row.losses),
     winPct: row.win_pct === null ? null : Number(row.win_pct),
     pickRate: row.pick_rate === null ? null : Number(row.pick_rate),
-    bans: Number(row.bans),
+    bans: row.bans === null ? null : Number(row.bans),
     banRate: row.ban_rate === null ? null : Number(row.ban_rate),
     presence: row.presence === null ? null : Number(row.presence),
     kda: Number(row.avg_kda),
@@ -254,25 +269,25 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
             detail={[
               'El KDA y el daño son promedios de las partidas en las que se jugó cada campeón (picks).',
               /*
-                El filtro toma TODOS los roles en los que se jugó el campeón, no
-                el más frecuente: un campeón jugado tres veces mid y dos jungla
-                aparece en los dos recortes, que es lo que antes no pasaba —con
-                el rol más frecuente, el segundo rol de cada campeón no existía
-                para el filtro—.
+                Con un rol elegido la tabla deja de mostrar campeones y pasa a
+                mostrar campeón-rol: cada fila son los picks en esa línea y nada
+                más. Hay que decirlo, porque el mismo campeón aparece con
+                números distintos según el rol y sin la aclaración se lee como
+                una contradicción.
 
-                Lo que sigue haciendo falta aclarar es el denominador: sus
-                números son los de todos sus picks, no los del rol filtrado. Es
-                el precio de no partir las estadísticas por rol, que ademas es
-                lo que mantiene comparable el pick rate.
+                Los baneos desaparecen y no hace falta explicarlo columna por
+                columna: se banea a un campeón, no a una línea.
               */
               role
-                ? `Filtrado por ${role.label}: entra todo campeón que se haya jugado ahí alguna vez, y sus números siguen siendo los de todos sus picks.`
+                ? `Filtrado por ${role.label}: cada campeón muestra los números de sus picks en esa línea, no los de todos.`
                 : null,
-              withDraft === 0
-                ? 'Los baneos no salen del .rofl y todavía no se cargó ningún draft.'
-                : withDraft < matches
-                  ? `Baneos medidos sobre ${withDraft} de ${matches} partidas: al resto le falta el draft.`
-                  : null,
+              role !== null
+                ? null
+                : withDraft === 0
+                  ? 'Los baneos no salen del .rofl y todavía no se cargó ningún draft.'
+                  : withDraft < matches
+                    ? `Baneos medidos sobre ${withDraft} de ${matches} partidas: al resto le falta el draft.`
+                    : null,
             ]
               .filter(Boolean)
               .join(' ')}
@@ -280,11 +295,11 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
             <ChampionTable
               rows={championRows}
               version={version}
-              hasBans={withDraft > 0}
+              hasBans={showBans}
               initial={parseSortOrder(
                 params.orden,
                 params.dir,
-                withDraft > 0 ? [...CHAMPION_COLUMNS, ...BAN_COLUMNS] : CHAMPION_COLUMNS,
+                showBans ? [...CHAMPION_COLUMNS, ...BAN_COLUMNS] : CHAMPION_COLUMNS,
                 { id: 'pickrate', dir: 'desc' },
               )}
             />
