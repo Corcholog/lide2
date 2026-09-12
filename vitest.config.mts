@@ -16,9 +16,9 @@ export default defineConfig({
     /*
      * Los `beforeAll` que levantan la base tardan más que el default de 10s.
      *
-     * `createTestDb()` arranca un Postgres en WASM y le aplica las veintiuna
+     * `createTestDb()` arranca un Postgres en WASM y le aplica las veintisiete
      * migraciones, una por una. Sola tarda menos de dos segundos, pero son
-     * veintiocho suites corriendo en paralelo y cada una levanta la suya: con
+     * treinta y tres suites corriendo en paralelo y cada una levanta la suya: con
      * la máquina ocupada —un `next dev` al lado alcanza— alguna se pasa de los
      * diez, y el fallo aparece en un archivo distinto en cada corrida, que es
      * la peor forma de un test en rojo. No es lentitud de una prueba puntual

@@ -57,7 +57,7 @@ async function main() {
 
   // The labels come from the path ("16.05 - FECHA 1 (Replays)/..."), same as in
   // `npm run ingest -- --auto`. They are not enough to hook the match to its
-  // matchup - /admin/asignar or `seed:results` takes care of that - but they
+  // matchup - /admin/asignar takes care of that - but they
   // leave something readable in the meantime.
   const roundDates = buildRoundDateMap(files, new Date().getUTCFullYear())
 
@@ -116,7 +116,7 @@ async function main() {
 
   if (!dryRun) {
     console.log(`\n  ${created} loaded, ${duplicated} duplicate, ${failed} failed\n`)
-    console.log('  Now: npm run seed:results -- --assign\n')
+    console.log('  Now: hook each match to its matchup in /admin/asignar\n')
   }
 }
 

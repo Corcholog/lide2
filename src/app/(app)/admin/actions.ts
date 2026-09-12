@@ -198,8 +198,7 @@ export interface DeleteResult {
  * The order is deliberate: the bucket's .rofl files first and the database
  * after. If the bucket fails, the database is untouched and it can be retried;
  * the other way round would leave 15 MB files with no row naming them,
- * invisible until somebody looks at the storage. It is the same order as
- * `scripts/purge-leif.ts`.
+ * invisible until somebody looks at the storage.
  *
  * `delete_match()` decides everything else: what goes by cascade and which
  * accounts existed only for this match. See
