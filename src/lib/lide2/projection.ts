@@ -33,10 +33,10 @@ import type { FixtureResultRow, GroupStandingRow } from '@/types/db'
  * league: their games against each other, counted only among themselves, which
  * is the natural reading of "enfrentamiento directo" and reduces to exactly the
  * head to head when there are two of them. What that does not separate - three
- * teams in a cycle, each beating the next - is left unresolved on purpose, and
- * the slot shows them all as possibles. The rulebook hands that case to the
- * organizers, and inventing a rule they never wrote is how the bracket would
- * end up printing a name that the organizers then overrule.
+ * teams in a cycle, each beating the next - is left unresolved on purpose: the
+ * slot gets no name. The rulebook hands that case to the organizers, and
+ * inventing a rule they never wrote is how the bracket would end up printing a
+ * name that the organizers then overrule.
  */
 
 /** How many of each group go through. It is what "qualified" means here. */
@@ -64,6 +64,13 @@ export interface SlotCandidate {
   scenarios: number
   /** It finishes in the top two however the rest of the group goes. */
   qualified: boolean
+  /**
+   * It has played every game of its group, so its own record cannot move any
+   * more. Not the same as the slot being settled: a team can be out of reach
+   * with a game still to play, and it can have finished while the place is
+   * still open.
+   */
+  finished: boolean
 }
 
 /** One place of one group - "1º A" - and who can hold it. */
@@ -99,6 +106,8 @@ interface Contender {
   losses: number
   /** Its place in today's table, which orders candidates level on scenarios. */
   position: number
+  /** Games of its own still to be played. */
+  pending: number
 }
 
 /** A group: its teams, the games already played and the ones still open. */
@@ -153,6 +162,7 @@ export function projectBracketSlots(
         teamName: team.teamName,
         scenarios: look.reach.get(position) ?? 0,
         qualified: look.worst <= QUALIFYING_PLACES,
+        finished: team.pending === 0,
       }))
 
       // Settled is not the same as being the only candidate: it is having no
@@ -223,6 +233,7 @@ function ladders(standings: GroupStandingRow[], fixture: FixtureResultRow[]): La
       wins: row.wins,
       losses: row.losses,
       position: row.position,
+      pending: 0,
     })
   }
 
@@ -236,6 +247,8 @@ function ladders(standings: GroupStandingRow[], fixture: FixtureResultRow[]): La
     // to head included.
     if (row.winner_team_id === null) {
       a.ladder.pending.push([a.index, b.index])
+      a.ladder.teams[a.index].pending += 1
+      b.ladder.teams[b.index].pending += 1
     } else if (row.winner_team_id === row.team_a_id) {
       a.ladder.decided.push([a.index, b.index])
     } else if (row.winner_team_id === row.team_b_id) {

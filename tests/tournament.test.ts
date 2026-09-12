@@ -135,9 +135,11 @@ describe('tournament structure', () => {
       ['Alfa', 1, 0],
       ['Charlie', 1, 0],
       ['Eco', 0, 0],
-      // Both lost one: the kill difference breaks the tie (-3 against -10).
-      ['Delta', 0, 1],
+      // Both lost one and they never played each other, so the head to head
+      // has nothing to say and the name is the last resort. That is a printing
+      // order and not a ruling: the rulebook hands this case to the organizers.
       ['Bravo', 0, 1],
+      ['Delta', 0, 1],
     ])
     expect(Number(rows[0].kill_diff)).toBe(10)
   })

@@ -98,6 +98,10 @@ function slot(projection: SlotProjection[], label: string): SlotProjection {
 const names = (projection: SlotProjection) =>
   projection.candidates.map((candidate) => candidate.teamName)
 
+/** Whether the bracket would write this slot in: settled AND the team is done. */
+const written = (projection: SlotProjection) =>
+  projection.locked?.finished ? projection.locked.teamName : null
+
 describe('the head to head separates two teams level on points', () => {
   /*
    * The case that prompted the rule, in the shape it turned up in: two teams
@@ -266,26 +270,43 @@ describe('three teams in a circle are left to the organizers', () => {
 
 describe('three teams level that the mini league does separate', () => {
   /*
-   * The same three level on points, but without the circle: `a` beat both, `b`
-   * beat `c`. Read as a mini league that is 2, 1 and 0 wins among themselves, so
-   * the order is settled and nothing goes to the organizers.
+   * Three level on points without a circle: `a` beat `b` and `c`, `b` beat `c`.
+   * Two wins, one and none among themselves, so the order is settled and
+   * nothing goes to the organizers.
+   *
+   * It takes five teams. With four, three level teams have played a complete
+   * round robin among themselves and their three mutual wins can only come out
+   * one each - a circle, always. The room for a 2-1-0 comes from the games
+   * against the rest of the group, and that needs a fifth team: here `a` loses
+   * both of its games outside the trio, `b` one, `c` neither.
    */
-  const table = [standing('a', 2, 1, 1), standing('b', 2, 1, 2), standing('c', 2, 1, 3), standing('d', 0, 3, 4)]
+  const table = [
+    standing('e', 3, 1, 1),
+    standing('a', 2, 2, 2),
+    standing('b', 2, 2, 3),
+    standing('c', 2, 2, 4),
+    standing('d', 1, 3, 5),
+  ]
 
   const fixture = [
     matchup('a', 'b', 'a'),
     matchup('a', 'c', 'a'),
     matchup('b', 'c', 'b'),
     matchup('a', 'd', 'd'),
+    matchup('a', 'e', 'e'),
     matchup('b', 'd', 'b'),
+    matchup('b', 'e', 'e'),
     matchup('c', 'd', 'c'),
+    matchup('c', 'e', 'c'),
+    matchup('d', 'e', 'e'),
   ]
 
   const projection = projectBracketSlots(table, fixture)
 
   it('orders them by the games among themselves', () => {
-    expect(slot(projection, '1º A').locked?.teamName).toBe('Equipo a')
-    expect(slot(projection, '2º A').locked?.teamName).toBe('Equipo b')
+    // `e` is on its own at 3-1; the second place is the top of the mini league.
+    expect(slot(projection, '1º A').locked?.teamName).toBe('Equipo e')
+    expect(slot(projection, '2º A').locked?.teamName).toBe('Equipo a')
   })
 })
 
@@ -467,5 +488,57 @@ describe('a group that branches too far', () => {
   it('is left unprojected', () => {
     expect(fixture).toHaveLength(15)
     expect(projectBracketSlots(table, fixture)).toEqual([])
+  })
+})
+
+describe('a team that is through but has not finished playing', () => {
+  /*
+   * What the bracket keys off is not the same as what the arithmetic settles,
+   * and the two come apart exactly here. `a` has won its three and cannot be
+   * caught: the slot is settled. But it still has a game to play, and the
+   * bracket waits for that before writing anybody in - naming a quarter-final
+   * while its group is still being played is what takes the air out of the last
+   * matchday.
+   *
+   * `b`, level with `a` on points if `a` loses its last one, HAS finished its
+   * four and lost the game between them, so second place is both settled and
+   * written in.
+   */
+  const table = [
+    standing('a', 3, 0, 1),
+    standing('b', 3, 1, 2),
+    standing('c', 1, 2, 3),
+    standing('d', 1, 2, 4),
+    standing('e', 0, 3, 5),
+  ]
+
+  const fixture = [
+    matchup('a', 'b', 'a'),
+    matchup('a', 'c', 'a'),
+    matchup('a', 'd', 'a'),
+    matchup('b', 'c', 'b'),
+    matchup('b', 'd', 'b'),
+    matchup('b', 'e', 'e'),
+    matchup('c', 'e', 'c'),
+    matchup('d', 'e', 'd'),
+    matchup('a', 'e'), // `a` still has this one
+    matchup('c', 'd'), // and these two are still moving
+  ]
+
+  const projection = projectBracketSlots(table, fixture)
+
+  it('settles first place all the same', () => {
+    expect(slot(projection, '1º A').locked?.teamName).toBe('Equipo a')
+  })
+
+  it('does not write it in while that team still has a game', () => {
+    expect(slot(projection, '1º A').locked?.finished).toBe(false)
+    expect(written(slot(projection, '1º A'))).toBeNull()
+  })
+
+  it('writes in the one that is settled and has finished', () => {
+    expect(slot(projection, '2º A').locked?.teamName).toBe('Equipo b')
+    expect(slot(projection, '2º A').locked?.finished).toBe(true)
+    expect(written(slot(projection, '2º A'))).toBe('Equipo b')
   })
 })
