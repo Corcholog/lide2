@@ -1,6 +1,9 @@
+import Link from 'next/link'
 import { Tabs } from '@/components/nav/Tabs'
 import { dayAndMonth } from '@/lib/lide2/dates'
+import { forSlot, type SlotCandidate, type SlotProjection } from '@/lib/lide2/projection'
 import { FINAL_ROUND, seriesWinner } from '@/lib/lide2/winner'
+import { teamPath } from '@/lib/routes'
 import type { SeriesResultRow } from '@/types/db'
 
 /*
@@ -15,7 +18,45 @@ const ROUNDS = [
   { round: FINAL_ROUND, short: 'Final' },
 ]
 
-export function Playoffs({ series }: { series: SeriesResultRow[] }) {
+/**
+ * What an empty slot has to show instead of its placeholder, or null when there
+ * is nothing to say.
+ *
+ * The team the organizers wrote down always wins: once `team_a_id` is filled
+ * in, the group phase is over and the projection has nothing to add. And a slot
+ * whose group is not being projected - the semis and the final, which hang off
+ * other series and not off a table - returns null and keeps its placeholder.
+ *
+ * THE LIST OF POSSIBLES HAS TO NARROW SOMETHING DOWN. Before the first matchday
+ * every team in the group can still come first, which is true and worth
+ * nothing: the eight cards of the bracket would carry forty names between them
+ * and none of them would rule anything out. While the list is the whole group
+ * the placeholder stays, and the preview turns up on its own as the results
+ * start eliminating teams.
+ */
+function preview(
+  slots: SlotProjection[],
+  teamId: string | null,
+  label: string | null,
+): SlotProjection | null {
+  if (teamId) return null
+
+  const slot = forSlot(slots, label)
+  if (!slot) return null
+  if (slot.locked) return slot
+  if (slot.candidates.length === 0 || slot.candidates.length >= slot.teams) return null
+
+  return slot
+}
+
+export function Playoffs({
+  series,
+  slots = [],
+}: {
+  series: SeriesResultRow[]
+  /** Who can still fill each group slot, for the quarters nobody has entered yet. */
+  slots?: SlotProjection[]
+}) {
   const inRound = (round: string) => series.filter((item) => item.round === round)
 
   return (
@@ -54,6 +95,7 @@ export function Playoffs({ series }: { series: SeriesResultRow[] }) {
             key={round}
             title={round}
             series={inRound(round)}
+            slots={slots}
             champion={round === FINAL_ROUND}
           />
         ))}
@@ -74,7 +116,12 @@ export function Playoffs({ series }: { series: SeriesResultRow[] }) {
           })}
         >
           {ROUNDS.map(({ round }) => (
-            <Round key={round} series={inRound(round)} champion={round === FINAL_ROUND} />
+            <Round
+              key={round}
+              series={inRound(round)}
+              slots={slots}
+              champion={round === FINAL_ROUND}
+            />
           ))}
         </Tabs>
       </div>
@@ -89,10 +136,12 @@ export function Playoffs({ series }: { series: SeriesResultRow[] }) {
 function RoundColumn({
   title,
   series,
+  slots,
   champion = false,
 }: {
   title: string
   series: SeriesResultRow[]
+  slots: SlotProjection[]
   champion?: boolean
 }) {
   const date = series[0]?.scheduled_at
@@ -108,7 +157,7 @@ function RoundColumn({
           against the previous one: four quarters, two semis, one final. */}
       <div className="flex flex-1 flex-col justify-around gap-3">
         {series.map((item) => (
-          <SeriesCard key={item.id} series={item} />
+          <SeriesCard key={item.id} series={item} slots={slots} />
         ))}
         {champion && <Champion final={series[0]} />}
       </div>
@@ -125,11 +174,19 @@ function RoundColumn({
  * column's `justify-around`, which exists to line one round up against the one
  * beside it and here there is none beside it.
  */
-function Round({ series, champion = false }: { series: SeriesResultRow[]; champion?: boolean }) {
+function Round({
+  series,
+  slots,
+  champion = false,
+}: {
+  series: SeriesResultRow[]
+  slots: SlotProjection[]
+  champion?: boolean
+}) {
   return (
     <div className="flex flex-col gap-3">
       {series.map((item) => (
-        <SeriesCard key={item.id} series={item} />
+        <SeriesCard key={item.id} series={item} slots={slots} />
       ))}
       {champion && <Champion final={series[0]} />}
     </div>
@@ -156,7 +213,7 @@ function Champion({ final }: { final: SeriesResultRow | undefined }) {
   )
 }
 
-function SeriesCard({ series }: { series: SeriesResultRow }) {
+function SeriesCard({ series, slots }: { series: SeriesResultRow; slots: SlotProjection[] }) {
   const decided = series.winner_team_id !== null
 
   return (
@@ -167,15 +224,19 @@ function SeriesCard({ series }: { series: SeriesResultRow }) {
       </p>
 
       <SeriesTeam
+        id={series.team_a_id}
         name={series.team_a_name}
         slot={series.slot_a_label}
+        projection={preview(slots, series.team_a_id, series.slot_a_label)}
         wins={series.wins_a}
         won={decided && series.winner_team_id === series.team_a_id}
         pending={!decided}
       />
       <SeriesTeam
+        id={series.team_b_id}
         name={series.team_b_name}
         slot={series.slot_b_label}
+        projection={preview(slots, series.team_b_id, series.slot_b_label)}
         wins={series.wins_b}
         won={decided && series.winner_team_id === series.team_b_id}
         pending={!decided}
@@ -184,36 +245,127 @@ function SeriesCard({ series }: { series: SeriesResultRow }) {
   )
 }
 
+/**
+ * One side of a series: the team, or where it is going to come from.
+ *
+ * Three states now instead of two. With the team entered it is drawn as it
+ * always was. With the slot already settled by arithmetic the projected name
+ * takes the place of the placeholder and goes in red, which is the site's way
+ * of saying "this one is in" - the group table paints the two qualifying rows
+ * with the same accent. With the place still open the placeholder stays and the
+ * teams that can reach it go underneath.
+ *
+ * Every name that has a team behind it leads to that team's page, the same as
+ * in the group tables and in the fixture, and the projected ones lead there
+ * too: from a visitor's side there is no difference between a team the
+ * organizers entered and one that arithmetic already put there.
+ *
+ * `data-team` is what hooks those names into the highlight: hovering over a
+ * team in the group table lights up the slot it is heading for, which is the
+ * whole question somebody looking at a bracket in the middle of the group phase
+ * is asking.
+ */
 function SeriesTeam({
+  id,
   name,
   slot,
+  projection,
   wins,
   won,
   pending,
 }: {
+  id: string | null
   name: string | null
   slot: string | null
+  projection: SlotProjection | null
   wins: number
   won: boolean
   pending: boolean
 }) {
+  const locked = projection?.locked ?? null
+  const shown = name ?? locked?.teamName ?? null
+  const teamId = id ?? locked?.teamId ?? null
+  const candidates = locked ? [] : (projection?.candidates ?? [])
+
+  // Projected: the name is not in the database yet, arithmetic put it there.
+  const projected = !name && locked !== null
+  const tone = won
+    ? 'font-semibold'
+    : projected
+      ? 'font-semibold text-accent'
+      : pending
+        ? 'text-fg-soft'
+        : 'text-faint'
+  const label = `min-w-0 flex-1 truncate text-sm ${tone}`
+
   return (
-    <div
-      className={`flex items-center gap-2 border-l-2 py-1 pl-2 ${
-        won ? 'border-accent' : 'border-transparent'
-      }`}
-    >
-      <span
-        className={`min-w-0 flex-1 truncate text-sm ${
-          won ? 'font-semibold' : pending ? 'text-fg-soft' : 'text-faint'
-        }`}
-      >
-        {name ?? <span className="text-dim">{slot ?? 'por definir'}</span>}
-      </span>
-      {name && slot && <span className="shrink-0 text-[10px] text-dim">{slot}</span>}
-      <span className={`tabular w-4 text-right text-sm ${won ? 'font-bold' : 'text-faint'}`}>
-        {wins}
-      </span>
+    <div className={`border-l-2 py-1 pl-2 ${won ? 'border-accent' : 'border-transparent'}`}>
+      <div className="flex items-center gap-2">
+        {shown && teamId ? (
+          <Link
+            href={teamPath(teamId, 'playoffs')}
+            data-team={teamId}
+            // The projected name is already accent, so its hover has to move
+            // somewhere: without this it is a link that does not answer.
+            className={`${label} transition-colors ${
+              projected ? 'hover:text-accent-soft' : 'hover:text-accent'
+            }`}
+            title={projected && slot ? `${shown} ya está clasificado como ${slot}` : undefined}
+          >
+            {shown}
+          </Link>
+        ) : (
+          <span className={label}>
+            {shown ?? <span className="text-dim">{slot ?? 'por definir'}</span>}
+          </span>
+        )}
+        {shown && slot && <span className="shrink-0 text-[10px] text-dim">{slot}</span>}
+        <span className={`tabular w-4 text-right text-sm ${won ? 'font-bold' : 'text-faint'}`}>
+          {wins}
+        </span>
+      </div>
+
+      {candidates.length > 0 && <Possibles candidates={candidates} />}
+    </div>
+  )
+}
+
+/**
+ * The teams that can still take the slot.
+ *
+ * Chips and not a comma-separated line: in a 229px column three names run
+ * together into one string of words, and each one has to be picked out as a
+ * unit for the highlight to be any use. They wrap, so four candidates take two
+ * rows and the card grows instead of truncating - a list of possibles cut off
+ * halfway is worse than no list.
+ *
+ * The tick is for the team that is already through and is only waiting to find
+ * out whether it goes in as first or second. It is a glyph and not a colour
+ * because that distinction is the point of the row, and the group table's own
+ * comment explains why colour alone does not carry it.
+ */
+function Possibles({ candidates }: { candidates: SlotCandidate[] }) {
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1 text-[10px] leading-tight">
+      <span className="uppercase tracking-wide text-dim">Posibles</span>
+      {candidates.map((candidate) => (
+        <Link
+          key={candidate.teamId}
+          href={teamPath(candidate.teamId, 'playoffs')}
+          data-team={candidate.teamId}
+          className="border border-line bg-raised px-1 py-0.5 text-faint transition-colors hover:border-accent hover:text-accent"
+        >
+          {candidate.qualified && (
+            <>
+              <span aria-hidden className="text-accent">
+                ✓{' '}
+              </span>
+              <span className="sr-only">ya clasificado: </span>
+            </>
+          )}
+          {candidate.teamName}
+        </Link>
+      ))}
     </div>
   )
 }

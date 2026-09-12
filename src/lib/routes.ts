@@ -49,6 +49,10 @@ export const ORIGINS = {
   // a page you were reading the middle of is barely better than not coming
   // back at all. The anchor is the `id` the section already carries.
   grupos: { href: '/#grupos', label: 'Portada' },
+  // The bracket, for the same reason as the group tables: it sits below them,
+  // and every team in it - the ones already in and the ones the preview
+  // projects into a quarter-final - leads to its page.
+  playoffs: { href: '/#playoffs', label: 'Portada' },
   equipos: { href: '/equipos', label: 'Equipos' },
   // From the match listing, where every team name leads to its page. Not to be
   // read as the singular `partida.<uuid>` below: that one comes from ONE match
