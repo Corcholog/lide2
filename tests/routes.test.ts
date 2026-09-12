@@ -16,6 +16,7 @@ describe('where the back arrow goes', () => {
   it('each key resolves to its page', () => {
     expect(originFrom('portada', 'equipos')).toEqual({ href: '/', label: 'Portada' })
     expect(originFrom('grupos', 'equipos')).toEqual({ href: '/#grupos', label: 'Portada' })
+    expect(originFrom('playoffs', 'equipos')).toEqual({ href: '/#playoffs', label: 'Portada' })
     expect(originFrom('tablas', 'equipos')).toEqual({
       href: '/estadisticas/tablas',
       label: 'Tablas',
