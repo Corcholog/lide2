@@ -121,6 +121,59 @@ export async function setWalkoverAction(
   return result
 }
 
+export interface RulingResult {
+  ok: boolean
+  error?: string
+  /** The team the organizers gave the matchup to. */
+  winner?: string
+  /** The one sanctioned. */
+  sanctioned?: string
+  ruling?: string
+  /** Whether a played match got annulled with it. */
+  annulled_match?: boolean
+  /** The ruling was undone rather than made. */
+  cleared?: boolean
+}
+
+/**
+ * Overturning a played result by the rulebook - an ineligible lineup.
+ *
+ * Not a walkover, and not done through it: that tool needs the match unhooked,
+ * and an unhooked match falls back to its file labels and gets counted a second
+ * time. This keeps the match where it is, annuls it for every statistic and
+ * gives the matchup to the other side. See
+ * `supabase/migrations/0031_alineacion_indebida.sql`.
+ *
+ * The empty value clears it and the played result counts again: a ruling takes
+ * a win off somebody and a whole match off the statistics, so it had better be
+ * reversible from the panel.
+ */
+export async function setRulingAction(
+  _prev: RulingResult | null,
+  formData: FormData,
+): Promise<RulingResult> {
+  await requireUser()
+
+  const fixtureId = String(formData.get('fixtureId') ?? '')
+  if (!fixtureId) return { ok: false, error: 'Falta el cruce.' }
+
+  const winnerTeamId = String(formData.get('winnerTeamId') ?? '') || null
+  const ruling = String(formData.get('ruling') ?? '') || 'alineacion_indebida'
+
+  const { data, error } = await createAdminClient().rpc('set_fixture_ruling', {
+    p_fixture_id: fixtureId,
+    p_winner_team_id: winnerTeamId,
+    p_ruling: ruling,
+  })
+
+  if (error) return { ok: false, error: error.message }
+
+  const result = data as RulingResult
+  if (result.ok) refresh()
+
+  return result
+}
+
 export async function unassignMatchAction(
   _prev: AssignResult | null,
   formData: FormData,
