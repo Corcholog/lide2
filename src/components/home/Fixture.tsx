@@ -1,6 +1,7 @@
 import { UniversityLogo } from '@/components/tournament/UniversityLogo'
 import { Tabs } from '@/components/nav/Tabs'
 import { timeOfDay, weekdayAndDate } from '@/lib/lide2/dates'
+import { rulingLabel } from '@/lib/lide2/rulings'
 import type { FixtureResultRow } from '@/types/db'
 
 /**
@@ -46,7 +47,7 @@ export function Fixture({ rounds }: { rounds: FixtureResultRow[] }) {
    * matchday read as though a matchup were still missing. What the number is
    * for is how much of the fixture is settled, so that is what it says.
    */
-  const decided = rounds.filter((row) => row.status === 'jugado' || row.status === 'w.o.').length
+  const decided = rounds.filter((row) => row.status === 'jugado' || row.status === 'w.o.' || row.status === 'reglamento').length
 
   /*
    * And now one more pass: the slots are grouped by matchday, which is the
@@ -94,7 +95,7 @@ export function Fixture({ rounds }: { rounds: FixtureResultRow[] }) {
           )
           const finished = daySlots
             .flatMap((slot) => [...slot.groups.values()].flat())
-            .filter((row) => row.status === 'jugado' || row.status === 'w.o.').length
+            .filter((row) => row.status === 'jugado' || row.status === 'w.o.' || row.status === 'reglamento').length
 
           return {
             id: `fecha-${matchday}`,
@@ -173,6 +174,9 @@ function FixtureRow({ match }: { match: FixtureResultRow }) {
   // no scoreline because there was no game: the names still carry who took it,
   // through team_a_win / team_b_win.
   const walkover = match.status === 'w.o.'
+  // Played, and overturned by the organizers: no scoreline, because the one that
+  // was played is not the result. The names carry who it was given to.
+  const ruling = match.status === 'reglamento' ? rulingLabel(match.ruling) : null
 
   return (
     // data-fixture: the mark the highlight looks for to dim the matchups the
@@ -203,6 +207,10 @@ function FixtureRow({ match }: { match: FixtureResultRow }) {
               {match.team_b_kills}
             </span>
           </>
+        ) : ruling ? (
+          <abbr className="text-faint no-underline" title={`${ruling.long}: resultado definido por la organización`}>
+            {ruling.short}
+          </abbr>
         ) : walkover ? (
           <span className="text-faint" title="Ganado por no presentación del rival">
             W.O.

@@ -85,6 +85,7 @@ function matchup(a: string, b: string, winner: string | null = null): FixtureRes
     team_a_universities: null,
     team_b_universities: null,
     walkover_team_id: null,
+    ruling: null,
   }
 }
 

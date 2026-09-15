@@ -7,6 +7,7 @@ import { assetVersion, championNames, summonerSpellNames } from '@/lib/ddragon'
 import { formatDate, formatDuration, ROLES } from '@/lib/format'
 import { Scoreboard, type ScoreboardPlayer } from '@/components/match/Scoreboard'
 import { matchOrigin, teamPath } from '@/lib/routes'
+import { rulingLabel } from '@/lib/lide2/rulings'
 import type { MatchPlayerScoreRow, MatchSummaryRow, MatchTeamStatsRow } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
@@ -130,16 +131,16 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
             matchId={id}
             fallback="Lado azul"
             className={`flex-1 truncate text-right text-lg font-semibold ${
-              summary.winning_side === 100 ? 'text-side-blue' : 'text-muted'
+              !summary.annulled && summary.winning_side === 100 ? 'text-side-blue' : 'text-muted'
             }`}
           />
           <div className="tabular shrink-0 text-center">
             <p className="text-3xl font-bold">
-              <span className={summary.winning_side === 100 ? 'text-side-blue' : 'text-faint'}>
+              <span className={!summary.annulled && summary.winning_side === 100 ? 'text-side-blue' : 'text-faint'}>
                 {summary.blue_kills ?? 0}
               </span>
               <span className="mx-2 text-dim">–</span>
-              <span className={summary.winning_side === 200 ? 'text-side-red' : 'text-faint'}>
+              <span className={!summary.annulled && summary.winning_side === 200 ? 'text-side-red' : 'text-faint'}>
                 {summary.red_kills ?? 0}
               </span>
             </p>
@@ -150,7 +151,7 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
             matchId={id}
             fallback="Lado rojo"
             className={`flex-1 truncate text-left text-lg font-semibold ${
-              summary.winning_side === 200 ? 'text-side-red' : 'text-muted'
+              !summary.annulled && summary.winning_side === 200 ? 'text-side-red' : 'text-muted'
             }`}
           />
         </div>
@@ -168,6 +169,26 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
             .filter(Boolean)
             .join('  ·  ')}
         </p>
+
+        {/*
+          The organizers overturned this result. The game stays - the replay
+          and the scoreboard below are the evidence of what was sanctioned -
+          but neither side is painted as the winner above, and this says what
+          counts instead and what no longer does.
+        */}
+        {summary.annulled && (
+          <p className="mt-4 border-l-2 border-accent pl-3 text-sm text-fg-soft">
+            <span className="font-semibold text-accent">
+              Partida anulada · {rulingLabel(summary.ruling)?.long ?? 'fallo de la organización'}.
+            </span>{' '}
+            La organización le dio el cruce a{' '}
+            {summary.ruling_winner_team_id === summary.blue_team_id
+              ? summary.blue_team_name
+              : summary.red_team_name}{' '}
+            por reglamento. Este resultado no cuenta para la tabla, y nada de lo que pasó en la
+            partida suma a las estadísticas.
+          </p>
+        )}
       </header>
 
       <Scoreboard

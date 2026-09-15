@@ -4,6 +4,7 @@ import { MatchDetail } from '@/components/match/MatchDetail'
 import { markRule } from '@/components/match/mark'
 import { championIcon, championName } from '@/lib/ddragon'
 import { formatDate, formatDuration, formatKda } from '@/lib/format'
+import { rulingLabel } from '@/lib/lide2/rulings'
 import type { DetailPlayer } from '@/lib/matches'
 import { teamPath, type Origin } from '@/lib/routes'
 import type { MatchSummaryRow, MatchTeamStatsRow } from '@/types/db'
@@ -34,7 +35,7 @@ import type { MatchSummaryRow, MatchTeamStatsRow } from '@/types/db'
  * TYPE to know what the query returns, and a sum stops being a literal.
  */
 export const LIST_COLUMNS =
-  'id,played_at,patch,matchday,group_label,stage_label,round_label,game_length_ms,winning_side,blue_team_id,blue_team_name,red_team_id,red_team_name,blue_kills,red_kills,mvp_name,mvp_champion,mvp_kills,mvp_deaths,mvp_assists'
+  'id,played_at,patch,matchday,group_label,stage_label,round_label,game_length_ms,winning_side,blue_team_id,blue_team_name,red_team_id,red_team_name,blue_kills,red_kills,mvp_name,mvp_champion,mvp_kills,mvp_deaths,mvp_assists,annulled,ruling,ruling_winner_team_id'
 
 export type ListMatch = Pick<
   MatchSummaryRow,
@@ -58,6 +59,9 @@ export type ListMatch = Pick<
   | 'mvp_kills'
   | 'mvp_deaths'
   | 'mvp_assists'
+  | 'annulled'
+  | 'ruling'
+  | 'ruling_winner_team_id'
 >
 
 export function MatchList({
@@ -159,15 +163,29 @@ export function MatchList({
                   />
                   <div className="tabular shrink-0 text-center">
                     <p className="text-lg font-bold">
-                      <span className={match.winning_side === 100 ? 'text-side-blue' : 'text-muted'}>
+                      <span className={!match.annulled && match.winning_side === 100 ? 'text-side-blue' : 'text-muted'}>
                         {match.blue_kills ?? 0}
                       </span>
                       <span className="mx-1 text-dim">–</span>
-                      <span className={match.winning_side === 200 ? 'text-side-red' : 'text-muted'}>
+                      <span className={!match.annulled && match.winning_side === 200 ? 'text-side-red' : 'text-muted'}>
                         {match.red_kills ?? 0}
                       </span>
                     </p>
-                    <p className="text-xs text-faint">{formatDuration(match.game_length_ms)}</p>
+                    {/*
+                      Annulled by the organizers: the game happened - the replay is
+                      there - but it is not a result, so the side that won on the
+                      rift is not painted as the winner and the row says why.
+                    */}
+                    {match.annulled ? (
+                      <p
+                        className="text-xs font-semibold uppercase tracking-wide text-accent"
+                        title={`${rulingLabel(match.ruling)?.long ?? 'Anulada'}: no cuenta para la tabla ni las estadísticas`}
+                      >
+                        Anulada
+                      </p>
+                    ) : (
+                      <p className="text-xs text-faint">{formatDuration(match.game_length_ms)}</p>
+                    )}
                   </div>
                   <SideBlock
                     match={match}
@@ -327,7 +345,7 @@ function SideBlock({
           name={blue ? match.blue_team_name : match.red_team_name}
           teamId={teamId}
           side={side}
-          won={match.winning_side === side}
+          won={!match.annulled && match.winning_side === side}
           from={from}
         />
         <Champions

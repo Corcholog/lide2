@@ -12,6 +12,8 @@ import {
   type UnassignedMatch,
 } from '@/components/admin/AssignMatch'
 import { Walkover } from '@/components/admin/Walkover'
+import { Ruling } from '@/components/admin/Ruling'
+import { rulingLabel } from '@/lib/lide2/rulings'
 import type { FixtureResultRow } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
@@ -259,22 +261,48 @@ export default async function AssignMatchesPage() {
           </h2>
           <ul className="grid gap-0.5 bg-line sm:grid-cols-2">
             {done.map((row) => (
-              <li
-                key={row.id}
-                className="flex items-baseline justify-between gap-3 bg-surface px-4 py-2 text-sm"
-              >
-                <span className="min-w-0 truncate">
-                  <span className="text-faint">
-                    F{row.matchday}·T{row.slot}
-                  </span>{' '}
-                  {row.team_a_name} vs {row.team_b_name}
-                </span>
-                <Link
-                  href={`/partidas/${row.match_id}`}
-                  className="shrink-0 text-xs text-muted transition-colors hover:text-accent"
-                >
-                  {formatDate(row.played_at)}
-                </Link>
+              <li key={row.id} className="flex flex-col gap-1.5 bg-surface px-4 py-2 text-sm">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="min-w-0 truncate">
+                    <span className="text-faint">
+                      F{row.matchday}·T{row.slot}
+                    </span>{' '}
+                    {row.team_a_name} vs {row.team_b_name}
+                  </span>
+                  <Link
+                    href={`/partidas/${row.match_id}`}
+                    className="shrink-0 text-xs text-muted transition-colors hover:text-accent"
+                  >
+                    {formatDate(row.played_at)}
+                  </Link>
+                </div>
+                {/*
+                  Folded, because it is the exception: nearly every played
+                  matchup stands as it was played, and a dropdown on each of the
+                  forty would double the list for a tool used once. It opens on
+                  its own where a ruling is loaded, so undoing one never means
+                  hunting for it.
+                */}
+                <details open={row.status === 'reglamento'} className="text-xs">
+                  <summary className="cursor-pointer text-faint transition-colors hover:text-accent">
+                    {row.status === 'reglamento' ? (
+                      <span className="text-accent">
+                        {rulingLabel(row.ruling)?.long} · gana{' '}
+                        {row.winner_team_id === row.team_a_id ? row.team_a_name : row.team_b_name}
+                      </span>
+                    ) : (
+                      'Anular por reglamento'
+                    )}
+                  </summary>
+                  <div className="mt-1.5">
+                    <Ruling
+                      fixtureId={row.id}
+                      teamA={{ id: row.team_a_id, name: row.team_a_name }}
+                      teamB={{ id: row.team_b_id, name: row.team_b_name }}
+                      current={row.status === 'reglamento' ? row.winner_team_id : null}
+                    />
+                  </div>
+                </details>
               </li>
             ))}
           </ul>

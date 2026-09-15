@@ -126,8 +126,14 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
     `greatest(game_length_ms / 60000, 1)`): sin él, un remake de treinta
     segundos multiplicaría por dos todo lo que pasó en él.
   */
+  // Only the matches that count. One annulled by the organizers is still in
+  // the history below - it was played - but its numbers are not this player's
+  // record, the same as in every table; leaving it out of `minutes` is what
+  // leaves it out of `rated`, and so out of every average here.
   const minutes = new Map(
-    matches.map((match) => [match.id, Math.max((match.game_length_ms ?? 0) / 60000, 1)]),
+    matches
+      .filter((match) => !match.annulled)
+      .map((match) => [match.id, Math.max((match.game_length_ms ?? 0) / 60000, 1)]),
   )
 
   const rated = scores.filter((score) => minutes.has(score.match_id))
@@ -143,7 +149,7 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
   // El Riot ID que va debajo del nombre. Ver el comentario en el header.
   const handle = riotTag(player.riot_game_name, player.riot_tag_line, player.display_name)
   const teamId = totals?.team_id ?? null
-  const position = mainPosition(scores)
+  const position = mainPosition(rated)
   const losses = (totals?.games ?? 0) - (totals?.wins ?? 0)
 
   return (

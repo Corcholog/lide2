@@ -46,6 +46,13 @@ export interface MatchSummaryRow {
   slot: number | null
   /** How many bans are entered by hand. 0 = no draft; the .rofl does not carry it. */
   ban_count: number
+  /**
+   * Its matchup was overturned by the rulebook: it stays listed, with its
+   * scoreboard, and counts for no statistic. See 0031_alineacion_indebida.sql.
+   */
+  annulled: boolean
+  ruling: string | null
+  ruling_winner_team_id: string | null
 }
 
 /** A `match_bans` row: one ban from the draft, entered by hand in the panel. */
@@ -278,7 +285,8 @@ export interface FixtureResultRow {
    * within the 15 minutes the rules allow, and it was awarded. It is a separate
    * value from `pendiente` because that one still might be played.
    */
-  status: 'pendiente' | 'sin resultado' | 'jugado' | 'w.o.'
+  /** `reglamento`: the organizers overturned it (0031). The match, if any, is annulled. */
+  status: 'pendiente' | 'sin resultado' | 'jugado' | 'w.o.' | 'reglamento'
 
   /** Each side's university tags, the main one first. */
   team_a_universities: string[] | null
@@ -289,6 +297,8 @@ export interface FixtureResultRow {
    * so the fixture can write "W.O." where the scoreline goes.
    */
   walkover_team_id: string | null
+  /** Why the organizers overturned it: a key of RULINGS. Null with no ruling. */
+  ruling: string | null
 }
 
 /** A team resting in a slot: one per group sits out each one. */
