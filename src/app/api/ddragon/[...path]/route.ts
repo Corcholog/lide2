@@ -3,7 +3,11 @@ import { NextResponse } from 'next/server'
 export const runtime = 'nodejs'
 
 const DDRAGON = 'https://ddragon.leagueoflegends.com'
-const ALLOWED = /^cdn\/[\w.]+\/img\/(champion|item|spell|profileicon)\/[\w.'-]+\.png$/
+const ALLOWED = [
+  /^cdn\/[\w.]+\/img\/(champion|item|spell|profileicon)\/[\w.'-]+\.png$/,
+  // The loading screen art, which hangs off no version: see `championLoading`.
+  /^cdn\/img\/champion\/loading\/\w+_\d+\.jpg$/,
+]
 
 /**
  * Same-origin proxy for Riot's assets.
@@ -19,7 +23,7 @@ export async function GET(_request: Request, { params }: RouteContext<'/api/ddra
   const relative = path.join('/')
 
   // Strict allowlist: this must never turn into an open proxy.
-  if (!ALLOWED.test(relative)) {
+  if (!ALLOWED.some((pattern) => pattern.test(relative))) {
     return NextResponse.json({ error: 'Ruta no permitida' }, { status: 400 })
   }
 

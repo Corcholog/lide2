@@ -2,7 +2,13 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { maybeRow, rows } from '@/lib/supabase/query'
-import { assetVersion, championIcon, championName, championNames } from '@/lib/ddragon'
+import {
+  assetVersion,
+  championIcon,
+  championLoading,
+  championName,
+  championNames,
+} from '@/lib/ddragon'
 import { formatNumber, formatPosition, playerName, riotTag } from '@/lib/format'
 import { loadMatchDetails } from '@/lib/matches'
 import { GameIcon } from '@/components/match/GameIcon'
@@ -17,6 +23,31 @@ import type {
 } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
+
+/**
+ * How many champions of the pool are drawn as a card; the rest stay as rows.
+ *
+ * Six because it splits evenly across the three grids the section uses - two,
+ * three and six columns - so a full set fills its rows at every width. And
+ * because the art is what identifies the player's main picks: past the sixth
+ * it is champions played once or twice, and a wall of portraits there is only
+ * scrolling.
+ */
+const FEATURED = 6
+
+/*
+ * The shade the card's numbers rest on. Solid at the foot, where the text is,
+ * and gone by two thirds of the way up, so the face stays clean. It is built
+ * over --canvas like the hero's layers, and the card forces the dark theme, so
+ * this always ends in the site's black.
+ */
+const CARD_SHADE = [
+  'linear-gradient(to top',
+  'var(--canvas) 0%',
+  'color-mix(in srgb, var(--canvas) 90%, transparent) 30%',
+  'color-mix(in srgb, var(--canvas) 45%, transparent) 50%',
+  'transparent 68%)',
+].join(', ')
 
 function percent(part: number, total: number): string {
   return total > 0 ? `${Math.round((part / total) * 100)}%` : '—'
@@ -242,33 +273,44 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
             <h2 className="text-sm font-medium text-muted">
               Campeones ({champions.length} {champions.length === 1 ? 'distinto' : 'distintos'})
             </h2>
-            <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {champions.map((champion) => (
-                <li
+            <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+              {champions.slice(0, FEATURED).map((champion) => (
+                <ChampionCard
                   key={champion.champion}
-                  className="flex items-center gap-3 rounded-lg border border-line bg-surface px-3 py-2.5"
-                >
-                  <GameIcon
-                    src={championIcon(version, champion.champion)}
-                    alt={championName(champNames, champion.champion)}
-                    size={36}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">
-                      {championName(champNames, champion.champion)}
-                    </p>
-                    <p className="tabular text-xs text-faint">
-                      {champion.games} {champion.games === 1 ? 'partida' : 'partidas'} ·{' '}
-                      {champion.wins}V {champion.games - champion.wins}D
-                    </p>
-                  </div>
-                  <div className="tabular shrink-0 text-right">
-                    <p className="text-sm">{champion.kda}</p>
-                    <p className="text-xs text-dim">KDA</p>
-                  </div>
-                </li>
+                  champion={champion}
+                  name={championName(champNames, champion.champion)}
+                />
               ))}
             </ul>
+            {champions.length > FEATURED && (
+              <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {champions.slice(FEATURED).map((champion) => (
+                  <li
+                    key={champion.champion}
+                    className="flex items-center gap-3 rounded-lg border border-line bg-surface px-3 py-2.5"
+                  >
+                    <GameIcon
+                      src={championIcon(version, champion.champion)}
+                      alt={championName(champNames, champion.champion)}
+                      size={36}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">
+                        {championName(champNames, champion.champion)}
+                      </p>
+                      <p className="tabular text-xs text-faint">
+                        {champion.games} {champion.games === 1 ? 'partida' : 'partidas'} ·{' '}
+                        {champion.wins}V {champion.games - champion.wins}D
+                      </p>
+                    </div>
+                    <div className="tabular shrink-0 text-right">
+                      <p className="text-sm">{champion.kda}</p>
+                      <p className="text-xs text-dim">KDA</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
           <section className="flex flex-col gap-2">
@@ -297,6 +339,55 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
         </>
       )}
     </div>
+  )
+}
+
+/**
+ * One of the player's main champions, over its loading screen art.
+ *
+ * It carries the same three facts as the rows below - games, record and KDA -
+ * so the card changes how the pool looks and not what it says.
+ *
+ * Always dark, like the hero: the text sits on the painting and not on the
+ * site's background, and in the light theme it would stop reading.
+ */
+function ChampionCard({ champion, name }: { champion: PlayerChampionRow; name: string }) {
+  return (
+    /*
+      Cut to 3:4 from the 11:20 of the original, which at six across was too
+      tall to be a summary, and anchored at the top. Riot paints these for the
+      loading screen, where the name and the frame sit over the lower part: the
+      champion is composed in the upper band and the foot is left for text. So
+      what the cut loses is what the game already covers, and the numbers land
+      where the art expects something written.
+
+      The art is a background and not an <img> because of how each one fails.
+      When the CDN has no art yet - a champion released this week - a broken
+      <img> drops its aspect ratio and draws the broken-image glyph, so a card
+      alone on its row would collapse to the height of its text. A background
+      that does not load leaves the grey of `bg-raised` at full size, with the
+      name still on it. It is decorative either way: the name is written on
+      the card.
+    */
+    <li
+      data-theme="dark"
+      className="relative aspect-[3/4] border-2 border-line bg-raised bg-cover bg-top text-fg"
+      style={{ backgroundImage: `${CARD_SHADE}, url("${championLoading(champion.champion)}")` }}
+    >
+      <div className="absolute inset-x-0 bottom-0 px-3 pb-2.5">
+        <p className="truncate font-display text-sm uppercase leading-tight" title={name}>
+          {name}
+        </p>
+        <p className="tabular mt-0.5 truncate text-xs text-fg-soft">
+          {champion.games} {champion.games === 1 ? 'partida' : 'partidas'} · {champion.wins}V{' '}
+          {champion.games - champion.wins}D
+        </p>
+        <p className="tabular text-sm">
+          <span className="font-bold">{champion.kda}</span>{' '}
+          <span className="text-xs text-fg-soft">KDA</span>
+        </p>
+      </div>
+    </li>
   )
 }
 

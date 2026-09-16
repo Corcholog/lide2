@@ -175,6 +175,18 @@ export function championIcon(version: string, champion: string): string {
   return `/api/ddragon/cdn/${version}/img/champion/${championKey(champion)}.png`
 }
 
+/**
+ * The champion's loading screen art: a 308 x 560 portrait.
+ *
+ * Unlike the icons, the path carries no version - Riot keeps a single copy of
+ * each skin's art. The skin defaults to 0, the base one, and in practice it is
+ * always that: the .rofl stores which champion was played (`SKIN` is the
+ * champion's name, despite the key) but not which skin it was played with.
+ */
+export function championLoading(champion: string, skin = 0): string {
+  return `/api/ddragon/cdn/img/champion/loading/${championKey(champion)}_${skin}.jpg`
+}
+
 export function itemIcon(version: string, itemId: number): string | null {
   return itemId > 0 ? `/api/ddragon/cdn/${version}/img/item/${itemId}.png` : null
 }

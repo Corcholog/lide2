@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { championIndex, resolveChampion } from '../src/lib/champions/catalog'
-import { championKey, roflKey } from '../src/lib/ddragon'
+import { championKey, championLoading, roflKey } from '../src/lib/ddragon'
 
 /** A slice of ddragon's catalogue, with the most commonly misspelled names. */
 const CATALOGO = [
@@ -70,5 +70,18 @@ describe('roflKey', () => {
     // Both ends have to meet: otherwise a stored ban does not match the pick
     // of the same champion and the meta counts it twice.
     expect(championKey(roflKey('Fiddlesticks'))).toBe('Fiddlesticks')
+  })
+})
+
+describe('championLoading', () => {
+  it('points at the base skin through the proxy, with no version', () => {
+    expect(championLoading('Ahri')).toBe('/api/ddragon/cdn/img/champion/loading/Ahri_0.jpg')
+  })
+
+  it('builds the path with the ddragon key and not the .rofl spelling', () => {
+    // The CDN path is case-sensitive, same as the icon's.
+    expect(championLoading('FiddleSticks')).toBe(
+      '/api/ddragon/cdn/img/champion/loading/Fiddlesticks_0.jpg',
+    )
   })
 })
