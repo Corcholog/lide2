@@ -5,11 +5,9 @@ import { createAdminClient } from '../supabase/admin'
 import type { StorageAdapter, UploadTarget } from './index'
 
 /**
- * The real names come with spaces and accents ("Fecha 3 Equipo 2 vs Equipo
- * 9.rofl"), so the object is stored under a uuid and the original name stays in
- * the database (match_files.file_name).
- *
- * The thrown messages stay in Spanish: they reach the upload panel unchanged.
+ * Objects are stored under a uuid, since original names have spaces and
+ * accents; the original name is kept in `match_files.file_name`. Thrown
+ * messages are in Spanish because they reach the upload panel.
  */
 function objectPath(): string {
   const now = new Date()
@@ -54,7 +52,7 @@ export function createSupabaseStorage(): StorageAdapter {
     },
 
     async createReadSource(path, size): Promise<RoflSource> {
-      // One signed URL for the parser's 3 Range requests.
+      // One signed URL for the parser's three Range requests.
       const { data, error } = await bucket().createSignedUrl(path, 120)
       if (error || !data) {
         throw new Error(`No se pudo abrir el replay: ${error?.message ?? 'sin datos'}`)

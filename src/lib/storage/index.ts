@@ -1,19 +1,16 @@
 import type { RoflSource } from '../rofl'
 
 /**
- * The storage layer behind a small interface.
- *
- * The .rofl files weigh 12-17 MB and the 20-team Swiss tournament is ~65
- * matches (~920 MB), right at the limit of the Supabase free plan. When they
- * have to move to Cloudflare R2, writing another adapter against this same
- * interface is enough: the rest of the app never finds out.
+ * Storage behind a small interface, so another provider (e.g. Cloudflare R2)
+ * can be added as an adapter without touching the rest of the app. Replays are
+ * 12-17 MB each, which adds up quickly on the Supabase free plan.
  */
 
 export interface UploadTarget {
   provider: string
   /** Path inside the bucket. It is what match_files.storage_path stores. */
   path: string
-  /** The client needs it to upload; it is sent from the server, not as a public env var. */
+  /** Sent to the client by the server rather than exposed as a public env var. */
   bucket: string
   /** URL the browser uploads straight to, without going through Vercel. */
   uploadUrl: string

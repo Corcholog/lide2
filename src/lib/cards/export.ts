@@ -1,14 +1,7 @@
 /**
- * A piece's raw data, ready to copy.
- *
- * It is the half of the panel that matters when the card is not enough:
- * somebody building the piece in Figma does not want the PNG, they want the
- * names spelled right and the numbers with their units. It comes out of the
- * same `StatBlock` that draws the card, so there is no way for the text to say
- * one thing and the image another.
- *
- * The CSV headers stay in Spanish: the file is handed to whoever designs the
- * piece.
+ * A piece's data as plain text or CSV, for designing it elsewhere with the
+ * exact names and numbers. Built from the same `StatBlock` as the card, so both
+ * always agree. CSV headers are in Spanish.
  */
 
 import type { StatBlock } from '@/lib/stats/types'
@@ -28,12 +21,7 @@ export function toPlainText(block: StatBlock): string {
   return [header, ...rows, block.note ? `(${block.note})` : null].filter(Boolean).join('\n')
 }
 
-/**
- * One CSV cell.
- *
- * Always quoted and not only when needed: team names carry commas and slashes,
- * and a conditional rule is one more thing to get wrong.
- */
+/** One CSV cell, always quoted: team names can contain commas. */
 function cell(value: string | number | null): string {
   return `"${String(value ?? '').replace(/"/g, '""')}"`
 }

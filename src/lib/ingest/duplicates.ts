@@ -1,12 +1,9 @@
 import { createAdminClient } from '../supabase/admin'
 
 /**
- * Looks for an already-stored file with exactly the same bytes.
- *
- * This is different from deduplication by match fingerprint: here what gets
- * caught is the same file uploaded twice (same sha256), and it saves the upload
- * before the quota is spent. The fingerprint, in contrast, joins the two
- * different .rofl files the clients of the two teams record for one match.
+ * Finds a stored file with the same bytes (same sha256), to skip uploading the
+ * same file twice. Separate from the match fingerprint, which matches the two
+ * different .rofl files each team's client records for one game.
  */
 export async function findFileBySha256(sha256: string): Promise<{ matchId: string } | null> {
   const { data, error } = await createAdminClient()

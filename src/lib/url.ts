@@ -1,14 +1,10 @@
 /**
- * Building links while keeping the filters that are already set.
+ * Link building that keeps the filters already set.
  *
- * Pages with more than one filter — /estadisticas/tablas has matchday and
- * group, /partidas has matchday and team — have a small, annoying problem:
- * every nav builds its own href, and if it only puts its own parameter in,
- * picking matchday 2 wipes the group that was already selected. Every nav goes
- * through here so that cannot happen.
- *
- * The parameter names themselves stay in Spanish: they are part of the links
- * people paste around.
+ * Pages with several filters (matchday and group on /estadisticas/tablas,
+ * matchday and team on /partidas) build each nav's href here, so picking one
+ * filter does not clear the others. Parameter names stay in Spanish because
+ * they are part of shared links.
  */
 
 /** The first value of a search param: `?a=1&a=2` reads as "1". */
@@ -24,8 +20,7 @@ export function withQuery(
   const query = new URLSearchParams()
 
   for (const [key, value] of Object.entries(params)) {
-    // An empty parameter is not the same as an absent one to whoever reads the
-    // URL, and `?grupo=` means nothing: it gets dropped.
+    // `?grupo=` means nothing, so empty values are dropped like absent ones.
     if (value === null || value === undefined || value === '') continue
     query.set(key, String(value))
   }

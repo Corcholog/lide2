@@ -1,12 +1,9 @@
 import { open } from 'node:fs/promises'
 
 /**
- * A source of .rofl bytes.
- *
- * All the metadata needed lives in the header (288 bytes) and in a block at the
- * end of the file, so the full 10-30 MB never has to be fetched. This interface
- * exists so the same parser serves both a local file (script and tests) and a
- * remote object read with Range requests.
+ * A source of .rofl bytes. The parser only needs the 288-byte header and a
+ * block at the end of the file, so the same interface serves a local file and
+ * a remote object read with Range requests.
  */
 export interface RoflSource {
   /** Total file size in bytes. */

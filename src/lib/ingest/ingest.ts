@@ -6,10 +6,10 @@ import { buildIngestPayload } from './payload'
 export interface IngestRequest {
   /** Path of the object already uploaded to storage. */
   storagePath: string
-  /** The file's original name: the match id comes from it when it was not renamed. */
+  /** The original file name, which contains the match id unless it was renamed. */
   fileName: string
   fileSize: number
-  /** The file's lastModified: the best guess at when it was played. */
+  /** The file's lastModified: the best available guess at when it was played. */
   lastModified?: number | null
   sha256?: string | null
   stageLabel?: string | null
@@ -30,10 +30,8 @@ export type IngestResult =
   | { ok: false; fileName: string; code: string; message: string }
 
 /**
- * Parses a replay already uploaded to storage and saves it.
- *
- * One file per request on purpose: when one fails, the rest of the batch runs
- * its course and the error stays confined to that row of the UI.
+ * Parses a replay already uploaded to storage and saves it. One file per
+ * request, so a failure only affects that file's row in the UI.
  */
 export async function ingestReplay(request: IngestRequest): Promise<IngestResult> {
   const { fileName, storagePath } = request
@@ -41,9 +39,8 @@ export async function ingestReplay(request: IngestRequest): Promise<IngestResult
   try {
     const storage = await getStorage()
 
-    // The size is read from storage and not from the client: the parser
-    // computes offsets from the end of the file, and a misreported number sends
-    // it off to read anything at all.
+    // The size comes from storage, not the client: the parser computes offsets
+    // from the end of the file.
     const stat = await storage.stat(storagePath)
     const size = stat?.size ?? request.fileSize
 
@@ -99,8 +96,8 @@ export async function ingestReplay(request: IngestRequest): Promise<IngestResult
 }
 
 /**
- * The file stays in storage even when parsing fails: it is the proof of the
- * result, and it also allows a retry without asking the team for it again.
+ * The file is kept in storage even when parsing fails: it is evidence of the
+ * result and allows a retry.
  */
 async function recordFailure(
   request: IngestRequest,
@@ -120,7 +117,7 @@ async function recordFailure(
         created_by: request.userId ?? null,
       })
   } catch {
-    // Failing to record the failure must not bury the original one.
+    // A failure to record the failure must not hide the original error.
   }
 
   return { ok: false, fileName: request.fileName, code, message }

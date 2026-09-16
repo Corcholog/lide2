@@ -1,14 +1,10 @@
 /**
- * Detecting teams from who plays alongside whom.
+ * Detects teams from who plays together.
  *
- * With 82 detected players and 29 matches, assigning by hand is not viable.
- * Teams are deduced on their own: the 5 on one side of a match are a team, and
- * two lineups sharing 3 or more players are the same team (the threshold
- * tolerates substitutes without merging different teams).
- *
- * The name comes from the file name: teams write "E1vsE4", so the number that
- * shows up in ALL of a cluster's matches is theirs, and the one that varies is
- * the opponent's.
+ * The five players on one side of a match form a lineup, and lineups sharing
+ * at least three players are the same team (tolerating substitutes without
+ * merging different teams). The suggested name comes from file names: in
+ * "E1vsE4", the number present in all of a team's matches is its own.
  */
 
 export interface Lineup {
@@ -34,10 +30,10 @@ export interface DetectedTeam {
 const SHARED_THRESHOLD = 3
 
 /**
- * "E1vsE4", "WINNERS(E2vsE11)", "E8vsE15-LEIF8". A \b after the number is no
- * use because in "E1vsE4" there is no break between the 1 and the v; what
- * follows is required to be "vs" or something non-alphanumeric. The E has to
- * sit at the start or after a separator, so "LEIF8" does not count.
+ * "E1vsE4", "WINNERS(E2vsE11)", "E8vsE15-TAG8". `\b` does not work after the
+ * number because "1vs" has no word break, so the lookahead requires "vs", the
+ * end or a non-alphanumeric. The E must be at the start or after a separator,
+ * so a tag like "TAG8" is not read as a team.
  */
 const TEAM_TOKEN_RE = /(?:^|[^A-Za-z0-9]|vs)E(\d{1,2})(?=vs|$|[^A-Za-z0-9])/gi
 /** "Fecha 3 Equipo 2 vs Equipo 9.rofl" */
@@ -104,10 +100,7 @@ export function detectTeams(lineups: Lineup[]): DetectedTeam[] {
     .sort((a, b) => b.lineups - a.lineups)
 }
 
-/**
- * A team's own number is the one that survives intersecting the tokens of all
- * its matches: the opponent's changes every time.
- */
+/** A team's number is the one present in every match; the opponent's varies. */
 function suggestName(tokensPerMatch: Set<string>[]): string | null {
   if (tokensPerMatch.length === 0) return null
 

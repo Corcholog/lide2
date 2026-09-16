@@ -3,17 +3,12 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { supabasePublishableKey, supabaseUrl } from '../env'
 
 /**
- * Routes that require a session. Everything else is public.
+ * Routes that require a session; everything else is public, so a new admin
+ * route must be added here.
  *
- * It used to be the other way round - a list of public routes with everything
- * else closed - and it was flipped when the site opened up to visitors. The
- * default went from "closed unless stated" to "open unless stated", so a new
- * admin route that is not listed here is out in the open.
- *
- * This is only UX either way: what actually protects the data is RLS (see
- * supabase/migrations/0013_publico.sql) and the `requireUser()` in every page
- * and every server action. The proxy only keeps a visitor from landing on an
- * empty screen.
+ * This is only for UX. Data is protected by RLS (see
+ * supabase/migrations/0013_publico.sql) and by `requireUser()` in every admin
+ * page and server action.
  */
 const PRIVATE_PATHS = ['/admin', '/equipos/detectar']
 
@@ -46,9 +41,9 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isPrivate = PRIVATE_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))
 
-  // API routes are never redirected: a fetch that follows the redirect gets
-  // the login HTML and fails to parse the JSON with an indecipherable error.
-  // Every route handler returns its own 401 through requireApiUser().
+  // API routes are never redirected: a fetch following the redirect would get
+  // the login HTML and fail to parse JSON. Route handlers return their own 401
+  // through requireApiUser().
   if (pathname.startsWith('/api/')) {
     return response
   }
@@ -56,10 +51,7 @@ export async function updateSession(request: NextRequest) {
   if (!user && isPrivate) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
-    // The destination takes its query with it: /admin/cards?fecha=2 has to
-    // come back to matchday 2, not to the accumulated total. It is cleared
-    // first so the original's parameters are not left loose next to `next`,
-    // pointing nowhere.
+    // Keep the query string (/admin/cards?fecha=2 must return to matchday 2).
     const destination = `${pathname}${request.nextUrl.search}`
     url.search = ''
     url.searchParams.set('next', destination)

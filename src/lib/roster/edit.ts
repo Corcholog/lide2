@@ -1,32 +1,20 @@
 /**
- * Roster changes, before the tournament starts.
+ * Roster edits from the admin panel: add, update and remove signups.
  *
- * The signup sheet is not final: somebody drops out, a substitute comes in,
- * another signed up with their name misspelled. Until now the admin panel only
- * knew how to match signups with Riot accounts; the signups themselves came
- * from the seed and there was no way to touch them without going into the
- * Supabase SQL editor.
+ * This is the database-free part: read a team's form and decide what to
+ * remove, update and create. `saveTeamRosterAction` does the writing.
  *
- * This file is the part that can be tested without a database: read a team's
- * form and decide what gets removed, what gets updated and what gets created.
- * `saveTeamRosterAction` does the writing.
+ * Two rules:
  *
- * Two rules worth knowing before touching it:
+ * 1. The form sends the whole roster, not a diff. If it does not cover exactly
+ *    the rows currently in the database, nothing is written: the roster was
+ *    edited elsewhere, and applying a stale form could remove someone.
  *
- * 1. THE FORM SENDS THE WHOLE ROSTER, not the change. If what arrives does not
- *    cover exactly the rows the database holds right now, nothing is written:
- *    it means the roster was edited in another tab, and applying a stale form
- *    on top would remove somebody nobody touched.
+ * 2. `order_index` is not renumbered on removal. It has a unique-per-team
+ *    constraint, so renumbering would need two passes, and pages number rows
+ *    by list position anyway.
  *
- * 2. `order_index` IS NOT RECOMPACTED on removal. It is the signup sheet's
- *    order and it has a unique-per-team constraint, so renumbering the
- *    remaining rows would mean moving them in two passes to avoid colliding
- *    with that index halfway through. The only gain would be gapless
- *    numbering, and the pages number by position in the list and not by this
- *    field.
- *
- * The form field names stay in Spanish: they are the names the markup in
- * `RosterTeam.tsx` writes, and both sides have to agree on them.
+ * Form field names are Spanish and must match the markup in `RosterTeam.tsx`.
  */
 
 import { parseRiotId } from '@/lib/format'
@@ -35,7 +23,7 @@ import { parseRiotId } from '@/lib/format'
 export interface RosterFormRow {
   /** The signup's id, or `nuevo-N` while the row does not exist in the database. */
   key: string
-  /** Whether it does not exist yet: it is created instead of updated. */
+  /** True when the row is new and must be created. */
   isNew: boolean
   /** The "quitar" box is ticked: it is removed on save. */
   removed: boolean
@@ -47,7 +35,7 @@ export interface RosterFormRow {
   playerId: string
 }
 
-/** A signup as the database holds it today. No name: it is not needed. */
+/** A signup as currently stored; only what the plan needs. */
 export interface RosterCurrentRow {
   id: string
   orderIndex: number
@@ -70,20 +58,18 @@ export type RosterPlan =
       ok: true
       /** Ids to delete from `team_roster`. */
       remove: string[]
-      /** The ones that already existed, with their id. */
+      /** Existing rows, with their id. */
       update: (RosterWriteRow & { id: string })[]
-      /** The ones being added. No id: the database assigns it. */
+      /** New rows; the database assigns the id. */
       create: RosterWriteRow[]
     }
 
 /**
- * Collects the form's rows.
+ * Reads the form rows, in screen order.
  *
- * Every signup sends a hidden `fila-<key>` plus its fields carrying that same
- * key. The hidden one is what defines which rows exist: the `<input>`s of a row
- * ticked for removal might not arrive, and an unticked `<checkbox>` never does.
- *
- * The order is the form's, which is the screen's.
+ * Each signup sends a hidden `fila-<key>` input, which is what defines the row:
+ * inputs of a row marked for removal may be missing, and unchecked checkboxes
+ * are never sent.
  */
 export function readRosterForm(formData: FormData): RosterFormRow[] {
   const field = (name: string, key: string) => String(formData.get(`${name}-${key}`) ?? '').trim()
@@ -107,7 +93,7 @@ export function readRosterForm(formData: FormData): RosterFormRow[] {
   return rows
 }
 
-/** A new row nobody touched: the "Agregar" button and nothing else. */
+/** A new row left empty. */
 function isBlank(row: RosterFormRow): boolean {
   return !row.fullName && !row.riot && !row.playerId
 }
@@ -124,8 +110,8 @@ export function planRosterEdit(
   const create: RosterWriteRow[] = []
   const seen = new Set<string>()
 
-  // New rows go at the end. See rule 2 above: the highest index in use is taken
-  // and not the row count, because removals leave gaps behind.
+  // New rows go at the end, after the highest index in use (removals leave
+  // gaps, so the row count is not enough). See rule 2.
   let nextIndex = current.reduce((max, row) => Math.max(max, row.orderIndex), -1) + 1
 
   for (const row of form) {
@@ -164,16 +150,14 @@ export function planRosterEdit(
     else create.push(write)
   }
 
-  // An account belongs to one person only: a unique index guarantees that, but
-  // picking the same one twice is a slip of the finger, not a database error,
-  // and it is worth saying before anything is written.
+  // A unique index already enforces one signup per account, but a clear
+  // message is better than a database error.
   const accounts = [...update, ...create].flatMap((row) => (row.player_id ? [row.player_id] : []))
   if (new Set(accounts).size !== accounts.length) {
     return { ok: false, error: 'Hay una misma cuenta elegida para dos inscriptos.' }
   }
 
-  // See rule 1: the form has to cover the whole roster. If a row that exists is
-  // missing from it, the form is stale and nothing is applied.
+  // Rule 1: every existing row must be in the form.
   if (seen.size !== current.length) {
     return { ok: false, error: 'El plantel cambió mientras lo editabas. Recargá la página.' }
   }

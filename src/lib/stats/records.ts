@@ -1,9 +1,6 @@
 /**
- * Match-level records.
- *
- * They are queried with the same scope as everything else, so the same five
- * functions give "the longest of matchday 2" and "the longest of the whole
- * phase": what changes is the scope, not the stat.
+ * Match records. They use the same scope as every other stat, so each one works
+ * for a single matchday or the whole phase.
  */
 
 import { formatDuration, formatNumber } from '@/lib/format'
@@ -69,11 +66,8 @@ export function mostCombinedKills(data: StatsData): StatBlock | null {
 }
 
 /**
- * The closest one: the smallest gold gap at the end.
- *
- * By gold and not by kills because the gold gap is what says whether the game
- * was open until the end; you can win 20-5 and be level on gold, and the other
- * way round.
+ * The closest game: smallest gold gap at the end. Gold rather than kills,
+ * because a lopsided kill score can hide an even game and vice versa.
  */
 export function closestGame(data: StatsData): StatBlock | null {
   const rows = matchRanking(data, {
@@ -86,13 +80,8 @@ export function closestGame(data: StatsData): StatBlock | null {
 }
 
 /**
- * The beatings, by kill difference.
- *
- * The value column used to hold "Equipo 07 por 15", which is a sentence in the
- * one place on the card that is read as a number - and the longest of them
- * clipped, leaving "Equipo 07 por". The gap goes there now, like every other
- * ranking, and who did it moves to the line below, which is where the rest of
- * the records already say what happened.
+ * The biggest wins, by kill difference. The value is the gap; the winner goes
+ * in the detail line.
  */
 export function biggestBlowout(data: StatsData): StatBlock | null {
   const rows = matchRanking(data, {

@@ -1,20 +1,13 @@
 /**
- * The 113 signups, exactly as they appear on the organizers' sheets.
+ * The signups for each team, as they appear on the organizers' sheets.
  *
- * The names go in **verbatim**, uncorrected. The sheet mixes formats - there is
- * "Surname, Name" (team 02), "Surname Name" with no comma (teams 03 and 11) and
- * several in all caps - and guessing which token is the surname in order to
- * flip them is a cheap way to misspell somebody's name. They are stored as they
- * came and the `team_roster` table has a separate `display_name` so an admin
- * can tidy them up without losing the original.
+ * Names are kept verbatim (the sheets mix "Surname, Name", "Surname Name" and
+ * all caps); `team_roster.display_name` lets an admin tidy them without losing
+ * the original. The only correction is one entry on team 09 where the
+ * university tag was pasted onto the name.
  *
- * The one correction is "Inscripto 09-5UNAHUR" on team 09: there
- * the university tag got stuck to the name while copying the sheet, and it is
- * not part of the name.
- *
- * This is NOT the same as `players`, which are Riot accounts detected from the
- * replays. A signup and an account are matched by hand from the admin panel;
- * until then they are two separate lists.
+ * These are signups, not the Riot accounts in `players`; the two are linked by
+ * hand from the admin panel.
  */
 
 import type { UniversityTag } from './tournament'
@@ -25,12 +18,12 @@ export interface RosterEntry {
   university: UniversityTag
 }
 
-/** Shortcut for the teams where everybody is from the same university, which is most of them. */
+/** For teams whose players all come from one university. */
 function roster(university: UniversityTag, ...names: string[]): RosterEntry[] {
   return names.map((name) => ({ name, university }))
 }
 
-/** Rosters by team number. Several signed up substitutes. */
+/** Signups by team number, substitutes included. */
 export const ROSTERS: Record<number, RosterEntry[]> = {
   1: roster(
     'UNLP',
@@ -150,8 +143,7 @@ export const ROSTERS: Record<number, RosterEntry[]> = {
     'Inscripto 12-5',
   ),
 
-  // The four that follow came out of individual signups: the organizers built
-  // teams by putting together people from different universities.
+  // Teams formed from individual signups, mixing universities.
   13: [
     { name: 'Inscripto 13-1', university: 'UAP' },
     { name: 'Inscripto 13-2', university: 'UAP' },

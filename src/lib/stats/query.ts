@@ -1,11 +1,9 @@
 /**
- * Pulls from the database everything one scope of the tournament needs.
+ * Loads everything a stats scope needs.
  *
- * Five queries and not one per stat. The views already return the aggregated
- * totals — 113 players, 20 teams, 13 universities — so fetching them whole and
- * sorting in memory costs less than twenty round trips to Postgres, and it
- * leaves every stat as a pure function over data that is already loaded: they
- * can be tested without a database.
+ * One query per view rather than per stat: the views are already aggregated
+ * and small, so every stat can be a pure function over loaded data and be
+ * tested without a database.
  */
 
 import type { Supabase } from '@/lib/supabase/server'
@@ -35,8 +33,7 @@ export async function resolveTournamentId(supabase: Supabase): Promise<string | 
 export async function loadStats(supabase: Supabase, scope: StatScope): Promise<StatsData> {
   const filter = scopeFilter(scope)
 
-  // The asset version is resolved before the rest: both the champion names and
-  // their icon URLs need it.
+  // Resolved first: champion names and icon URLs both need it.
   const version = await assetVersion(null)
 
   const [players, teams, universities, champions, records, mvp, names] = await Promise.all([
@@ -46,19 +43,13 @@ export async function loadStats(supabase: Supabase, scope: StatScope): Promise<S
     supabase.from('champion_stats').select('*').match(filter),
     supabase.from('match_records').select('*').match(matchFilter(scope)),
     supabase.from('tournament_mvp').select('*').match(filter),
-    // A scope spans patches, and the names are the same across all of them: the
-    // latest one is enough. It is the only request that does not go to the
-    // database, and the only one that can fail without dragging the rest down.
+    // Names do not change between patches, so the latest version is enough.
+    // This is the one request that does not go to the database.
     championNames(version),
   ])
 
-  /*
-   * If one of the six fails, everything fails.
-   *
-   * A scope missing one query is not incomplete, it is wrong: the page would
-   * show the meta without the MVP, or the records without the universities,
-   * without saying anywhere that something is missing.
-   */
+  // If any query fails, the whole load fails: a page silently missing one
+  // section would be wrong, not just incomplete.
   return {
     scope,
     players: rows<PlayerPhaseTotalsRow>(players, 'the per-player totals'),

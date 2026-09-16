@@ -1,13 +1,11 @@
 import type { NormalizedMatch, NormalizedPlayer } from '../rofl'
 
 /**
- * Building the payload for `ingest_match(jsonb)`.
+ * Builds the payload for `ingest_match(jsonb)`.
  *
- * The keys are literally the column names of `matches` and `match_players`: the
- * Postgres function builds the rows with jsonb_populate_record, so the contract
- * between TS and SQL is the field name. Any key that does not exist as a column
- * is silently ignored, which is why there is a test against the real schema
- * (tests/db.test.ts).
+ * Keys are the column names of `matches` and `match_players`: the function
+ * builds rows with jsonb_populate_record, which silently ignores unknown keys.
+ * tests/db.test.ts checks them against the real schema.
  */
 
 export interface IngestFile {
@@ -23,18 +21,14 @@ export interface IngestFile {
 
 export interface IngestOptions {
   /**
-   * The .rofl the match came from, if it is stored anywhere.
-   *
-   * Optional because `ingest_match` always treated it that way (`if v_file is
-   * not null`): a match can be saved without its file. The local backfill uses
-   * that, parsing from disk so hundreds of MB of test data never reach the
-   * bucket. With no file there is no `match_files` row, which means the match
-   * can neither be downloaded nor deduplicated by sha256 - the `fingerprint` is
-   * left for that, and it is the real identity anyway.
+   * The stored .rofl, if any. Optional: the local backfill parses from disk
+   * without uploading. Without it there is no `match_files` row, so the match
+   * cannot be downloaded or deduplicated by sha256 (the fingerprint still
+   * identifies it).
    */
   file?: IngestFile
   tournamentId?: string | null
-  /** Swiss format: stage ("Suizo", "Playoffs") and round ("Ronda 3"). */
+  /** Stage and round labels, e.g. "Bloque B" and "Fecha 1". */
   stageLabel?: string | null
   roundLabel?: string | null
   createdBy?: string | null
@@ -141,10 +135,9 @@ export function buildIngestPayload(match: NormalizedMatch, options: IngestOption
     created_by: options.createdBy ?? null,
 
     /*
-      With no file the key is left OUT rather than set to null: `ingest_match`
-      does `payload->'file'` and asks `is not null`, and a JSON null passes that
-      test - it is a jsonb 'null', not a SQL NULL - so it ends up trying to
-      insert a `match_files` row with an empty storage_path.
+      Without a file the key is omitted, not null: `ingest_match` checks
+      `payload->'file' is not null`, and a JSON null (jsonb 'null', not SQL
+      NULL) passes that check and would insert an empty `match_files` row.
     */
     ...(options.file
       ? {

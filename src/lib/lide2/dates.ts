@@ -1,15 +1,9 @@
 import { AR_TIME_ZONE } from './tournament'
 
 /**
- * Formatting the tournament's dates, always on Argentine time.
+ * Date formatting for the tournament, on Argentine time unless noted.
  *
- * These used to live inside the home page, which is where they are all used -
- * the hero's countdown, the calendar, the fixture's tabs, the bracket, the
- * final. They come out here because the page splits into sections that each
- * need a couple of them, and having every section keep its own copy is how two
- * dates on the same screen end up disagreeing.
- *
- * The output stays in Spanish: these strings are read by visitors.
+ * The output is Spanish: these strings are shown to visitors.
  */
 
 const MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
@@ -21,16 +15,8 @@ export function shortDate(iso: string): { day: string; month: string } {
 }
 
 /**
- * How many days are left, counting calendar days and not milliseconds.
- *
- * The earlier version divided the difference by 86,400,000 and rounded up, and
- * that flipped over on precisely the day that matters: at nine in the morning
- * on 5 September there were five hours to kickoff, the division came to 0.2 and
- * the `ceil` showed "1 day left". It only said "¡HOY!" once the game had
- * started, which is when it is no longer any use.
- *
- * Now the two dates are compared at midnight in Argentina - the tournament's
- * time - so the whole of 5 September gives 0, whatever the hour.
+ * Days left until a date, counting calendar days in Argentina rather than
+ * milliseconds, so the whole match day reads 0 regardless of the hour.
  */
 export function daysUntil(iso: string): number {
   const day = (date: Date) =>
@@ -46,17 +32,16 @@ export function daysUntil(iso: string): number {
         .map(Number) as [number, number, number]),
     )
 
-  // Date.UTC's month runs 0 to 11 and the formatted date's runs 1 to 12; a
-  // subtraction between two values shifted by the same amount never notices.
+  // Date.UTC months are 0-based and the formatted ones 1-based; both sides are
+  // shifted by the same amount, so the difference is unaffected.
   return Math.round((day(new Date(iso)) - day(new Date())) / 86_400_000)
 }
 
 /**
  * "26 de septiembre", for the playoff rounds.
  *
- * It goes in UTC and not in the tournament's time zone because the playoff
- * series carry a date with no time: putting those through America/Argentina
- * would shift them a day backwards.
+ * Uses UTC because playoff series store a date without a time, and converting
+ * it to Argentine time would move it back a day.
  */
 export function dayAndMonth(iso: string): string {
   return new Date(iso).toLocaleDateString('es-AR', {
@@ -77,11 +62,10 @@ export function weekdayAndDate(iso: string): string {
 }
 
 /**
- * "14:00". The tournament's hours are Argentina's.
+ * "14:00", on Argentine time.
  *
- * `hourCycle: 'h23'` is not decorative: without it, `es-AR` in the ICU that
- * Node and the browsers ship returns "02:00 p. m.". And it is h23 and not
- * `hour12: false`, which gives "24:00" instead of "00:00" for midnight.
+ * `hourCycle: 'h23'` is required: without it `es-AR` returns "02:00 p. m.",
+ * and `hour12: false` would print midnight as "24:00".
  */
 export function timeOfDay(iso: string): string {
   return new Date(iso).toLocaleTimeString('es-AR', {

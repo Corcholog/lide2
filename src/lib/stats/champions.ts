@@ -1,14 +1,9 @@
 /**
- * The meta: what got played and what worked.
+ * Champion rankings: what got played and what worked.
  *
- * Picks come from the scoreboard, so they are always there. Bans are not: the
- * .rofl does not store the draft and they have to be entered by hand from the
- * admin panel, match by match, whenever the teams send their history. That may
- * never happen.
- *
- * That is why the bans and presence blocks state how many matches they were
- * measured over, and disappear when none is entered: a 60% presence computed
- * over 3 matches out of 40 is not a tournament stat.
+ * Picks come from the replays. Bans do not (the .rofl has no draft) and are
+ * entered by hand in the admin panel, so ban and presence cards state how many
+ * matches they cover and are hidden when no draft has been entered.
  */
 
 import { championIcon, championName } from '@/lib/ddragon'
@@ -17,30 +12,22 @@ import { block, rankRows } from './rank'
 import type { StatBlock, StatsData } from './types'
 import type { ChampionStatRow } from '@/types/db'
 
-/** Minimum picks for a win percentage to mean anything. */
+/** Minimum picks for a win rate to be meaningful. */
 const MIN_PICKS_FOR_WINRATE = 3
 
 /**
- * The win rate, written short, or null when there is none.
+ * The short win rate ("0% wr"), or null when the champion was never picked.
  *
- * It rides along with the pick count everywhere in the meta because on its own
- * the count does not say what it is worth: Ornn heading "los más elegidos" with
- * a 4 reads like the pick of the tournament, and those four games were four
- * defeats. Together - "4 (0% wr)" - the card says both things in the same
- * glance.
- *
- * A champion with no picks - one that was only banned, which is what `bans` and
- * `presence` are full of - has a NULL `win_pct` in the view and not a zero, and
- * that is the difference between "lost every game" and "never played one". It
- * comes back null here so the caller leaves the spot empty instead of drawing
- * a 0% nobody earned.
+ * It accompanies the pick count so a champion picked often but losing every
+ * game is not read as a strong pick. Champions that were only banned have a
+ * NULL `win_pct`, which is different from losing every game.
  */
 function winrate(row: ChampionStatRow): string | null {
   if (row.picks === 0 || row.win_pct === null) return null
   return `${formatPercent(row.win_pct)} wr`
 }
 
-/** "4 picks · 0% wr", the pair that opens nearly every detail line of the meta. */
+/** "4 picks · 0% wr", the start of most detail lines in this section. */
 function picksAndWinrate(row: ChampionStatRow): string {
   return [`${row.picks} ${row.picks === 1 ? 'pick' : 'picks'}`, winrate(row)]
     .filter(Boolean)
@@ -56,20 +43,17 @@ function championRanking(
     detail?: (row: ChampionStatRow) => string | null
   },
 ) {
-  // The id is still the internal key - it is the only unique thing - but the
-  // name that gets read is ddragon's: in the database Wukong is "MonkeyKing".
+  // The id is the internal key (e.g. "MonkeyKing"); the displayed name comes
+  // from ddragon.
   const names = data.championNames ?? {}
   const version = data.assetVersion
 
   return rankRows(data.champions, {
     id: (row) => row.champion,
     name: (row) => championName(names, row.champion),
-    // Every role and not just the commonest, the same as the table: the two
-    // read the same champion and cannot disagree about what it plays.
+    // Every role played, like the table, so both views agree.
     subtitle: (row) => formatRoles(row.positions, row.position),
-    // The champion portrait. Without the ddragon version there is no URL to
-    // build and the ranking comes out iconless, which is exactly what happens
-    // when Riot does not answer: it reads the same.
+    // Without a ddragon version (Riot not responding) the ranking has no icons.
     logo: (row) => (version ? championIcon(version, row.champion) : null),
     detail: options.detail ?? ((row) => `${picksAndWinrate(row)} · KDA ${row.kda.toFixed(2)}`),
     value: options.value,
@@ -88,19 +72,15 @@ function bansCoverage(data: StatsData): { withBans: number; total: number } {
 export function mostPicked(data: StatsData): StatBlock | null {
   const rows = championRanking(data, {
     value: (row) => row.picks,
-    // The count with its win rate hanging off it. The picks are still the
-    // value that sorts the ranking - the parenthesis is a qualifier, not a
-    // second criterion - and that is why it goes in the same line and not in a
-    // column of its own.
+    // Picks rank; the win rate in parentheses only qualifies the number.
     display: (value, row) => {
       const wr = winrate(row)
       return wr ? `${value} (${wr})` : `${value}`
     },
-    // The view also returns champions that were only banned, which have 0
-    // picks: in a ranking of the most picked they have no business being.
+    // Champions that were only banned have 0 picks and are left out.
     eligible: (row) => row.picks > 0,
-    // The default detail opens with the picks and the win rate, which are now
-    // both in the value: what is left to say is how those games went.
+    // Picks and win rate are already in the value, so the detail shows the
+    // record and KDA.
     detail: (row) => `${row.wins}-${row.losses} · KDA ${row.kda.toFixed(2)}`,
   })
   return block('picks', 'Los más elegidos', rows, { subtitle: 'Picks en el recorte, con su winrate' })
@@ -108,13 +88,11 @@ export function mostPicked(data: StatsData): StatBlock | null {
 
 export function bestWinrate(data: StatsData): StatBlock | null {
   const rows = championRanking(data, {
-    // Never null past the `eligible` below - three picks is three games - but
-    // the column is nullable and the ranking sorts on a number.
+    // Not null once `eligible` passes, but the column is nullable.
     value: (row) => row.win_pct ?? 0,
     display: (value, row) => `${formatPercent(value)} (${row.wins}/${row.picks})`,
     eligible: (row) => row.picks >= MIN_PICKS_FOR_WINRATE,
-    // The win rate is already the value: repeating it in the detail line would
-    // be saying the same thing twice on one row.
+    // The win rate is already the value.
     detail: (row) => `${row.picks} picks · KDA ${row.kda.toFixed(2)}`,
   })
   return block('winrate-campeon', 'Los que más ganan', rows, {
@@ -150,11 +128,8 @@ export function mostBanned(data: StatsData): StatBlock | null {
 }
 
 /**
- * Presence: picks + bans over the matches whose draft is entered.
- *
- * The picks in the numerator are counted over those matches only as well;
- * otherwise the percentage would mix two different universes and could go past
- * 100%.
+ * Presence: picks plus bans over the matches with a draft entered. Picks are
+ * counted over those matches only, so the rate cannot exceed 100%.
  */
 export function presence(data: StatsData): StatBlock | null {
   const { withBans, total } = bansCoverage(data)

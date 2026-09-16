@@ -9,12 +9,11 @@ interface FingerprintPlayer {
 }
 
 /**
- * A match's stable identity, independent of the file.
+ * A match's identity, independent of the file.
  *
- * Every client records its own .rofl, so team A's file and team B's file for
- * the same match are different bytes: they cannot be deduplicated by file hash.
- * This does join them, while still telling apart two games of the same Bo3
- * between the same 10 players (champions and KDA change).
+ * Each client records its own .rofl, so the two teams' files for one match
+ * differ byte for byte. The fingerprint matches them while still telling apart
+ * two games of a series between the same ten players.
  */
 export function matchFingerprint(players: FingerprintPlayer[], gameLengthMs: number): string {
   const rows = players
