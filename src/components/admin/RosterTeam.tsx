@@ -70,7 +70,7 @@ export function RosterTeam({
           {team.groupLabel && <span className="ml-2 text-faint">{team.groupLabel}</span>}
         </h3>
         <p className="text-xs text-muted">
-          <span className="text-faint">{rows.length} signups · </span>
+          <span className="text-faint">{rows.length} inscriptos · </span>
           <span className={linked === rows.length && rows.length > 0 ? 'text-ok' : ''}>
             {linked}/{rows.length} emparejados
           </span>
@@ -219,7 +219,7 @@ function Rows({
           onClick={() => setAdded((previous) => [...previous, `nuevo-${prefix}-${previous.length}`])}
           className="text-xs uppercase tracking-wide text-muted transition-colors hover:text-accent"
         >
-          + Agregar signup
+          + Agregar inscripto
         </button>
       </div>
     </>

@@ -39,7 +39,7 @@ export function WhereToWatch() {
 
         <div className="rounded-lg border border-dashed border-line px-4 py-3">
           <p className="text-sm font-medium text-muted">Battlefy</p>
-          <p className="text-xs text-dim">matchups y resultados oficiales</p>
+          <p className="text-xs text-dim">cruces y resultados oficiales</p>
           <p className="text-xs text-dim">el link todavía no salió</p>
         </div>
       </div>

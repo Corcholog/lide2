@@ -90,7 +90,7 @@ export function PlayerTable({ rows, initial }: { rows: PlayerRow[]; initial: Sor
     {
       id: 'victorias',
       label: 'V–D',
-      title: 'Victorias y losses',
+      title: 'Victorias y derrotas',
       sort: (row) => (row.games === 0 ? null : row.wins / row.games),
       cell: (row) => (
         <>
