@@ -5,6 +5,7 @@ import { rows } from '@/lib/supabase/query'
 import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { RosterImport } from '@/components/admin/RosterImport'
 import { RosterTeam, type UniversityOption } from '@/components/admin/RosterTeam'
+import { Stat } from '@/components/admin/Stat'
 import type { RosterStatusRow, TeamAccountRow } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
@@ -92,7 +93,12 @@ export default async function RostersPage() {
 
       <dl className="grid grid-cols-2 gap-0.5 bg-line sm:grid-cols-4">
         <Stat label="Inscriptos" value={roster.length} />
-        <Stat label="Emparejados" value={linked} tone={linked === roster.length && linked > 0} />
+        <Stat
+          label="Emparejados"
+          value={linked}
+          tone={linked === roster.length && linked > 0}
+          toneClass="text-ok"
+        />
         <Stat label="Riot ID cargado" value={declared} />
         <Stat label="Cuentas sin dueño" value={orphans} />
       </dl>
@@ -129,15 +135,6 @@ export default async function RostersPage() {
           </div>
         </>
       )}
-    </div>
-  )
-}
-
-function Stat({ label, value, tone }: { label: string; value: number; tone?: boolean }) {
-  return (
-    <div className="bg-surface px-4 py-3 text-fg">
-      <dt className="text-xs uppercase tracking-wide text-faint">{label}</dt>
-      <dd className={`font-display text-2xl tabular-nums ${tone ? 'text-ok' : ''}`}>{value}</dd>
     </div>
   )
 }

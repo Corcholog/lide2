@@ -9,6 +9,11 @@ export function formatGold(gold: number): string {
   return `${(gold / 1000).toFixed(1)}k`
 }
 
+/** A ratio as a whole percentage: 0.567 -> "57%". */
+export function formatPercent(ratio: number): string {
+  return `${Math.round(ratio * 100)}%`
+}
+
 export function formatNumber(value: number): string {
   return value.toLocaleString('es-AR')
 }

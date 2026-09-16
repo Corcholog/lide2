@@ -6,6 +6,7 @@ import { assetVersion, championCatalog, championName, championNames } from '@/li
 import { formatDate } from '@/lib/format'
 import { resolveTournamentId } from '@/lib/stats/query'
 import { BanEntry } from '@/components/admin/BanEntry'
+import { Stat } from '@/components/admin/Stat'
 import type { MatchBanRow, MatchSummaryRow } from '@/types/db'
 
 export const metadata = { title: 'Bans' }
@@ -194,17 +195,6 @@ export default async function BansPage({ searchParams }: PageProps<'/admin/bans'
           })}
         </ul>
       )}
-    </div>
-  )
-}
-
-function Stat({ label, value, tone }: { label: string; value: number; tone?: boolean }) {
-  return (
-    <div className="bg-surface px-4 py-3">
-      <dt className="text-xs uppercase tracking-wide text-faint">{label}</dt>
-      <dd className={`font-display text-2xl tabular-nums ${tone ? 'text-accent' : 'text-fg'}`}>
-        {value}
-      </dd>
     </div>
   )
 }

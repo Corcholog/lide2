@@ -23,9 +23,10 @@ import {
   UNIVERSITIES,
   teamByNumber,
 } from '../src/lib/lide2/tournament'
+import { FINAL_ROUND } from '../src/lib/lide2/winner'
 import { createAdminClient } from '../src/lib/supabase/admin'
 
-const SLUG = 'lide-2'
+const SLUG = TOURNAMENT.slug
 
 function milestone(id: string): string | null {
   return CALENDAR.find((entry) => entry.id === id)?.date ?? null
@@ -135,7 +136,7 @@ async function createBracket(stageId: Map<string, string>): Promise<void> {
     .from('series')
     .insert({
       stage_id: stageId.get('Gran final'),
-      round: 'Gran final',
+      round: FINAL_ROUND,
       best_of: 5,
       order_index: 1,
       slot_a_label: 'Ganador semifinal 1',

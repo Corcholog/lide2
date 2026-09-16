@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { getUser } from '@/lib/auth'
+import { formatPercent } from '@/lib/format'
 import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
 import { tournamentStartDate } from '@/lib/lide2/tournament'
@@ -197,7 +198,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
                     <div className="text-right">
                       <dt className="text-[10px] uppercase tracking-[0.15em] text-dim">Victorias</dt>
                       <dd className="tabular text-sm text-muted">
-                        {team.games > 0 ? `${Math.round((team.wins / team.games) * 100)}%` : '—'}
+                        {team.games > 0 ? formatPercent(team.wins / team.games) : '—'}
                       </dd>
                     </div>
                     <div className="text-right">

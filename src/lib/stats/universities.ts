@@ -14,7 +14,7 @@
  * matches.
  */
 
-import { formatNumber } from '@/lib/format'
+import { formatNumber, formatPercent } from '@/lib/format'
 import { block, minGamesForAverages, rankRows } from './rank'
 import type { StatBlock, StatsData } from './types'
 import type { UniversityTotalsRow } from '@/types/db'
@@ -74,7 +74,7 @@ export function universityStandings(data: StatsData): StatBlock | null {
   const min = minGamesForAverages() * 5
   const rows = universityRanking(data, {
     value: (row) => row.win_pct,
-    display: (value) => `${Math.round(value * 100)}%`,
+    display: (value) => formatPercent(value),
     eligible: (row) => row.appearances >= min,
     /*
       The record, and how many players it took.

@@ -11,6 +11,11 @@
  * people paste around.
  */
 
+/** The first value of a search param: `?a=1&a=2` reads as "1". */
+export function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value
+}
+
 /** `withQuery('/partidas', { fecha: 2, equipo: null })` -> `/partidas?fecha=2`. */
 export function withQuery(
   base: string,

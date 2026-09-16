@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Archivo_Black, Geist, Geist_Mono } from "next/font/google";
 import { InlineScript } from "@/components/theme/InlineScript";
 import { siteUrl } from "@/lib/env";
-import { TOURNAMENT } from "@/lib/lide2/tournament";
+import { TOURNAMENT, tournamentStartDate } from "@/lib/lide2/tournament";
 import { DEFAULT_THEME, THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
@@ -60,7 +60,7 @@ export const metadata: Metadata = {
     locale: "es_AR",
     siteName: TOURNAMENT.name,
     title: `${TOURNAMENT.name} · ${TOURNAMENT.fullName}`,
-    description: `${TOURNAMENT.slogan} ${TOURNAMENT.teams} equipos, ${TOURNAMENT.universities} universidades. Arranca el 5 de septiembre de 2026.`,
+    description: `${TOURNAMENT.slogan} ${TOURNAMENT.teams} equipos, ${TOURNAMENT.universities} universidades. Arranca el ${tournamentStartDate({ year: true })}.`,
   },
   twitter: { card: "summary_large_image" },
 };

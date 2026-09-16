@@ -9,12 +9,9 @@
  */
 
 import { formatDuration, formatGold, formatNumber } from '@/lib/format'
+import { versus } from '@/lib/stats/records'
 import type { StatBlock, StatRow, StatsData } from '@/lib/stats/types'
 import type { GroupStandingRow, MatchRecordRow } from '@/types/db'
-
-function versus(row: MatchRecordRow): string {
-  return `${row.blue_team_name ?? 'Azul'} vs ${row.red_team_name ?? 'Rojo'}`
-}
 
 /** The one with the highest (or lowest) value, or null when there are no matches. */
 function pick(

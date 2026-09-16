@@ -1,4 +1,5 @@
 import type { PGlite } from '@electric-sql/pglite'
+import { ROLES } from '../../src/lib/format'
 
 /**
  * Builds a match by hand: the `matches` row and one player a side.
@@ -128,7 +129,6 @@ export interface ScoreboardOptions {
   minutes?: number
 }
 
-const POSITIONS = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'SUPPORT']
 
 /**
  * Builds a match with the whole scoreboard, the way the ingest leaves it.
@@ -211,7 +211,7 @@ export async function playScoreboard(db: PGlite, options: ScoreboardOptions): Pr
           teamId,
           line.puuid,
           line.champion ?? 'Ahri',
-          line.position ?? POSITIONS[index % POSITIONS.length],
+          line.position ?? ROLES[index % ROLES.length],
           side === winningSide,
           line.kills ?? 0,
           line.deaths ?? 0,

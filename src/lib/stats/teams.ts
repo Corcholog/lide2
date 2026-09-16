@@ -17,6 +17,7 @@
  * where the D, B and H are still read as counts.
  */
 
+import { formatGold, formatPercent } from '@/lib/format'
 import { block, rankRows } from './rank'
 import type { StatBlock, StatsData } from './types'
 import type { TeamPhaseTotalsRow } from '@/types/db'
@@ -63,7 +64,7 @@ function signed(value: number): string {
 export function winrates(data: StatsData): StatBlock | null {
   const rows = teamRanking(data, {
     value: (row) => row.win_pct,
-    display: (value) => `${Math.round(value * 100)}%`,
+    display: (value) => formatPercent(value),
   })
   return block('winrate', 'Mejor porcentaje', rows, { subtitle: 'Victorias sobre partidas jugadas' })
 }
@@ -85,7 +86,7 @@ export function goldDiff(data: StatsData): StatBlock | null {
     // is a few thousand gold, and rounded to the thousand half the table came
     // out on the same number.
     display: (value) =>
-      `${value > 0 ? '+' : value < 0 ? '−' : ''}${(Math.abs(value) / 1000).toFixed(1)}k por partida`,
+      `${value > 0 ? '+' : value < 0 ? '−' : ''}${formatGold(Math.abs(value))} por partida`,
   })
   return block('gold-diff', 'Diferencia de oro', rows, {
     subtitle: 'Oro de ventaja sobre el rival, por partida',

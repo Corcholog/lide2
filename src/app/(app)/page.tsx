@@ -1,9 +1,10 @@
 import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
-import { maybeRow, rows } from '@/lib/supabase/query'
+import { rows } from '@/lib/supabase/query'
+import { resolveTournamentId } from '@/lib/stats/query'
 import { daysUntil } from '@/lib/lide2/dates'
 import { projectBracketSlots } from '@/lib/lide2/projection'
-import { CALENDAR, TOURNAMENT } from '@/lib/lide2/tournament'
+import { CALENDAR } from '@/lib/lide2/tournament'
 import { championOf } from '@/lib/lide2/winner'
 import { TeamFocus, type FocusTeam } from '@/components/tournament/TeamFocus'
 import { Hero, UniversityStrip } from '@/components/home/Hero'
@@ -63,12 +64,7 @@ function focusTeams(fixture: FixtureResultRow[]): FocusTeam[] {
 
 export default async function Lide2Page() {
   const supabase = await createClient()
-  const tournament = maybeRow<{ id: string; name: string }>(
-    await supabase.from('tournaments').select('id,name').eq('slug', TOURNAMENT.slug).maybeSingle(),
-    'the tournament',
-  )
-
-  const tournamentId = tournament?.id ?? null
+  const tournamentId = await resolveTournamentId(supabase)
   const user = await getUser()
 
   const [standingsRes, seriesRes, fixtureRes] = tournamentId

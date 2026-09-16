@@ -13,8 +13,8 @@ import {
   scopeCounts,
   parseGroup,
   parseRole,
-  scopeFilter,
 } from '@/lib/stats/tables'
+import { scopeFilter } from '@/lib/stats/filters'
 import { parseSortOrder } from '@/lib/table/sort'
 import { Empty } from '@/components/stats/Empty'
 import { GroupNav } from '@/components/stats/GroupNav'

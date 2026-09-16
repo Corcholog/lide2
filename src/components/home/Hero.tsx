@@ -2,7 +2,7 @@ import Image from 'next/image'
 import { SectionNav, type NavSection } from '@/components/tournament/SectionNav'
 import { UniversityLogo } from '@/components/tournament/UniversityLogo'
 import { DiscordIcon, TwitchIcon } from '@/components/icons/Brands'
-import { daysUntil, shortDate } from '@/lib/lide2/dates'
+import { dayAndMonth, daysUntil } from '@/lib/lide2/dates'
 import { SLOGAN_PARTS, TOURNAMENT, type Milestone } from '@/lib/lide2/tournament'
 
 /*
@@ -148,11 +148,7 @@ export function Hero({
                 <span className="font-semibold">{next.label}</span>
                 <span className="text-fg-soft">
                   {' · '}
-                  {shortDate(next.date).day} de{' '}
-                  {new Date(next.date).toLocaleDateString('es-AR', {
-                    month: 'long',
-                    timeZone: 'UTC',
-                  })}
+                  {dayAndMonth(next.date)}
                   {next.detail ? ` · ${next.detail}` : ''}
                 </span>
               </p>

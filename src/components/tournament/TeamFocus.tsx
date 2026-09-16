@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
-import { teamPath } from '@/lib/routes'
+import { isUuid, teamPath } from '@/lib/routes'
 
 /**
  * Highlights a team everywhere it appears: on hover over any one of them, and
@@ -31,13 +31,6 @@ export interface FocusTeam {
   name: string
   matches: number
 }
-
-/**
- * Only UUID-shaped ids are interpolated. The ids come from the database and not
- * from anything a visitor types, but this is emitted inside a <style>: if the
- * source ever changes, the filter is already in place.
- */
-const UUID = /^[0-9a-fA-F-]{36}$/
 
 function styleFor(id: string): string {
   const team = `[data-team="${id}"]`
@@ -83,7 +76,8 @@ export function TeamFocus({
   const [active, setActive] = useState<string | null>(null)
   const scope = useRef<HTMLDivElement>(null)
 
-  const valid = teams.filter((team) => UUID.test(team.id))
+  // Only UUID-shaped ids are interpolated: they end up inside a <style>.
+  const valid = teams.filter((team) => isUuid(team.id))
   const current = valid.find((team) => team.id === active) ?? null
 
   // The tree below was drawn by the server and never re-renders, so the

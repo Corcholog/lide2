@@ -6,7 +6,7 @@
  * writing a function and listing it in the registry.
  */
 
-import { formatKda, formatKdaAverage, formatNumber, formatPosition, ROLES } from '@/lib/format'
+import { formatKda, formatKdaAverage, formatNumber, formatPercent, formatPosition, ROLES } from '@/lib/format'
 import { playerPath } from '@/lib/routes'
 import { block, minGamesForAverages, rankRows } from './rank'
 import type { StatBlock, StatsData } from './types'
@@ -98,7 +98,7 @@ export function mvp(data: StatsData): StatBlock | null {
           perGame(row.kills, row.games),
           perGame(row.deaths, row.games),
           perGame(row.assists, row.games),
-        )} · ${Math.round(row.kill_participation * 100)}% de participación`,
+        )} · ${formatPercent(row.kill_participation)} de participación`,
       value: (row) => row.avg_score,
       display: (value) => value.toFixed(2),
       // The view already returns it sorted; mvp_rank is what makes it stable.

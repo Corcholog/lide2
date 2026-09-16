@@ -89,10 +89,7 @@ export function SortableTable<T>({
     if (!column?.sort) return rows
 
     return sortRows(rows, column.sort, order.dir, tiebreak)
-    // `columns` and `tiebreak` are redefined on every render of the wrapper;
-    // what actually changes the result are the rows and the order.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, order])
+  }, [rows, order, columns, tiebreak])
 
   function sortBy(column: Column<T>) {
     const dir: SortDirection =

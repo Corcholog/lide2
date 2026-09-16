@@ -23,13 +23,13 @@ interface Result<T> {
   error: PostgrestError | null
 }
 
-function boom(what: string, error: PostgrestError): never {
+function fail(what: string, error: PostgrestError): never {
   throw new Error(`Could not read ${what}: ${error.message} (${error.code})`, { cause: error })
 }
 
 /** The rows of a listing. Empty is a valid result; an error is not. */
 export function rows<T>(result: Result<T[]>, what: string): T[] {
-  if (result.error) boom(what, result.error)
+  if (result.error) fail(what, result.error)
   return result.data ?? []
 }
 
@@ -41,6 +41,6 @@ export function rows<T>(result: Result<T[]>, what: string): T[] {
  * asked".
  */
 export function maybeRow<T>(result: Result<T>, what: string): T | null {
-  if (result.error) boom(what, result.error)
+  if (result.error) fail(what, result.error)
   return result.data
 }

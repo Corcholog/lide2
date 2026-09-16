@@ -9,7 +9,7 @@ import {
   championName,
   championNames,
 } from '@/lib/ddragon'
-import { formatNumber, formatPosition, playerName, riotTag } from '@/lib/format'
+import { formatNumber, formatPercent, formatPosition, playerName, riotTag } from '@/lib/format'
 import { loadMatchDetails } from '@/lib/matches'
 import { GameIcon } from '@/components/match/GameIcon'
 import { LIST_COLUMNS, MatchList, type ListMatch } from '@/components/match/MatchList'
@@ -50,7 +50,7 @@ const CARD_SHADE = [
 ].join(', ')
 
 function percent(part: number, total: number): string {
-  return total > 0 ? `${Math.round((part / total) * 100)}%` : '—'
+  return total > 0 ? formatPercent(part / total) : '—'
 }
 
 /** La posición que más jugó; el .rofl no siempre la trae, por eso puede dar null. */

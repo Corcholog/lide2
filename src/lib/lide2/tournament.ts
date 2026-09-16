@@ -390,11 +390,6 @@ export function byesFor(round: ScheduleRound): TeamSeed[] {
   return TEAMS.filter((entry) => !playing.has(entry.number))
 }
 
-/** Round label stored in the database alongside each match. */
-export function roundLabel(round: ScheduleRound): string {
-  return `Fecha ${round.matchday} · Turno ${round.slot}`
-}
-
 /** Every team in a group, in number order. */
 export function teamsOfGroup(group: GroupName): TeamSeed[] {
   return TEAMS.filter((entry) => entry.group === group)
@@ -410,10 +405,11 @@ export const AR_TIME_ZONE = 'America/Argentina/Buenos_Aires'
  * CALENDAR rather than being written by hand so there are never two different
  * dates going around if the tournament shifts.
  */
-export function tournamentStartDate(): string {
+export function tournamentStartDate({ year = false }: { year?: boolean } = {}): string {
   return new Date(CALENDAR[0].date).toLocaleDateString('es-AR', {
     day: 'numeric',
     month: 'long',
+    ...(year ? { year: 'numeric' } : {}),
     timeZone: AR_TIME_ZONE,
   })
 }

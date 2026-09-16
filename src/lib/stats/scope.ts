@@ -1,4 +1,5 @@
 import { CALENDAR } from '@/lib/lide2/tournament'
+import { firstParam } from '@/lib/url'
 import type { StatScope } from './types'
 
 /**
@@ -33,8 +34,7 @@ export const MATCHDAYS = CALENDAR.filter((milestone) => milestone.phase === 'gru
  * the browser, so a tournament id would be a parameter with nothing to do.
  */
 export function parseMatchday(value: string | string[] | undefined): number | null {
-  const raw = Array.isArray(value) ? value[0] : value
-  const matchday = Number(raw)
+  const matchday = Number(firstParam(value))
 
   return MATCHDAYS.some((entry) => entry.matchday === matchday) ? matchday : null
 }
@@ -61,7 +61,7 @@ export function parseTeamFilter(
   value: string | string[] | undefined,
   validTeamIds: Iterable<string>,
 ): string | null {
-  const id = Array.isArray(value) ? value[0] : value
+  const id = firstParam(value)
   if (!id) return null
 
   return new Set(validTeamIds).has(id) ? id : null

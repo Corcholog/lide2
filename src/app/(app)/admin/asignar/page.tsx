@@ -13,6 +13,7 @@ import {
 } from '@/components/admin/AssignMatch'
 import { Walkover } from '@/components/admin/Walkover'
 import { Ruling } from '@/components/admin/Ruling'
+import { Stat } from '@/components/admin/Stat'
 import { rulingLabel } from '@/lib/lide2/rulings'
 import type { FixtureResultRow } from '@/types/db'
 
@@ -315,13 +316,4 @@ export default async function AssignMatchesPage() {
 /** "Equipo 15 (UNER / UADE)": the number alone tells nothing apart. */
 function label(name: string, universities: string[] | null): string {
   return universities && universities.length > 0 ? `${name} (${universities.join(' / ')})` : name
-}
-
-function Stat({ label, value, tone }: { label: string; value: number; tone?: boolean }) {
-  return (
-    <div className="bg-surface px-4 py-3 text-fg">
-      <dt className="text-xs uppercase tracking-wide text-faint">{label}</dt>
-      <dd className={`font-display text-2xl tabular-nums ${tone ? 'text-accent' : ''}`}>{value}</dd>
-    </div>
-  )
 }

@@ -21,23 +21,13 @@
  * For the real flow - a match day, with the replay kept as proof of the result
  * - there is `npm run ingest`. This script is for test data and nothing else.
  */
+import { statSync } from 'node:fs'
 import { basename } from 'node:path'
-import { readdirSync, statSync } from 'node:fs'
-import { join } from 'node:path'
 import { buildRoundDateMap, deriveLabels } from '../src/lib/ingest/labels'
 import { buildIngestPayload } from '../src/lib/ingest/payload'
 import { fileSource, normalizeMatch, parseRofl, RoflParseError } from '../src/lib/rofl'
 import { createAdminClient } from '../src/lib/supabase/admin'
-
-function collectReplays(target: string): string[] {
-  const stats = statSync(target)
-  if (!stats.isDirectory()) return target.toLowerCase().endsWith('.rofl') ? [target] : []
-
-  return readdirSync(target)
-    .flatMap((entry) => collectReplays(join(target, entry)))
-    .filter((path) => !path.includes('.fixture.'))
-    .sort()
-}
+import { collectReplays } from './lib/replays'
 
 async function main() {
   const args = process.argv.slice(2)

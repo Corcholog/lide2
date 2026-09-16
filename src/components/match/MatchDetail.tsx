@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { DamageBar } from '@/components/match/DamageBar'
 import { GameIcon } from '@/components/match/GameIcon'
 import { championIcon, championName } from '@/lib/ddragon'
-import { formatGold, formatKda, playerName, riotTag } from '@/lib/format'
+import { formatGold, formatKda, formatPercent, playerName, riotTag } from '@/lib/format'
 import type { DetailPlayer } from '@/lib/matches'
 import type { MatchTeamStatsRow } from '@/types/db'
 import { playerPath } from '@/lib/routes'
@@ -181,7 +181,7 @@ function Side({
               <div className="tabular w-16 shrink-0 text-right">
                 <p>{formatKda(player.kills, player.deaths, player.assists)}</p>
                 <p className="text-xs text-faint">
-                  {Math.round(player.killParticipation * 100)}% KP
+                  {formatPercent(player.killParticipation)} KP
                 </p>
               </div>
 

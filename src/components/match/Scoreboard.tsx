@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { DamageBar } from './DamageBar'
 import { GameIcon } from './GameIcon'
 import { championIcon, championName, itemIcon, spellIcon } from '@/lib/ddragon'
-import { formatGold, formatKda, formatPosition, playerName, riotTag } from '@/lib/format'
+import { formatGold, formatKda, formatPercent, formatPosition, playerName, riotTag } from '@/lib/format'
 import { matchOrigin, playerPath, teamPath } from '@/lib/routes'
 import type { MatchTeamStatsRow } from '@/types/db'
 
@@ -215,7 +215,7 @@ export function Scoreboard({
                 </td>
 
                 <td className="tabular px-2 py-2 text-right text-fg-soft">
-                  {Math.round(player.killParticipation * 100)}%
+                  {formatPercent(player.killParticipation)}
                 </td>
 
                 <td className="tabular px-2 py-2 text-right">

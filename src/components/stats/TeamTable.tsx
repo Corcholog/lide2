@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { GameIcon } from '@/components/match/GameIcon'
 import { SortableTable, type Column } from '@/components/table/SortableTable'
-import { formatDuration, formatGold } from '@/lib/format'
+import { formatDuration, formatGold, formatPercent } from '@/lib/format'
 import type { SortOrder } from '@/lib/table/sort'
 import { teamPath } from '@/lib/routes'
 
@@ -97,7 +97,7 @@ export function TeamTable({ rows, initial }: { rows: TeamRow[]; initial: SortOrd
       sort: (row) => (row.games === 0 ? null : row.winPct),
       cell: (row) => (
         <span className="font-medium text-fg">
-          {row.games === 0 ? '—' : `${Math.round(row.winPct * 100)}%`}
+          {row.games === 0 ? '—' : formatPercent(row.winPct)}
         </span>
       ),
     },

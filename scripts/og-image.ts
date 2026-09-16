@@ -17,7 +17,7 @@
  */
 import { writeFileSync } from 'node:fs'
 import sharp from 'sharp'
-import { TOURNAMENT, SLOGAN_PARTS } from '../src/lib/lide2/tournament'
+import { TOURNAMENT, SLOGAN_PARTS, tournamentStartDate } from '../src/lib/lide2/tournament'
 
 /** What Facebook, WhatsApp, Discord and Twitter ask for: 1200 x 630. */
 const WIDTH = 1200
@@ -83,7 +83,7 @@ const textLayer = Buffer.from(`
       ${xml(TOURNAMENT.organizer.toUpperCase())}
     </text>
 
-    <text x="66" y="310" font-size="168" letter-spacing="-6" fill="#e9e9ee">
+    <text x="66" y="310" font-size="168" letter-spacing="-6" fill="${LIGHT}">
       ${xml(TOURNAMENT.name.toUpperCase())}
     </text>
 
@@ -93,10 +93,10 @@ const textLayer = Buffer.from(`
   <g font-family="Arial, Helvetica, sans-serif">
     <text x="72" y="428" font-size="25" fill="#b4b4bf">${xml(TOURNAMENT.fullName)}</text>
 
-    <text x="72" y="546" font-size="27" font-weight="bold" fill="#e9e9ee">
+    <text x="72" y="546" font-size="27" font-weight="bold" fill="${LIGHT}">
       ${TOURNAMENT.teams} equipos · ${TOURNAMENT.universities} universidades · ${TOURNAMENT.players} jugadores
     </text>
-    <text x="72" y="580" font-size="22" fill="#8f8f9c">Arranca el 5 de septiembre de 2026</text>
+    <text x="72" y="580" font-size="22" fill="#8f8f9c">Arranca el ${tournamentStartDate({ year: true })}</text>
   </g>
 
   <!--
@@ -105,7 +105,7 @@ const textLayer = Buffer.from(`
     Discord passes for a message from the organizers.
   -->
   <g font-family="Arial, Helvetica, sans-serif">
-    <rect x="${WIDTH - 286}" y="52" width="214" height="42" fill="#0a0a0b" fill-opacity="0.55"
+    <rect x="${WIDTH - 286}" y="52" width="214" height="42" fill="${BACKGROUND}" fill-opacity="0.55"
           stroke="#ffffff" stroke-opacity="0.32" stroke-width="2"/>
     <text x="${WIDTH - 179}" y="79" font-size="16" letter-spacing="3"
           text-anchor="middle" fill="#d5d2d8">PÁGINA NO OFICIAL</text>

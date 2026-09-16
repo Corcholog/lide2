@@ -8,6 +8,8 @@
  * the server and applied on the client with the very same code.
  */
 
+import { firstParam } from '@/lib/url'
+
 export type SortDirection = 'asc' | 'desc'
 
 export interface SortOrder {
@@ -30,8 +32,8 @@ export function parseSortOrder(
   sortable: readonly string[],
   fallback: SortOrder,
 ): SortOrder {
-  const id = Array.isArray(order) ? order[0] : order
-  const direction = Array.isArray(dir) ? dir[0] : dir
+  const id = firstParam(order)
+  const direction = firstParam(dir)
 
   if (!id || !sortable.includes(id)) return fallback
 

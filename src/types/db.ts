@@ -120,27 +120,6 @@ export interface MatchTeamStatsRow {
   team_id: string | null
 }
 
-export interface TeamStandingRow {
-  stage_label: string | null
-  team_id: string
-  team_name: string
-  team_tag: string | null
-  games: number
-  wins: number
-  losses: number
-  win_pct: number
-  kills: number
-  kills_against: number
-  kill_diff: number
-  gold_diff: number
-  avg_minutes: number | null
-  first_played_at: string | null
-  last_played_at: string | null
-  /** The last 5 results, newest first. */
-  form: boolean[] | null
-  position: number
-}
-
 export interface PlayerTotalsRow {
   player_id: string
   riot_game_name: string | null
@@ -299,18 +278,6 @@ export interface FixtureResultRow {
   walkover_team_id: string | null
   /** Why the organizers overturned it: a key of RULINGS. Null with no ruling. */
   ruling: string | null
-}
-
-/** A team resting in a slot: one per group sits out each one. */
-export interface FixtureByeRow {
-  tournament_id: string
-  matchday: number
-  slot: number
-  kickoff: string
-  group_label: string
-  team_id: string
-  team_name: string
-  team_logo: string | null
 }
 
 // --- Stats (supabase/migrations/0010_stats.sql) -----------------------------

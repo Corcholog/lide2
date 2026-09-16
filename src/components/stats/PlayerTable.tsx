@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { SortableTable, type Column } from '@/components/table/SortableTable'
-import { formatNumber, formatPosition, ROLES } from '@/lib/format'
+import { formatNumber, formatPercent, formatPosition, ROLES } from '@/lib/format'
 import type { SortOrder } from '@/lib/table/sort'
 import { playerPath, teamPath } from '@/lib/routes'
 
@@ -118,7 +118,7 @@ export function PlayerTable({ rows, initial }: { rows: PlayerRow[]; initial: Sor
       label: 'KP',
       title: 'Participación en las kills de su equipo',
       sort: (row) => row.killParticipation,
-      cell: (row) => `${Math.round(row.killParticipation * 100)}%`,
+      cell: (row) => formatPercent(row.killParticipation),
     },
     {
       id: 'dano',

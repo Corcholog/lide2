@@ -3,7 +3,7 @@
 import { GameIcon } from '@/components/match/GameIcon'
 import { SortableTable, type Column } from '@/components/table/SortableTable'
 import { championIcon } from '@/lib/ddragon'
-import { formatNumber, formatRoles, ROLES } from '@/lib/format'
+import { formatNumber, formatPercent, formatRoles, ROLES } from '@/lib/format'
 import type { SortOrder } from '@/lib/table/sort'
 
 /**
@@ -52,7 +52,7 @@ export interface ChampionRow {
 
 /** A percentage, or an em dash when there is no sample to compute it from. */
 function pct(value: number | null): string {
-  return value === null ? '—' : `${Math.round(value * 100)}%`
+  return value === null ? '—' : formatPercent(value)
 }
 
 export function ChampionTable({

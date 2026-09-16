@@ -10,25 +10,16 @@
  *   npm run ingest -- "fixtures/13.06 BLOQUE A/LA2-1602349752.rofl"
  *   npm run ingest -- fixtures --dry-run
  */
-import { createHash } from 'node:crypto'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { basename, join } from 'node:path'
+import { readFileSync, statSync } from 'node:fs'
+import { basename } from 'node:path'
 import { REPLAYS_BUCKET } from '../src/lib/env'
 import { findFileBySha256 } from '../src/lib/ingest/duplicates'
 import { buildRoundDateMap, deriveLabels } from '../src/lib/ingest/labels'
 import { ingestReplay } from '../src/lib/ingest/ingest'
+import { sha256 } from '../src/lib/rofl'
 import { getStorage } from '../src/lib/storage'
 import { createAdminClient } from '../src/lib/supabase/admin'
-
-function collectReplays(target: string): string[] {
-  const stats = statSync(target)
-  if (!stats.isDirectory()) return target.toLowerCase().endsWith('.rofl') ? [target] : []
-
-  return readdirSync(target)
-    .flatMap((entry) => collectReplays(join(target, entry)))
-    .filter((path) => !path.includes('.fixture.'))
-    .sort()
-}
+import { collectReplays } from './lib/replays'
 
 /**
  * Reprocessing a backfill with better labels has to correct what is already
@@ -112,8 +103,8 @@ async function main() {
 
     try {
       const buffer = readFileSync(path)
-      const sha256 = createHash('sha256').update(buffer).digest('hex')
-      const known = await findFileBySha256(sha256)
+      const hash = sha256(buffer)
+      const known = await findFileBySha256(hash)
       if (known) {
         duplicated++
         const updated = await relabel(known.matchId, labelsFor(path))
@@ -137,7 +128,7 @@ async function main() {
         // The mtime is when the file was copied, not when it was played: it is
         // only used when the path says nothing.
         lastModified: (labels.playedAt ?? statSync(path).mtime).getTime(),
-        sha256,
+        sha256: hash,
         stageLabel: labels.stageLabel,
         roundLabel: labels.roundLabel,
       })

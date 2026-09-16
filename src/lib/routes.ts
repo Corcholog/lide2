@@ -115,7 +115,7 @@ export function originFrom(
     if (value in ORIGINS) return ORIGINS[value as Origin]
 
     const id = value.startsWith('partida.') ? value.slice('partida.'.length) : null
-    if (id && UUID.test(id)) return { href: matchPath(id), label: 'Partida' }
+    if (id && isUuid(id)) return { href: matchPath(id), label: 'Partida' }
   }
 
   return ORIGINS[fallback]

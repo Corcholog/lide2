@@ -34,17 +34,12 @@
  * which is where the champion icons are: the line would end up behind them.
  */
 
-/**
- * Only UUID-shaped ids are interpolated. They come from the database and not
- * from anything a visitor types - /partidas checks `?equipo=` against the
- * tournament's teams first - but this ends up inside a `<style>`, so the filter
- * is in place if the source ever changes. Same guard as `TeamFocus`.
- */
-const UUID = /^[0-9a-fA-F-]{36}$/
+import { isUuid } from '@/lib/routes'
 
 /** Where the listing draws that team: the row's side, and the open detail. */
 export function markRule(teamId: string): string {
-  if (!UUID.test(teamId)) return ''
+  // Only UUID-shaped ids are interpolated: this ends up inside a `<style>`.
+  if (!isUuid(teamId)) return ''
 
   const marked = `#partidas [data-team="${teamId}"]`
 

@@ -144,7 +144,7 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
   const accounts = rows<TeamAccountRow>(accountsRes as never, 'the team accounts')
   const review = rows<RosterReviewRow>(reviewRes as never, 'the roster review')
   const totals = rows<PlayerTotalsRow>(totalsRes, 'the per-player totals')
-  const matches = rows<ListMatch>(matchesRes as never, 'las últimas partidas del equipo')
+  const matches = rows<ListMatch>(matchesRes as never, 'the recent matches')
 
   /*
     Lo que la fila compartida dibuja además del marcador: los diez campeones, el

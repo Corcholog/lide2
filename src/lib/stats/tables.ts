@@ -12,7 +12,7 @@
 
 import { formatPosition, ROLES } from '@/lib/format'
 import { GROUPS } from '@/lib/lide2/tournament'
-import { scopeFilter } from './filters'
+import { firstParam } from '@/lib/url'
 import type { StatScope } from './types'
 
 /**
@@ -30,7 +30,7 @@ export const GROUP_OPTIONS = GROUPS.map((letter) => ({
 
 /** `?grupo=B` -> "Grupo B", or null (all of them) when missing or unreadable. */
 export function parseGroup(value: string | string[] | undefined): string | null {
-  const raw = Array.isArray(value) ? value[0] : value
+  const raw = firstParam(value)
   if (!raw) return null
 
   return GROUP_OPTIONS.find((group) => group.id === raw.toUpperCase())?.label ?? null
@@ -58,7 +58,7 @@ export type RoleOption = (typeof ROLE_OPTIONS)[number]
 
 /** `?rol=jungla` -> the JUNGLE option, or null (every role) when unreadable. */
 export function parseRole(value: string | string[] | undefined): RoleOption | null {
-  const raw = Array.isArray(value) ? value[0] : value
+  const raw = firstParam(value)
   if (!raw) return null
 
   return ROLE_OPTIONS.find((role) => role.id === raw.toLowerCase()) ?? null
@@ -163,14 +163,3 @@ export function metaFilter(scope: StatScope, group: string | null): Record<strin
     ...(scope.matchday === null ? {} : { matchday: scope.matchday }),
   }
 }
-
-/**
- * The scope for players and teams, which do not have the group dimension.
- *
- * For them the group filter is one of PRESENTATION, not of aggregation: in the
- * group phase a team only plays teams from its own group, so its totals are
- * already that group's totals and it is enough to not draw the other teams.
- * That is why this is a `filter()` over what was already loaded and not one
- * more filter in the query.
- */
-export { scopeFilter }

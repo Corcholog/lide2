@@ -12,7 +12,7 @@
  */
 
 import { championIcon, championName } from '@/lib/ddragon'
-import { formatNumber, formatRoles } from '@/lib/format'
+import { formatNumber, formatPercent, formatRoles } from '@/lib/format'
 import { block, rankRows } from './rank'
 import type { StatBlock, StatsData } from './types'
 import type { ChampionStatRow } from '@/types/db'
@@ -37,7 +37,7 @@ const MIN_PICKS_FOR_WINRATE = 3
  */
 function winrate(row: ChampionStatRow): string | null {
   if (row.picks === 0 || row.win_pct === null) return null
-  return `${Math.round(row.win_pct * 100)}% wr`
+  return `${formatPercent(row.win_pct)} wr`
 }
 
 /** "4 picks · 0% wr", the pair that opens nearly every detail line of the meta. */
@@ -111,7 +111,7 @@ export function bestWinrate(data: StatsData): StatBlock | null {
     // Never null past the `eligible` below - three picks is three games - but
     // the column is nullable and the ranking sorts on a number.
     value: (row) => row.win_pct ?? 0,
-    display: (value, row) => `${Math.round(value * 100)}% (${row.wins}/${row.picks})`,
+    display: (value, row) => `${formatPercent(value)} (${row.wins}/${row.picks})`,
     eligible: (row) => row.picks >= MIN_PICKS_FOR_WINRATE,
     // The win rate is already the value: repeating it in the detail line would
     // be saying the same thing twice on one row.
@@ -162,7 +162,7 @@ export function presence(data: StatsData): StatBlock | null {
 
   const rows = championRanking(data, {
     value: (row) => row.presence ?? 0,
-    display: (value) => `${Math.round(value * 100)}%`,
+    display: (value) => formatPercent(value),
     eligible: (row) => (row.presence ?? 0) > 0,
     detail: (row) => `${picksAndWinrate(row)} · ${row.bans} bans`,
   })

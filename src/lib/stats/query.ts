@@ -8,7 +8,7 @@
  * can be tested without a database.
  */
 
-import type { createClient } from '@/lib/supabase/server'
+import type { Supabase } from '@/lib/supabase/server'
 import { assetVersion, championNames } from '@/lib/ddragon'
 import { TOURNAMENT } from '@/lib/lide2/tournament'
 import type {
@@ -22,8 +22,6 @@ import type {
 import { maybeRow, rows } from '@/lib/supabase/query'
 import { matchFilter, scopeFilter } from './filters'
 import type { StatScope, StatsData } from './types'
-
-type Supabase = Awaited<ReturnType<typeof createClient>>
 
 export async function resolveTournamentId(supabase: Supabase): Promise<string | null> {
   const tournament = maybeRow<{ id: string }>(

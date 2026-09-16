@@ -7,12 +7,10 @@
  * grouped by match, and the lane order the two columns get compared in.
  */
 
-import type { createClient } from '@/lib/supabase/server'
+import type { Supabase } from '@/lib/supabase/server'
 import { ROLES } from '@/lib/format'
 import { rows } from '@/lib/supabase/query'
 import type { MatchPlayerScoreRow, MatchTeamStatsRow } from '@/types/db'
-
-type Supabase = Awaited<ReturnType<typeof createClient>>
 
 /**
  * The scoreboard columns the detail uses. No items, no spells.

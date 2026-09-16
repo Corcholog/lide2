@@ -12,7 +12,8 @@ import { block, rankRows } from './rank'
 import type { StatBlock, StatsData } from './types'
 import type { MatchRecordRow } from '@/types/db'
 
-function versus(row: MatchRecordRow): string {
+/** "Equipo 01 vs Equipo 02", blue side first. */
+export function versus(row: MatchRecordRow): string {
   return `${row.blue_team_name ?? 'Azul'} vs ${row.red_team_name ?? 'Rojo'}`
 }
 

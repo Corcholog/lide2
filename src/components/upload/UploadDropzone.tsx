@@ -3,9 +3,10 @@
 import { useCallback, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { MAX_REPLAY_BYTES } from '@/lib/env'
 import { createClient } from '@/lib/supabase/client'
 
-const MAX_BYTES = 50 * 1024 * 1024
+const MAX_MB = MAX_REPLAY_BYTES / 1024 / 1024
 /** Two in parallel: they are 12-17 MB files, more speeds nothing up. */
 const CONCURRENCY = 2
 
@@ -162,8 +163,8 @@ export function UploadDropzone() {
 
         if (!file.name.toLowerCase().endsWith('.rofl')) {
           rejected.push({ ...item, status: 'error', message: 'No es un archivo .rofl' })
-        } else if (file.size > MAX_BYTES) {
-          rejected.push({ ...item, status: 'error', message: 'Supera los 50 MB' })
+        } else if (file.size > MAX_REPLAY_BYTES) {
+          rejected.push({ ...item, status: 'error', message: `Supera los ${MAX_MB} MB` })
         } else {
           accepted.push(item)
         }
@@ -214,7 +215,7 @@ export function UploadDropzone() {
       >
         <p className="text-lg font-medium">Arrastrá los .rofl acá</p>
         <p className="text-sm text-muted">
-          o hacé clic para elegirlos. Se pueden subir varios a la vez, hasta 50 MB cada uno.
+          o hacé clic para elegirlos. Se pueden subir varios a la vez, hasta {MAX_MB} MB cada uno.
         </p>
         <input
           ref={inputRef}
