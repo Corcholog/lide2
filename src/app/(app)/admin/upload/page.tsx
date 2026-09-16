@@ -13,11 +13,8 @@ export default async function UploadPage() {
           El archivo se sube directo al storage y el servidor le lee sólo la metadata: de un .rofl de
           15 MB se leen ~118 KB. Si un archivo falla, el resto del lote sigue.
         </p>
-        {/*
-          The stage and the round used to be typed in here by hand. Not any
-          more: the fixture is published and loaded, so instead of typing
-          "Fecha 2" you pick the matchup, which also says which teams played.
-        */}
+        {/* Stage and round are no longer typed here: picking the matchup when
+            assigning sets them. */}
         <p className="mt-2 max-w-2xl text-sm text-muted">
           Después hay que decir de qué cruce es cada una, en{' '}
           <Link href="/admin/asignar" className="text-accent underline-offset-2 hover:underline">

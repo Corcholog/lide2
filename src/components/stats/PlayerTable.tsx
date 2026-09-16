@@ -7,12 +7,8 @@ import type { SortOrder } from '@/lib/table/sort'
 import { playerPath, teamPath } from '@/lib/routes'
 
 /**
- * Every player within the scope, with all of their columns.
- *
- * It honours the matchday and group scope, and sorts by whatever you like: it
- * is the one that answers "who does the most damage among Group C's junglers?".
- * Each player's page is reached from here, which is the only route there is:
- * the /jugadores index was removed and the route now returns a 404.
+ * Every player in the scope, with all their columns, sortable. It is also the
+ * main way to reach player pages.
  */
 
 export interface PlayerRow {

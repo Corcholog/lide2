@@ -1,12 +1,6 @@
 /**
- * What shows while the page fetches its data.
- *
- * Nearly every page is dynamic and runs between three and six queries, so
- * without this the browser sits on the previous screen - or on a blank one -
- * with no sign that anything is happening.
- *
- * Grey blocks roughly the size of what is coming, and not a spinner: what it
- * means to say is "it is on its way, it will look like this", not "wait".
+ * Loading state while a page fetches its data: grey blocks shaped like the
+ * content, rather than a spinner.
  */
 export default function Loading() {
   return (

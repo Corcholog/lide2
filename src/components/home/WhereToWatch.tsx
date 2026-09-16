@@ -7,8 +7,7 @@ export function WhereToWatch() {
     <section className="flex flex-col gap-3 border-t border-line pt-6">
       <h2 className="text-sm font-medium text-muted">Dónde se sigue</h2>
       <div className="grid gap-3 sm:grid-cols-3">
-        {/* The icon beside the title and not above it: the card has three lines
-            and one more row would make it grow without saying anything new. */}
+        {/* The icon beside the title keeps the card at three lines. */}
         <a
           href={TOURNAMENT.broadcast.url}
           target="_blank"

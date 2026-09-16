@@ -9,27 +9,16 @@ export interface NavSection {
 }
 
 /**
- * The tournament page's section bar.
+ * The home page's section bar.
  *
- * It lives inside the hero, as the last block after the numbers, so the first
- * screen is a single piece: photo, title, figures and where to go next. On
- * scroll it detaches and docks to the top.
- *
- * That docking is `fixed` and not `sticky`, and not out of preference:
- * `sticky` only holds while the parent is still in view, and the parent here is
- * the hero, which is one screen tall and leaves. So the bar is pulled out of
- * flow by hand when its slot reaches the underside of the site's bar, and the
- * outer div - which always measures the same - keeps the space so nothing
- * jumps.
- *
- * IT DOCKS UNDER THE SITE'S BAR, not in its place. The site's bar is pinned
- * now, and this one used to take the top for itself: what was left up there
- * said which part of the page you were in and offered no way out of the page.
- * The two stack instead, which is why the other one's height is measured here -
- * it is both the docking offset and the top of the band the scroll-spy reads.
+ * It sits at the bottom of the hero and, on scroll, docks under the site
+ * header. Docking uses `fixed` rather than `sticky`, because sticky only holds
+ * while the parent (the one-screen hero) is visible; the outer div keeps the
+ * space so the layout does not jump. The header's height is measured because
+ * it is both the docking offset and the top of the scroll-spy band.
  */
 
-/** The site bar's height, which is how far down this one docks. */
+/** The site header's height: where this bar docks. */
 function headerHeight(): number {
   return document.getElementById('barra-del-sitio')?.offsetHeight ?? 0
 }
@@ -45,13 +34,10 @@ export function SectionNav({ sections }: { sections: NavSection[] }) {
     if (!node) return
 
     /*
-      Docked means the space it left has reached the underside of the site's
-      bar. The space is measured and not the bar: once `fixed`, the bar sits at
-      that offset and the condition would be stuck true.
-
-      The offset is read on mount and on resize rather than on every scroll:
-      it only moves when the layout does, and `offsetHeight` inside a scroll
-      handler is a forced reflow on every frame.
+      Docked once the bar's placeholder reaches the underside of the header.
+      The placeholder is measured, not the bar, which sits at that offset once
+      fixed. The offset is read on mount and resize, not on every scroll, to
+      avoid a forced reflow per frame.
     */
     let offset = headerHeight()
     const onScroll = () => setDocked(node.getBoundingClientRect().top <= offset)
@@ -70,15 +56,9 @@ export function SectionNav({ sections }: { sections: NavSection[] }) {
   }, [])
 
   /*
-   * The page's theme, for when the bar is docked.
-   *
-   * Inside the hero it inherits the dark theme, which is right: it sits over
-   * the photo. But docked at the top it is over the site, and in the light
-   * theme a black strip there would be a foreign body. Removing the attribute
-   * is not enough, because it inherits it from the hero: it has to be given the
-   * page's, and the server does not know it. Hence the observer, which also
-   * follows along if somebody hits the theme button with the bar already
-   * docked.
+   * The page's theme, applied while docked. Inside the hero the bar inherits
+   * the dark theme; docked over a light page it must use the page's theme,
+   * which the server does not know. The observer follows theme changes.
    */
   useEffect(() => {
     const html = document.documentElement
@@ -104,14 +84,10 @@ export function SectionNav({ sections }: { sections: NavSection[] }) {
           if (entry.isIntersecting) visible.add(entry.target.id)
           else visible.delete(entry.target.id)
         }
-        // The first in page order wins: if two are visible, the upper one rules.
+        // The first visible section in page order wins.
         setActive(sections.find((section) => visible.has(section.id))?.id ?? null)
       },
-      /*
-        Reading band: from below the two bars down to the middle of the screen.
-        It was 56px, which was this bar alone; with the site's on top of it the
-        band started behind them and every section was marked one too early.
-      */
+      // Reading band: from below both bars to the middle of the screen.
       {
         rootMargin: `-${Math.round(headerHeight() + (holder.current?.offsetHeight ?? 0))}px 0px -55% 0px`,
       },
@@ -122,11 +98,8 @@ export function SectionNav({ sections }: { sections: NavSection[] }) {
   }, [sections])
 
   /*
-   * Which step the stepper is on.
-   *
-   * At the very top, with the hero filling the screen, no section is inside the
-   * reading band and the scroll-spy marks none: there the stepper settles on
-   * the first one, which is where the first move leads.
+   * The stepper's current section. At the top of the page no section is in the
+   * reading band, so it defaults to the first.
    */
   const current = Math.max(0, sections.findIndex((section) => section.id === active))
 
@@ -142,19 +115,15 @@ export function SectionNav({ sections }: { sections: NavSection[] }) {
         }
       >
         {/*
-          Docked it takes the window's width, so the site container is repeated
-          to keep the items from drifting off the column. In its original place
-          it is already inside one, and `mx-auto max-w-6xl` does nothing.
+          Docked, the bar spans the window, so the site container is repeated to
+          keep items aligned with the page column.
         */}
         <div
           className={`mx-auto flex h-[var(--section-nav)] w-full max-w-6xl items-center gap-2 ${
             docked ? 'px-6' : ''
           }`}
         >
-          {/*
-            The whole list, from `sm` up. The five items add up to about 470px
-            and a phone has 312: below that width the stepper takes over.
-          */}
+          {/* The full list from `sm` up; phones get the stepper below. */}
           <ul className="hidden flex-1 gap-1 sm:flex">
             {sections.map((section) => (
               <li key={section.id}>
@@ -162,12 +131,9 @@ export function SectionNav({ sections }: { sections: NavSection[] }) {
                   href={`#${section.id}`}
                   aria-current={active === section.id ? 'true' : undefined}
                   /*
-                   * All in red: the bar closes the hero and has to hold up
-                   * against the photo, not get lost in grey. What sets the
-                   * section you are in apart stops being the colour and becomes
-                   * the block - fill and border - in three steps: at rest it is
-                   * text alone, on hover it fills in, and the current one is
-                   * framed as well.
+                   * All items are red so the bar holds up over the photo; the
+                   * current section is marked by fill and border instead of
+                   * color.
                    */
                   className={`block whitespace-nowrap border-2 px-3 py-1 text-xs font-bold uppercase tracking-wide transition-colors ${
                     active === section.id
@@ -182,15 +148,9 @@ export function SectionNav({ sections }: { sections: NavSection[] }) {
           </ul>
 
           {/*
-            The phone's stepper.
-
-            The list used to scroll sideways, which is the worse of the two
-            options: a phone draws no scrollbar, so the three sections left
-            outside did not exist. Here you always see which one you are on and
-            the two arrows lead to the previous and the next.
-
-            The name comes from the same scroll-spy that paints the list above,
-            which means it updates itself as you scroll.
+            Phone stepper: the current section with previous and next arrows. A
+            horizontally scrolling list would hide sections, since phones show no
+            scrollbar. The name follows the scroll-spy.
           */}
           <div className="flex flex-1 items-center gap-1 sm:hidden">
             <Step section={sections[current - 1]} direction="prev" />
@@ -205,14 +165,9 @@ export function SectionNav({ sections }: { sections: NavSection[] }) {
           </div>
 
           {/*
-            The little down arrow. The hero fills the whole screen, so without
-            this there is no sign left that anything continues below. It leads
-            to the first section, the same as the first item: it is a gesture,
-            not a different shortcut. It fades out the moment the bar docks,
-            which is when the point that the page goes on has been made.
-
-            Not on the phone: the stepper's right arrow plays that part there,
-            and three arrows in 312px is noise.
+            Down arrow to the first section, since the hero fills the screen.
+            Fades out once the bar docks. Hidden on phones, where the stepper's
+            next arrow does the same.
           */}
           {sections.length > 0 && (
             <a
@@ -243,16 +198,11 @@ export function SectionNav({ sections }: { sections: NavSection[] }) {
 }
 
 /**
- * One of the stepper's two arrows.
- *
- * When there is nowhere to go - the first and the last section - it dims
- * instead of disappearing: if it left, the name in the middle would shift on
- * every step and the bar would dance.
+ * A stepper arrow. At the first or last section it dims instead of
+ * disappearing, so the section name does not shift.
  */
 function Step({ section, direction }: { section: NavSection | undefined; direction: 'prev' | 'next' }) {
-  // p-2.5 and not p-1: over a 16px icon the target came to 24px, which is
-  // exactly the WCAG 2.5.8 floor. This makes it 36 and it still fits beside the
-  // section name at 390px.
+  // p-2.5 gives a 36px target (WCAG 2.5.8 asks for at least 24px).
   const shared = 'shrink-0 border-2 border-transparent p-2.5 text-accent'
 
   if (!section) {

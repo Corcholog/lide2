@@ -26,11 +26,8 @@ export default async function StatsPage({ searchParams }: PageProps<'/estadistic
 
   if (!tournamentId) {
     /*
-      With no tournament in the database there is nothing to show, but the
-      reason matters to exactly one person. An admin can use the exact command;
-      to a visitor, a terminal command on screen is noise - and on top of that
-      it gives away that something is half-built. For them it is simply that
-      nothing has been published yet.
+      Without a tournament: admins get the setup command, visitors a plain
+      "nothing published yet".
     */
     return user ? (
       <Empty
@@ -88,13 +85,7 @@ export default async function StatsPage({ searchParams }: PageProps<'/estadistic
           </dl>
 
           {/*
-            The section bar, the same one the home page uses.
-
-            It is thirty-four rankings across five blocks: without this,
-            reaching the meta means scrolling blindly past every individual one.
-            The bar docks to the top on scroll and marks which one you are in,
-            and sections left without data do not appear because they come from
-            `sections`, which arrives already filtered.
+            Section bar, as on the home page. Only sections with data are listed.
           */}
           <SectionNav sections={sections.map(({ id, label }) => ({ id, label }))} />
 

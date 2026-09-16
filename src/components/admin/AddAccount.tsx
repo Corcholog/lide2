@@ -4,14 +4,10 @@ import { useActionState } from 'react'
 import { addAccountAction, type AccountResult } from '@/app/(app)/equipos/actions'
 
 /**
- * Adding a nick to a team's roster by hand.
- *
- * The other way of adding somebody - the list below - is the accounts that have
- * played and do not have a team yet. Before matchday 1 that list is empty for
- * every team, because `players` fills itself from the replays: there is no way
- * to complete a roster until something is played. Typing the nick creates the
- * account anyway, without a PUUID, and it hooks itself up with its first replay
- * (see `adopt_manual_accounts()` in 0017_alta_de_cuenta.sql).
+ * Adds a nick to a team's roster by hand. Before the first matchday no
+ * accounts exist yet (they come from replays), so typing the nick creates one
+ * without a PUUID, which links to its first replay (see
+ * `adopt_manual_accounts()` in 0017_alta_de_cuenta.sql).
  */
 export function AddAccount({ teamId }: { teamId: string }) {
   const [state, formAction, pending] = useActionState<AccountResult | null, FormData>(
@@ -24,11 +20,9 @@ export function AddAccount({ teamId }: { teamId: string }) {
       <input type="hidden" name="teamId" value={teamId} />
 
       {/*
-        React clears the fields of a `<form action>` when the action finishes,
-        whether it went well or not, leaving them at their `defaultValue`. Hence
-        the field comes back empty when the account was saved and holding what
-        was typed when it was not: if the error is "type it with #TAG", what is
-        needed is fixing those four letters and not retyping everything.
+        React resets `<form action>` fields to their `defaultValue` after the
+        action: empty after a successful save, and the typed text after an error,
+        so it can be fixed instead of retyped.
       */}
       <input
         name="riot"
@@ -58,7 +52,7 @@ export function AddAccount({ teamId }: { teamId: string }) {
   )
 }
 
-/** What happened: if the account already existed, the games it brings matter. */
+/** The result message; for an existing account, how many games it brings. */
 function summarize(state: AccountResult): string {
   const nick = state.nick ?? 'La cuenta'
   if (state.created) return `${nick} al plantel. Se engancha sola cuando juegue.`

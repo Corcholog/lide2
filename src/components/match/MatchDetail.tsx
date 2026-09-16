@@ -8,17 +8,12 @@ import type { MatchTeamStatsRow } from '@/types/db'
 import { playerPath } from '@/lib/routes'
 
 /**
- * What shows when a match in the listing is expanded.
+ * The expanded detail of a listing row: a compact scoreboard (champion, KDA,
+ * damage, CS, gold) plus each team's objectives.
  *
- * It is a compact scoreboard: the ten players with what gets looked at first -
- * champion, KDA, damage, CS, gold - and each team's objectives. It is enough to
- * know what happened without leaving the list, which is what people do when
- * going over a whole matchday.
- *
- * IT DOES NOT REUSE `Scoreboard`: that one asks for items and spells, which is
- * seven more icons per player plus the matching columns of the view. Across
- * sixty preloaded matches that is fetching and drawing something nobody looks
- * at here; the match page, one click further down, is there for that.
+ * It does not reuse `Scoreboard`, which also needs items and spells: loading
+ * those for every preloaded match would be wasted here. The match page has the
+ * full scoreboard.
  */
 
 export function MatchDetail({
@@ -36,15 +31,14 @@ export function MatchDetail({
   teamStats: Map<100 | 200, MatchTeamStatsRow>
   teamNames: { 100: string; 200: string }
   /**
-   * Who each side is, when it is known. Only used to mark the team a listing is
-   * about - see `markRule` - so it is optional: the match page draws this same
-   * detail with no team to mark.
+   * The team ids per side, only used to underline a listing's team (see
+   * `markRule`). The match page passes none.
    */
   teamIds?: { 100: string | null; 200: string | null }
   version: string
   championNames: Record<string, string>
 }) {
-  // The bar's scale is the maximum of THIS match, as on the match page.
+  // The damage bar scale is this match's maximum, as on the match page.
   const maxDamage = Math.max(...players.map((player) => player.damageToChampions), 0)
 
   return (
@@ -75,7 +69,7 @@ export function MatchDetail({
   )
 }
 
-/* Each side's tones, in whole: Tailwind cannot see a class built at runtime. */
+/* Full class names per side: Tailwind cannot see classes built at runtime. */
 const SIDE_TONE = {
   100: { text: 'text-side-blue', border: 'border-l-side-blue' },
   200: { text: 'text-side-red', border: 'border-l-side-red' },
@@ -105,8 +99,7 @@ function Side({
   return (
     <section className={`border-2 border-line border-l-4 ${tone.border}`}>
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-surface px-3 py-2">
-        {/* `data-team` is what `markRule` paints: opened from a listing that
-            is about one team, this says which of the two scoreboards is theirs. */}
+        {/* `data-team` is what `markRule` underlines on a team's listing. */}
         <h3 data-team={teamId ?? undefined} className={`text-sm font-bold ${tone.text}`}>
           {name}
         </h3>
@@ -170,10 +163,8 @@ function Side({
                   )}
                 </p>
                 {/*
-                  The champion alone: the lane each one plays is already said by
-                  the order of the list - top at the top, support at the bottom,
-                  the same in both columns - so repeating it on every row says
-                  the same thing twice and takes room from the name.
+                  Only the champion: rows are already in lane order in both
+                  columns, so the lane is implied.
                 */}
                 <p className="truncate text-xs text-faint">{champion}</p>
               </div>
@@ -187,20 +178,13 @@ function Side({
 
               <div className="tabular hidden w-16 shrink-0 text-right sm:block">
                 <p>{player.cs} CS</p>
-                {/* "oro", for the same reason as "daño": the row labels every
-                    other number it draws, and "12.4k" alone under a CS count
-                    is the one that could be anything. */}
+                {/* Labelled "oro" so the number is not ambiguous. */}
                 <p className="text-xs text-faint">{formatGold(player.goldEarned)} oro</p>
               </div>
 
               {/*
-                Two stats stacked, and both say which one they are. The bar
-                used to carry a bare number with the vision score right
-                underneath: nothing on the row said "damage", and the second
-                line read as that number's subtitle instead of as another
-                stat. The words are the same idiom as "CS" and "KP" to the
-                left, and both lines end flush with the row's right edge, so
-                the pair reads as a column and not as a heading and its note.
+                Damage and vision stacked, each labelled like "CS" and "KP", and
+                right-aligned so they read as a column.
               */}
               <div className="hidden shrink-0 md:block">
                 <DamageBar

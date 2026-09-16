@@ -4,23 +4,16 @@ import { useLayoutEffect } from 'react'
 import { applyTheme, currentTheme, readStoredTheme } from '@/lib/theme'
 
 /**
- * The nav's theme button.
+ * The theme toggle button.
  *
- * It holds no state, and that is deliberate. The server cannot know which theme
- * the visitor chose - it is in localStorage - so anything the button draws off
- * the theme would differ from what the client renders while hydrating. The way
- * out is to draw nothing off the theme: both icons are always in the HTML and
- * the CSS decides which one shows, looking at the same `data-theme` every colour
- * hangs off.
- *
- * That way the server's HTML and the client's are identical, the right icon
- * appears before the JavaScript loads, and on click the theme comes from the
- * <html> attribute, which is the source of truth.
+ * Stateless on purpose: the server cannot know the saved theme (it is in
+ * localStorage), so both icons are always rendered and CSS shows one based on
+ * `data-theme`. Server and client HTML match, and on click the current theme is
+ * read from the <html> attribute.
  */
 export function ThemeToggle() {
-  // In development React remounts once and doing so wipes the <html>
-  // attributes that do not come from JSX, including the one the <head> script
-  // set. This puts it back; in production it does nothing.
+  // In development React remounts once, which drops <html> attributes set by
+  // the <head> script. This restores the theme; in production it does nothing.
   useLayoutEffect(() => {
     document.documentElement.setAttribute('data-theme', readStoredTheme())
   }, [])
@@ -36,7 +29,7 @@ export function ThemeToggle() {
       title="Cambiar tema"
       className="rounded p-1.5 text-muted transition-colors hover:bg-raised hover:text-accent"
     >
-      {/* The sun shows in the dark theme: it is where the click leads. */}
+      {/* The sun shows in the dark theme: it is what clicking switches to. */}
       <SunIcon />
       <MoonIcon />
       <span className="sr-only">Cambiar entre tema claro y oscuro</span>

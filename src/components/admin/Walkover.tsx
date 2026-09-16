@@ -4,17 +4,11 @@ import { useActionState } from 'react'
 import { setWalkoverAction, type WalkoverResult } from '@/app/(app)/admin/actions'
 
 /**
- * Awarding a matchup to whoever turned up.
+ * Awards a matchup to the team that turned up (after the 15 minutes the rules
+ * allow). There is no .rofl for it, so it cannot go through the upload flow.
  *
- * The rules give 15 minutes of grace; past that the matchup is decided without
- * being played. It is the one result the rest of the panel cannot take, because
- * everything there starts from a .rofl that in this case does not exist.
- *
- * A dropdown and not two buttons. Two buttons - "gana A" / "gana B" - is one
- * click instead of two, and it is one click away from awarding the matchup to
- * the wrong team, which then shows up in the standings as a win nobody can
- * explain. Picking from a list and then confirming makes the choice visible
- * before it is made, and the empty option is what undoes it.
+ * A dropdown plus confirm rather than two buttons, so a misclick cannot award
+ * the wrong team. The empty option clears it.
  */
 export function Walkover({
   fixtureId,
@@ -25,7 +19,7 @@ export function Walkover({
   fixtureId: string
   teamA: { id: string; name: string }
   teamB: { id: string; name: string }
-  /** Who it is already awarded to, when it is. */
+  /** The team it is already awarded to, if any. */
   current: string | null
 }) {
   const [state, formAction, pending] = useActionState<WalkoverResult | null, FormData>(

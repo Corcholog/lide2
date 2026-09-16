@@ -34,23 +34,18 @@ export interface UnassignedMatch {
   winningSide: 100 | 200 | null
   bluePlayers: SidePlayer[]
   redPlayers: SidePlayer[]
-  /** Team deduced from the already-linked players, when they reached a majority. */
+  /** The team deduced from already linked players, when a majority matched. */
   blueGuess: string | null
   redGuess: string | null
 }
 
 /**
- * Hooking a match up with its matchup.
+ * Links a match to its matchup and says which team played blue.
  *
- * Two decisions on one screen: which matchup it is, and who played blue. The
- * second looks redundant - the matchup already says which two teams these are -
- * but the .rofl knows nothing about teams: it knows there was a blue side and a
- * red side. Somebody has to say which was which, at least the first time.
- *
- * Hence both sides are shown with their players and their champions: it is the
- * only way to recognize them on matchday 1, when no roster is loaded yet. From
- * matchday 2 on, `blueGuess` arrives resolved from the database and the
- * orientation comes preselected.
+ * The .rofl only knows blue and red sides, not teams, so an admin picks the
+ * orientation, at least the first time. Both sides are shown with players and
+ * champions to recognize them; once rosters are known, `blueGuess` arrives from
+ * the database and the orientation is preselected.
  */
 export function AssignMatch({
   match,
@@ -188,17 +183,11 @@ export function AssignMatch({
 }
 
 /**
- * Deleting the whole match.
+ * Deletes the whole match, for uploads made by mistake.
  *
- * It is for whatever was uploaded by mistake: a replay from another tournament,
- * a run through the flow, the wrong .rofl. Until now the only way out was the
- * SQL editor, because an unassigned match still shows on /partidas and its ten
- * accounts end up registered with pages of their own at /jugadores/[id].
- *
- * It confirms in two clicks and not with a `confirm()`: it is irreversible -
- * the .rofl is deleted from the bucket too, and it cannot be regenerated - and
- * the button sits next to the assign one. It goes in the header and not inside
- * the form because a form cannot live inside another.
+ * Two-click confirmation instead of `confirm()`: it is irreversible (the .rofl
+ * is deleted from storage too) and sits next to the assign button. It lives in
+ * the header because forms cannot be nested.
  */
 function DeleteMatch({ matchId }: { matchId: string }) {
   const [state, formAction, pending] = useActionState<DeleteResult | null, FormData>(
@@ -219,8 +208,7 @@ function DeleteMatch({ matchId }: { matchId: string }) {
     )
   }
 
-  // The error replaces the warning and leaves the buttons where they were: if
-  // the bucket failed, what is needed is another try, not starting over.
+  // On error the buttons stay in place so the delete can simply be retried.
   return (
     <form action={formAction} className="flex flex-wrap items-center gap-2">
       <input type="hidden" name="matchId" value={matchId} />
@@ -246,10 +234,8 @@ function DeleteMatch({ matchId }: { matchId: string }) {
 }
 
 /**
- * Which team the blue side starts preselected with.
- *
- * If the database managed to deduce either of the two sides, it is used.
- * Deducing red works too: it says blue is the other one.
+ * The team preselected for the blue side: whichever side the database could
+ * deduce (a deduced red side implies the other team is blue).
  */
 function orientationFor(fixture: FixtureOption | undefined, match: UnassignedMatch): string {
   if (!fixture) return ''
@@ -262,11 +248,7 @@ function orientationFor(fixture: FixtureOption | undefined, match: UnassignedMat
   return ''
 }
 
-/**
- * The classes go in whole and are not assembled with `text-${tone}`: Tailwind
- * reads the source code to know which CSS to generate, and a class name built
- * at runtime appears nowhere, so it is not generated.
- */
+/** Full class names: Tailwind cannot see classes built at runtime (`text-${tone}`). */
 const TONE = {
   'side-blue': 'text-side-blue',
   'side-red': 'text-side-red',

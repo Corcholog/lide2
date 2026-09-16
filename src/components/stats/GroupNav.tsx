@@ -3,11 +3,8 @@ import { GROUP_OPTIONS } from '@/lib/stats/tables'
 import { withQuery } from '@/lib/url'
 
 /**
- * The group picker on the Tables tab.
- *
- * It combines with the matchday one: each carries the other's filter along, so
- * "Grupo B, fecha 2" can be reached by picking one and then the other, in
- * whichever order.
+ * The group picker on the Tables tab. Each picker keeps the other filters, so
+ * they can be combined in any order.
  */
 export function GroupNav({
   base,
@@ -15,7 +12,7 @@ export function GroupNav({
   query = {},
 }: {
   base: string
-  /** The stored label ("Grupo B"), or null when it is all of them. */
+  /** The stored label ("Grupo B"), or null for all groups. */
   group: string | null
   query?: Record<string, string | number | null | undefined>
 }) {

@@ -60,9 +60,8 @@ export function LoginForm({ next }: { next: string }) {
       </label>
 
       {/*
-        role="alert" because the form does not reload the page: without it, a
-        screen reader never learns the message appeared and the person is left
-        waiting without knowing the password was wrong.
+        role="alert": the page does not reload, so screen readers need it to
+        announce the error.
       */}
       {error && (
         <p

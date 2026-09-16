@@ -14,12 +14,8 @@ import type { GroupStandingRow } from '@/types/db'
 export const dynamic = 'force-dynamic'
 
 /**
- * A matchday's pieces, for social media.
- *
- * The same scope as /estadisticas, and deliberately so: what gets published has
- * to be exactly what the site says. If this page computed its own MVP, sooner
- * or later the post and the site would contradict each other, and the one that
- * comes off badly is the tournament.
+ * A matchday's social media pieces, built from the same scope and stats as
+ * /estadisticas so what gets published always matches the site.
  */
 
 
@@ -45,9 +41,8 @@ export default async function CardsPage({ searchParams }: PageProps<'/admin/card
     supabase.from('group_standings').select('*').eq('tournament_id', tournamentId).order('position'),
   ])
 
-  // The standings table is always the accumulated one, even while looking at a
-  // single matchday: there is no such thing as "matchday 2's table", there is
-  // how the table stood after matchday 2, which is what gets published.
+  // The standings are always cumulative: the table as it stood after the
+  // selected matchday.
   const standings = rows<GroupStandingRow>(standingsRes, 'the standings table')
   const posters = buildPosters(data, standings)
 

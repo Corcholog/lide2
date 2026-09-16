@@ -6,10 +6,8 @@ import { downloadNodeAsPng } from '@/lib/cards/png'
 import { formatDate, formatDuration, formatGold, formatKda, formatNumber } from '@/lib/format'
 
 /**
- * The square card of a single match, for sharing a result.
- *
- * It is drawn at 1080 and shown at half scale; the exported node keeps its full
- * size. The capture is `downloadNodeAsPng`, shared with the stat posters.
+ * Square card for a single match result, drawn at 1080 and previewed at half
+ * size. Exported with `downloadNodeAsPng`, like the stat posters.
  */
 
 export interface CardHighlight {
@@ -92,11 +90,7 @@ export function MatchCard({ data, fileName }: { data: MatchCardData; fileName: s
       {/* The container scales visually; the exported node keeps its 1080px. */}
       <div className="w-full overflow-hidden" style={{ height: SIZE / 2 }}>
         <div style={{ transform: 'scale(0.5)', transformOrigin: 'top left' }}>
-          {/*
-            The exported piece is always dark, even when the site is in the
-            light theme: it is an image published on Instagram and it has to
-            come out the same whoever uploads it.
-          */}
+          {/* Always dark, so exports look the same whatever the site theme. */}
           <div
             ref={cardRef}
             data-theme="dark"

@@ -1,16 +1,10 @@
 'use client'
 
 /**
- * The last resort: the root layout failed.
+ * Last-resort error screen, when the root layout itself fails.
  *
- * It replaces the whole document, so neither globals.css nor the fonts nor the
- * site's `data-theme` reach here. That is why everything is inline styles and
- * the dark theme's hex values written by hand: it is the one file in the
- * project where duplicating colours is right, because the tokens do not exist.
- *
- * It is almost never seen - the error.tsx inside catches everything that
- * happens in a page - but if something blows up earlier, this is the difference
- * between a screen of the tournament's and Next's raw error screen.
+ * It replaces the whole document, so globals.css, fonts and theme tokens are
+ * unavailable: styles are inline, with the dark theme's colors written out.
  */
 export default function GlobalError({
   error,

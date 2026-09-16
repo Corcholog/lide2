@@ -35,28 +35,21 @@ export const metadata = {
 export const dynamic = 'force-dynamic'
 
 /**
- * The lookup tables.
+ * The lookup tables: every row and column, sortable, as opposed to the top
+ * five rankings in the other tab.
  *
- * The other tab - the rankings - is a top five of everything, which is what
- * serves to tell the story of the tournament. This one is for searching: every
- * row, every column, sorted by whichever matters to you.
+ * Numbers are coerced here once: `pick_rate`, `win_pct`, `kda` and `presence`
+ * are `numeric` in Postgres and may arrive as text, which would make sorting
+ * compare them as strings without any error.
  *
- * THE NUMBERS ARE COERCED HERE, once. `pick_rate`, `win_pct`, `kda` and
- * `presence` are `numeric` in Postgres and can arrive as text; travelling that
- * way to the client component, sorting would compare "0.9" against "0.85" as
- * words and the table would come out wrong without throwing any error.
- *
- * The column ids stay in Spanish: they travel in `?orden=`.
+ * Column ids are Spanish because they travel in `?orden=`.
  */
 
 const CHAMPION_COLUMNS = ['campeon', 'posicion', 'picks', 'pickrate', 'winrate', 'kda', 'dano']
 
 /**
- * The three columns that only exist once some draft is entered.
- *
- * They are kept apart so `parseSortOrder` does not accept `?orden=banrate` when
- * the column is not being drawn: the table would end up unsorted and with no
- * arrow marked, which looks like a broken link.
+ * Columns that only exist once a draft has been entered. Kept separate so
+ * `parseSortOrder` rejects `?orden=banrate` while the column is not drawn.
  */
 const BAN_COLUMNS = ['bans', 'banrate', 'presencia']
 
@@ -137,10 +130,9 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
   const players = rows<PlayerPhaseTotalsRow>(playersRes, 'the players')
 
   /*
-    Players and teams do not have the group dimension in their views, and they
-    do not need it: in the group phase a team only plays teams from its own
-    group, so its totals ALREADY are that group's and it is enough not to draw
-    the other teams. A player's group comes from their team's.
+    Player and team views have no group dimension. In the group phase a team
+    only plays its own group, so its totals are already the group's: filtering
+    rows is enough. A player's group is their team's.
   */
   const groupOfTeam = new Map(teams.map((team) => [team.team_id, team.group_label]))
   const filteredTeams = group ? teams.filter((team) => team.group_label === group) : teams
@@ -149,18 +141,14 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
     : players
 
   /*
-    The two counts come off a WHOLE-CHAMPION row, and they have to: they are the
-    size of the scope, not of what ends up drawn. Read off the role rows,
-    picking a role nobody played would leave `matches` at 0 and the page would
-    answer "nothing has been played here" about a matchday that was.
+    Match counts come from a whole-champion row: they describe the scope, and a
+    role nobody played would otherwise read as zero matches.
   */
   const { matches, withDraft } = scopeCounts(meta)
 
   /*
-    The bans have no role to be read in. You ban a champion, not a lane, so the
-    view leaves those three columns empty on a role row and the table drops
-    them: a ban count sitting in a table that promises one role would be
-    answering a different question than every column beside it.
+    Bans have no role (a champion is banned, not a lane), so the view leaves
+    them empty on role rows and the table hides those columns.
   */
   const showBans = withDraft > 0 && role === null
 
@@ -168,10 +156,8 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
     champion: row.champion,
     name: championName(names, row.champion),
     position: row.position,
-    // `?? []` because the column arrives with 0029 and the deploy of the code
-    // and of the migration are two separate acts: until the view has it, the
-    // table falls back to naming the main role on its own, which is what it
-    // did before. It is not a null the view can return.
+    // `?? []` keeps the table working if the code deploys before migration
+    // 0029 adds the column; the view itself never returns null here.
     positions: row.positions ?? [],
     picks: Number(row.picks),
     wins: Number(row.wins),
@@ -251,8 +237,7 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
         <Empty
           title="Todavía no se jugó nada acá"
           detail={
-            // The role is not in here: it does not change `matches`, so it can
-            // never be the reason this scope came out empty.
+            // The role does not change `matches`, so it cannot make a scope empty.
             group || scope.matchday !== null
               ? 'Probá con otro recorte: ninguna partida de este grupo y esta fecha tiene el replay cargado.'
               : `La ${TOURNAMENT.name} arranca el ${tournamentStartDate()}. En cuanto se suba el primer replay, esta página se llena sola.`
@@ -263,24 +248,15 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
           <Section
             title="Campeones"
             /*
-              El renglón dice sobre qué se promedia. El KDA y el daño de esta
-              tabla son promedios de las partidas en las que se jugó el
-              campeón, o sea de sus picks, y sin decirlo cada uno lee otra
-              cosa: "1.20 de KDA" puede ser el del torneo entero o el de una
-              sola partida. La columna de picks está al lado, así que con la
-              aclaración el denominador se ve.
+              Says what the averages are over: the champion's picks, whose count
+              is the adjacent column.
             */
             detail={[
               'El KDA y el daño son promedios de las partidas en las que se jugó cada campeón (picks).',
               /*
-                Con un rol elegido la tabla deja de mostrar campeones y pasa a
-                mostrar campeón-rol: cada fila son los picks en esa línea y nada
-                más. Hay que decirlo, porque el mismo campeón aparece con
-                números distintos según el rol y sin la aclaración se lee como
-                una contradicción.
-
-                Los baneos desaparecen y no hace falta explicarlo columna por
-                columna: se banea a un campeón, no a una línea.
+                With a role selected, each row is the champion's picks in that
+                role only; say so, since the same champion shows different
+                numbers per role.
               */
               role
                 ? `Filtrado por ${role.label}: cada campeón muestra los números de sus picks en esa línea, no los de todos.`

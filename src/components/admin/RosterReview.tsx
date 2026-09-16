@@ -3,21 +3,15 @@ import type { RosterReviewRow } from '@/types/db'
 import { MergeAccount } from './MergeAccount'
 
 /**
- * What the matchday left to sort out, for one team.
+ * Roster issues left by a matchday, for one team.
  *
- * The nicks and the lanes get typed in during the week from whatever people
- * send in, and the replay is the first hard fact about any of it. Three things
- * can come out of the comparison and each one needs something different:
+ * Comparing replays with what was entered by hand yields three kinds:
+ *   - a lane change, already applied (lineups follow the scoreboard), only
+ *     reported;
+ *   - an unlisted account that played, either a substitute or a nick change;
+ *   - a hand-entered nick that never played, the other half of a nick change.
  *
- *   - a lane that changed is already fixed (the lineup follows the scoreboard),
- *     so this only reports it;
- *   - somebody who appeared without being on the roster may be a substitute or
- *     may be a nick change, and only the second one needs an action;
- *   - a typed-in nick that never played is the other half of that pair.
- *
- * It is only drawn with a session. `roster_review` runs `security_invoker` over
- * tables that have no `anon` policy, so without a login there is nothing to
- * draw anyway - the gate is in the database, not here.
+ * Only rendered with a session; `roster_review` returns nothing without one.
  */
 export function RosterReview({ teamId, rows }: { teamId: string; rows: RosterReviewRow[] }) {
   if (rows.length === 0) return null
@@ -67,9 +61,9 @@ export function RosterReview({ teamId, rows }: { teamId: string; rows: RosterRev
                 />
               </div>
             ) : (
-              /* Sin candidata no hay nada que confirmar: o de verdad no jugó, o
-                 hay más de una posible y elegir por su cuenta sería el error
-                 que después no ve nadie. Se saca con "Quitar", más arriba. */
+              /* Without a single suggested account there is nothing to confirm:
+                 either they really did not play, or several candidates exist.
+                 The nick can be removed with "Quitar" above. */
               <p className="text-xs text-dim">
                 Si cambió de nick, la cuenta nueva todavía no está en el plantel.
               </p>
@@ -125,7 +119,7 @@ export function RosterReview({ teamId, rows }: { teamId: string; rows: RosterRev
   )
 }
 
-/** Why the pairing is being proposed, in the words somebody would use. */
+/** Why the pairing is suggested, in plain words. */
 function motivo(reason: RosterReviewRow['suggested_reason']): string {
   if (reason === 'mismo_tag') return 'mismo #TAG'
   if (reason === 'unica') return 'es la única que falta y la única que apareció'

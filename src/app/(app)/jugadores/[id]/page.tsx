@@ -25,21 +25,14 @@ import type {
 export const dynamic = 'force-dynamic'
 
 /**
- * How many champions of the pool are drawn as a card; the rest stay as rows.
- *
- * Six because it splits evenly across the three grids the section uses - two,
- * three and six columns - so a full set fills its rows at every width. And
- * because the art is what identifies the player's main picks: past the sixth
- * it is champions played once or twice, and a wall of portraits there is only
- * scrolling.
+ * How many of the most played champions are drawn as cards; the rest are rows.
+ * Six fills complete rows in the 2, 3 and 6 column grids.
  */
 const FEATURED = 6
 
 /*
- * The shade the card's numbers rest on. Solid at the foot, where the text is,
- * and gone by two thirds of the way up, so the face stays clean. It is built
- * over --canvas like the hero's layers, and the card forces the dark theme, so
- * this always ends in the site's black.
+ * Shade under the card's text: solid at the bottom, gone two thirds of the way
+ * up. Built on --canvas; the card forces the dark theme.
  */
 const CARD_SHADE = [
   'linear-gradient(to top',
@@ -53,7 +46,7 @@ function percent(part: number, total: number): string {
   return total > 0 ? formatPercent(part / total) : '—'
 }
 
-/** La posición que más jugó; el .rofl no siempre la trae, por eso puede dar null. */
+/** The position played most, or null (the .rofl does not always include it). */
 function mainPosition(scores: MatchPlayerScoreRow[]): string | null {
   const counts = new Map<string, number>()
   for (const score of scores) {
@@ -83,8 +76,8 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
   const { id } = await params
 
   const supabase = await createClient()
-  // De `player_profiles` y no de `players`: esa tabla dejo de ser legible sin
-  // sesion porque su clave es el PUUID.
+  // `player_profiles`, not `players`, which is not readable without a session
+  // because it holds the PUUID.
   const { data: playerData } = await supabase
     .from('player_profiles')
     .select('*')
@@ -110,11 +103,8 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
     rows<{ id: string; name: string }>(teamsRes, 'the teams').map((team) => [team.id, team.name]),
   )
 
-  /*
-    Las partidas que jugó, pedidas como las pide /partidas: las mismas columnas
-    y el mismo detalle, porque abajo se dibujan con la misma fila. El orden lo
-    hace Postgres y no un sort acá, que es donde estaba.
-  */
+  // The player's matches, with the same columns and detail as /partidas since
+  // they are drawn with the same rows. Ordered by Postgres.
   const matches = scores.length
     ? rows<ListMatch>(
         await supabase
@@ -135,32 +125,15 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
   )
 
   /*
-    LO QUE HACE POR MINUTO, y no por partida.
+    Damage, CS and vision are per minute, so longer games do not inflate them.
+    Each game is divided first and then averaged, so every game weighs the same.
+    `dpm` and `csm` come from match_player_scores, the same values the players
+    table averages, so both pages agree; vision is divided here. Minutes have a
+    floor of one, like migration 0010, so a remake does not blow up the rates.
 
-    Daño, CS y visión crecían con lo que duraba el partido: 12.000 de daño en
-    una de 40 minutos es la mitad de trabajo que 12.000 en una de 20, y
-    promediados por partida los dos jugadores salían iguales. El de un equipo
-    que cierra rápido quedaba siempre abajo, y eso no es cómo jugó sino cuánto
-    duró.
-
-    SE DIVIDE EN CADA PARTIDA Y RECIÉN DESPUÉS SE PROMEDIA, que no es lo mismo
-    que dividir los totales: así las dos partidas pesan igual, y la larga no
-    arrastra el número hacia ella por el solo hecho de haber durado más.
-
-    El daño y el CS por minuto ya los calcula la base partida por partida
-    —`dpm` y `csm` de match_player_scores— y son los mismos que promedia
-    player_phase_totals para la tabla de jugadores: se usan esos y no una cuenta
-    propia, porque el mismo jugador tiene que dar el mismo número acá y allá. La
-    visión es la única que la base no trae por minuto.
-
-    El piso de un minuto es el de la base (0010 divide por
-    `greatest(game_length_ms / 60000, 1)`): sin él, un remake de treinta
-    segundos multiplicaría por dos todo lo que pasó en él.
+    Annulled matches stay in the history but are left out of `minutes`, and so
+    out of every average here, as in the tables.
   */
-  // Only the matches that count. One annulled by the organizers is still in
-  // the history below - it was played - but its numbers are not this player's
-  // record, the same as in every table; leaving it out of `minutes` is what
-  // leaves it out of `rated`, and so out of every average here.
   const minutes = new Map(
     matches
       .filter((match) => !match.annulled)
@@ -177,7 +150,7 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
   const version = await assetVersion(matches[0]?.patch ?? null)
   const champNames = await championNames(version)
   const name = playerName(player.riot_game_name, player.display_name)
-  // El Riot ID que va debajo del nombre. Ver el comentario en el header.
+  // The Riot ID shown under the name (see the header).
   const handle = riotTag(player.riot_game_name, player.riot_tag_line, player.display_name)
   const teamId = totals?.team_id ?? null
   const position = mainPosition(rated)
@@ -185,11 +158,7 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
 
   return (
     <div className="flex flex-col gap-6">
-      {/*
-        Vuelve a las tablas y no a un listado de jugadores, que ya no existe:
-        esa tabla es de donde se sale a mirar una ficha, y es la que además
-        recuerda el recorte de fecha y grupo que se estaba mirando.
-      */}
+      {/* Back to the tables, which remember the matchday and group filters. */}
       <Link
         href="/estadisticas/tablas"
         className="text-sm text-muted transition-colors hover:text-fg"
@@ -202,9 +171,8 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
           <h1 className="text-2xl font-bold tracking-tight">{name}</h1>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted">
             {/*
-              El Riot ID de la cuenta. Cuando el nombre de arriba es un alias
-              del panel va entero —el tag no se le pega a un alias— y si no,
-              sólo el `#TAG`, que es lo que le falta al nick para ser único.
+              The account's Riot ID: the full ID when the name above is an alias,
+              otherwise just the `#TAG`.
             */}
             {handle && <span className="text-faint">{handle}</span>}
             {teamId ? (
@@ -219,11 +187,8 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
         </div>
 
         {/*
-          El rango, el pool y las rankeds de la cuenta: lo mismo que la ficha de
-          un equipo linkea para los cinco, acá para uno. Va en el mismo rincón
-          del encabezado que allá —a la derecha, enfrentado al nombre— porque es
-          la misma puerta: quien aprendió qué hace el cuadrado azul en un lado no
-          tiene que volver a aprenderlo en el otro.
+          Link to the account on op.gg, in the same header position as the team
+          page's multisearch link.
         */}
         <div className="flex items-center gap-3">
           <OpggPlayerLink
@@ -255,9 +220,8 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
               accent
             />
             {/*
-              El KDA es del recorte entero —todas las kills y asistencias sobre
-              todas las muertes— y la línea de abajo es lo que hace en una
-              partida. Los tres que siguen son por minuto: ver arriba.
+              KDA over all games (kills and assists over deaths); the line below is
+              per game. The next three are per minute (see above).
             */}
             <Stat
               label="KDA"
@@ -316,16 +280,8 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
           <section className="flex flex-col gap-2">
             <h2 className="text-sm font-medium text-muted">Historial ({matches.length})</h2>
             {/*
-              LAS MISMAS FILAS QUE /partidas, con el anillo rojo sobre el
-              campeón que jugó. Acá había un listado propio —V/D, campeón,
-              rival, KDA, daño— y era el tercero de la misma cosa en el sitio.
-              Lo que ese decía de más no se perdió: la línea completa del
-              jugador está en el detalle que la fila despliega, con su MVP, su
-              CS y su oro, y de paso están los otros nueve.
-
-              El anillo es lo que reemplaza al ícono suelto que había a la
-              izquierda: en una fila de diez campeones hay que poder decir cuál
-              es el suyo sin abrir nada.
+              Same rows as /partidas, with a red ring on the champion this player
+              used. The player's full line is in the expanded detail.
             */}
             <MatchList
               matches={matches}
@@ -343,31 +299,18 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
 }
 
 /**
- * One of the player's main champions, over its loading screen art.
- *
- * It carries the same three facts as the rows below - games, record and KDA -
- * so the card changes how the pool looks and not what it says.
- *
- * Always dark, like the hero: the text sits on the painting and not on the
- * site's background, and in the light theme it would stop reading.
+ * One of the player's main champions, over its loading screen art, with games,
+ * record and KDA. Always dark, since the text sits on the artwork.
  */
 function ChampionCard({ champion, name }: { champion: PlayerChampionRow; name: string }) {
   return (
     /*
-      Cut to 3:4 from the 11:20 of the original, which at six across was too
-      tall to be a summary, and anchored at the top. Riot paints these for the
-      loading screen, where the name and the frame sit over the lower part: the
-      champion is composed in the upper band and the foot is left for text. So
-      what the cut loses is what the game already covers, and the numbers land
-      where the art expects something written.
+      Cropped to 3:4 and anchored at the top, where the loading art places the
+      champion; the text goes where the game draws its own frame.
 
-      The art is a background and not an <img> because of how each one fails.
-      When the CDN has no art yet - a champion released this week - a broken
-      <img> drops its aspect ratio and draws the broken-image glyph, so a card
-      alone on its row would collapse to the height of its text. A background
-      that does not load leaves the grey of `bg-raised` at full size, with the
-      name still on it. It is decorative either way: the name is written on
-      the card.
+      The art is a CSS background rather than an <img>: if the CDN has no art
+      yet, a broken <img> loses its aspect ratio, while a failed background
+      leaves a full-size grey card that still shows the name.
     */
     <li
       data-theme="dark"

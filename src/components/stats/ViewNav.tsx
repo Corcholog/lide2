@@ -2,20 +2,10 @@ import { Chip } from '@/components/nav/Chip'
 import { withQuery } from '@/lib/url'
 
 /**
- * The two ways of looking at the stats.
- *
- * RANKINGS is the top five of everything: what happened in the tournament, read
- * at a glance. It is the same thing that gets published to social media from
- * /admin/cards, and that is why it is built the way it is.
- *
- * TABLES is everything, sortable and filterable: it serves for finding
- * yourself, seeing the whole champion pool or comparing two teams. A player
- * coming in to see how they did is not here for the tournament's top five.
- *
- * They are two routes and not a `?vista=` because they load different data -
- * Rankings runs seven queries, Tables three - and each has its own title. And
- * they are links and not `role="tablist"`: this is navigation between pages,
- * not tabs within one document.
+ * Switches between the two stats views: Rankings (the top five of each stat,
+ * the same pieces published from /admin/cards) and Tables (every row,
+ * sortable and filterable). Separate routes because they load different data,
+ * and links rather than `role="tablist"` because they navigate between pages.
  */
 export function ViewNav({
   active,

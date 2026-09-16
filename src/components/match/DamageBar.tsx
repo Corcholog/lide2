@@ -1,18 +1,12 @@
 import { formatNumber } from '@/lib/format'
 
 /**
- * A player's damage, relative to whoever did the most in that match.
- *
- * The bare number says nothing: 25,000 is an enormous amount for a support and
- * little for an ADC. The bar is what gets read at a glance, and that is why the
- * scale is always the maximum of that same match and not a fixed ceiling.
- *
- * It lives here because the match page's scoreboard and the listing's
- * expandable detail both use it: if each drew it its own way, the same match
- * would look different on two pages.
+ * A player's damage as a bar relative to the match's top damage (a raw number
+ * means different things by role). Shared by the match page scoreboard and the
+ * listing detail, so both look the same.
  */
 
-/* Tailwind reads the source: both tones go in whole, never built at runtime. */
+/* Full class names: Tailwind cannot see classes built at runtime. */
 const FILL = {
   100: 'bg-side-blue-fill',
   200: 'bg-side-red-fill',
@@ -29,24 +23,17 @@ export function DamageBar({
   /** The highest damage in the match. */
   max: number
   side: 100 | 200
-  /** Width class, literal: `w-14`. See the note above. */
+  /** Width as a literal class, e.g. `w-14`. */
   width?: string
   /**
-   * The word that says what the number is, for wherever nothing else does.
-   *
-   * On the match page the column header says "Daño" and this stays off: the
-   * word on every one of the ten rows would be the header repeated. The
-   * listing's expanded detail has no header, and there the bar was a coloured
-   * stripe with a bare number under which the vision score hung, so the two
-   * lines read as one stat and its subtitle.
+   * A label for the number ("daño"), where nothing else names it. Off on the
+   * match page, whose column header already does.
    */
   label?: string
 }) {
   return (
     <div className="flex items-center gap-2">
-      {/* shrink-0: the bar keeps its width whatever the number beside it is
-          worth. Without it a five-figure damage plus the label squeezes the
-          bar, and a bar that is not to scale is worse than no bar. */}
+      {/* shrink-0 keeps the bar at scale when the number next to it is long. */}
       <div className={`h-1.5 shrink-0 overflow-hidden rounded-full bg-raised ${width}`}>
         <div
           className={`h-full rounded-r-[4px] ${FILL[side]}`}

@@ -23,7 +23,7 @@ import {
 
 function refresh() {
   revalidatePath('/equipos')
-  // The player listing no longer exists; its table lives under the stats.
+  // Player tables live under the stats section.
   revalidatePath('/estadisticas/tablas')
   revalidatePath('/')
 }
@@ -37,7 +37,7 @@ export async function createDetectedTeamsAction(formData: FormData) {
 
     const index = key.slice('name-'.length)
     const name = String(value).trim()
-    // Only the teams that are ticked and named get created.
+    // Only ticked teams with a name are created.
     if (!name || formData.get(`include-${index}`) !== 'on') continue
 
     teams.push({ name, puuids: String(formData.get(`puuids-${index}`) ?? '').split(',').filter(Boolean) })
@@ -87,25 +87,20 @@ export async function relinkAction() {
 export interface AccountResult {
   ok: boolean
   error?: string
-  /** The Riot ID: as stored when it went well, as typed when it did not. */
+  /** The Riot ID: as stored on success, as typed on failure. */
   nick?: string
-  /** The account did not exist: created without a PUUID until it shows up in a replay. */
+  /** The account did not exist and was created without a PUUID until it appears in a replay. */
   created?: boolean
   /** Matches the account already had. */
   games?: number
 }
 
 /**
- * Adding a nick to a team's roster by hand.
+ * Adds a nick to a team's roster by hand, so rosters can be completed before
+ * any match is played.
  *
- * What is needed before matchday 1: until something is played there is no
- * account to add, because `players` fills itself from the replays. With this
- * the team page's roster can be completed on signup day.
- *
- * It returns the result instead of throwing - unlike the other actions on this
- * page - because here the error is part of normal use: the nick is already on
- * the roster, it already plays for another team, or the bare name is ambiguous.
- * That is shown next to the field and not on an error screen.
+ * Returns the result instead of throwing: rejections (already on the roster, on
+ * another team, ambiguous name) are normal and shown next to the field.
  */
 export async function addAccountAction(
   _prev: AccountResult | null,
@@ -130,17 +125,11 @@ export async function addAccountAction(
 }
 
 /**
- * Matching a signup with one of the roster's accounts.
+ * Links a signup to one of the roster's accounts, from the team page where the
+ * nicks are entered. /admin/planteles still saves whole rosters.
  *
- * It is on the team page and not only on /admin/planteles because that is where
- * the nicks get entered: whoever types them one by one knows whose each one is,
- * and making them go to another screen to repeat it is the surest way for it
- * never to happen. The one over there still exists and saves the whole roster
- * at once.
- *
- * It returns the result instead of throwing, like `addAccountAction` and for
- * the same reason: rejections are part of normal use - that account is already
- * somebody else's signup - and they are shown next to the dropdown.
+ * Returns the result instead of throwing, like `addAccountAction`: rejections
+ * are shown next to the dropdown.
  */
 export async function assignAccountAction(
   _prev: AssignAccountResult | null,
@@ -152,8 +141,7 @@ export async function assignAccountAction(
   const rosterId = String(formData.get('rosterId') ?? '')
   if (!teamId || !rosterId) return { ok: false, error: 'Falta el inscripto.' }
 
-  // The dropdown's empty value is "unmatched", which here means taking away
-  // the account they had: it is the only way to undo a wrong match.
+  // An empty value unlinks the current account, to undo a wrong match.
   const playerId = String(formData.get('playerId') ?? '') || null
 
   const result = await assignRosterAccount(rosterId, playerId)
@@ -168,18 +156,12 @@ export async function assignAccountAction(
 }
 
 /**
- * Confirming that a nick that never played is somebody's old nick.
+ * Confirms that a hand-typed nick that never played is a player's previous nick
+ * (see `roster_review`).
  *
- * The panel proposes the pairing - see `roster_review` - and this is the click
- * that accepts it. It is never automatic on purpose: the account that played
- * and the one that was typed in look identical from the outside, and the
- * alternative reading of the same evidence is a substitute who went in for the
- * starter. Getting it wrong hands somebody's matches to another university and
- * nobody notices afterwards.
- *
- * It returns the result instead of throwing, like the two above it and for the
- * same reason: the refusals are part of normal use and get shown next to the
- * proposal.
+ * Never automatic: the same evidence could also mean a substitute played, and a
+ * wrong merge credits matches to the wrong university. Returns the result
+ * instead of throwing, like the actions above.
  */
 export async function mergeAccountAction(
   _prev: MergeAccountResult | null,
@@ -206,12 +188,8 @@ export async function mergeAccountAction(
 }
 
 /**
- * Assigning a roster account's lane by hand.
- *
- * It sits beside every nick under "Plantel" on the team page, which is where
- * the slot they landed in through the matches played is already shown (or "Sin
- * posición" when they have played none). The dropdown sends an empty value for
- * "unassigned", which is how an assignment is undone.
+ * Sets a roster account's lane by hand, from the team page. An empty value
+ * clears the assignment.
  */
 export async function assignRoleAction(
   _prev: AssignRoleResult | null,

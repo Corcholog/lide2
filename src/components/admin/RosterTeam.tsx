@@ -6,26 +6,17 @@ import { riotId } from '@/lib/format'
 import type { RosterStatusRow, TeamAccountRow } from '@/types/db'
 
 /**
- * A team's roster: who is signed up and which account each one is.
+ * A team's roster editor: signups and their accounts, saved with one button.
  *
- * One form and one button for the five or seven rows. Saving one at a time is
- * five round trips to the server and five page reloads to complete a roster,
- * and on top of that additions and removals have to travel together: the server
- * compares the whole form against the roster in the database and rejects the
- * lot if they do not match (see `planRosterEdit`).
+ * Additions and removals travel together because the server compares the whole
+ * form with the stored roster (see `planRosterEdit`). Nothing applies until
+ * save: "Quitar" strikes a row through and "Agregar" adds an unsaved row, so a
+ * mistake is undone with another click.
  *
- * Removals and additions are not applied until save. "Quitar" strikes the row
- * through and sends it marked; "Agregar" draws a row that does not exist in the
- * database yet. That way a mis-ticked removal is undone with another click and
- * not with an undo.
- *
- * Every signup has two ways of getting matched, and they coexist on purpose:
- * the typed Riot ID (which works even if that person has never played, and
- * resolves itself when they turn up) and the accounts dropdown (which works
- * when the declared Riot ID does not match the one they actually used).
- *
- * The form field names stay in Spanish: `readRosterForm` reads them by those
- * exact names.
+ * A signup can be matched two ways: a typed Riot ID (works before the person
+ * plays and links once they do) or the accounts dropdown (for when the
+ * declared Riot ID differs from the one used). Form field names are Spanish and
+ * must match `readRosterForm`.
  */
 
 export interface UniversityOption {
@@ -37,7 +28,7 @@ export interface UniversityOption {
 const FIELD =
   'border-2 border-line-strong bg-raised px-2 py-1.5 text-sm focus:border-accent'
 
-/** A row's five columns, the same in the header and in every signup. */
+/** The five column widths, shared by the header and every row. */
 const COLUMNS =
   'sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,1.2fr)_auto]'
 
@@ -79,12 +70,9 @@ export function RosterTeam({
       </header>
 
       {/*
-        The `key` is the signups that exist today, so a saved addition or
-        removal remounts the list and clears the previous round's marks: the new
-        rows already exist in the database and came back through `rows`, and
-        sending them again would save them twice. A save that fails does not
-        change the key and leaves everything as it was, which is what it takes
-        to fix and retry.
+        Keyed by the current signups, so a successful save remounts the list and
+        clears pending marks (new rows now come back from the server). A failed
+        save keeps the key and the form state, ready to fix and retry.
       */}
       <Rows
         key={rows.map((row) => row.roster_id).join(',')}
@@ -113,7 +101,7 @@ export function RosterTeam({
   )
 }
 
-/** What happened on save, without listing the zeroes. */
+/** A summary of the save, skipping zero counts. */
 function summarize(state: RosterActionResult): string {
   const parts = [
     state.added ? `${state.added} de alta` : null,
@@ -125,15 +113,15 @@ function summarize(state: RosterActionResult): string {
 }
 
 /**
- * What to say below the dropdown. An account matched with 0 games is not an
- * error: it is a nick entered by hand that has not played yet (see 0017).
+ * The note under the dropdown. A linked account with 0 games is not an error:
+ * it is a nick entered by hand that has not played yet (see 0017).
  */
 function noteFor(row: RosterStatusRow): string | null {
   if (!row.player_id) return null
   return row.games > 0 ? `${row.games} partidas` : 'todavía no jugó'
 }
 
-/** The roster's rows, with whatever was added and removed but not yet saved. */
+/** The roster rows, including unsaved additions and removals. */
 function Rows({
   rows,
   accounts,
@@ -151,9 +139,8 @@ function Rows({
 
   return (
     <>
-      {/* The labels go once at the very top and not on every row. On a narrow
-          screen the row stacks and they would correspond to nothing, so they
-          hide and the `sr-only` each field carries takes over. */}
+      {/* Column labels once at the top; hidden on narrow screens, where rows
+          stack and each field's `sr-only` label applies. */}
       <div
         className={`hidden gap-2 border-b-2 border-line px-4 py-2 text-[11px] uppercase tracking-wide text-faint sm:grid ${COLUMNS}`}
       >
@@ -253,8 +240,8 @@ function Row({
 }) {
   return (
     <li className={`grid gap-2 px-4 py-3 ${COLUMNS} ${removed ? 'bg-danger-dim' : ''}`}>
-      {/* This hidden field is what defines which rows the form sends: a row's
-          fields can arrive empty, but this one always travels. */}
+      {/* This hidden field defines the row in the form; it is always sent even
+          when the other fields are empty. */}
       <input type="hidden" name={`fila-${rowKey}`} value={isNew ? 'nuevo' : 'existente'} />
       {removed && <input type="hidden" name={`baja-${rowKey}`} value="1" />}
 

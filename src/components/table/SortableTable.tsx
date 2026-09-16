@@ -4,26 +4,17 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { sortRows, type SortDirection, type SortOrder } from '@/lib/table/sort'
 
 /**
- * A table that sorts on a header click, like gol.gg.
+ * A table sorted by clicking column headers.
  *
- * WHY THIS IS A CLIENT COMPONENT, when the rest of the site sorts through the
- * URL (`TeamOrderPicker`, `ScopeNav`). Because here there are ten columns and
- * not two options: sorting is something done several times in a row to compare,
- * and with the pages on `force-dynamic` every click would be a round trip to
- * the server. The initial order still comes from the URL and every change
- * updates it, so the link can be shared and opens the same table.
+ * Sorting happens on the client, unlike the site's other URL-driven filters:
+ * people sort repeatedly to compare, and these pages are `force-dynamic`, so a
+ * server round trip per click would be slow. The initial order comes from the
+ * URL and each change is written back with `history.replaceState` (not
+ * `router.replace`, which would refetch the page), so links stay shareable.
  *
- * AND IT UPDATES WITH `history.replaceState` AND NOT WITH `router.replace`: the
- * latter asks the server for the page again and the sort stops being instant,
- * which is exactly what this came to solve. Next supports the URL changing
- * underneath without re-running anything.
- *
- * MIND HOW YOU MOUNT IT. `cell` and `sort` are functions, and a function does
- * not cross the server/client boundary: this can ONLY be mounted from another
- * component carrying `'use client'`. Mounting it straight from a page gives a
- * Next error that says nothing about any of this ("Functions cannot be passed
- * directly to Client Components"). That is why each table has its own client
- * file defining its columns inside.
+ * `cell` and `sort` are functions, which cannot cross the server/client
+ * boundary, so this must be rendered from a client component. That is why each
+ * table has its own client file defining its columns.
  */
 
 export interface Column<T> {
@@ -41,10 +32,9 @@ export interface Column<T> {
 }
 
 /*
-  Tailwind reads the source text: a class assembled at runtime (`text-${align}`)
-  does not exist in the final CSS and the column comes out misaligned with no
-  error at all. They go in whole in a map, like the TONE in AssignMatch.
-*/
+ * Full class names in a map: Tailwind cannot see classes assembled at runtime
+ * (`text-${align}`).
+ */
 const ALIGN = {
   left: 'text-left',
   right: 'text-right',
@@ -71,14 +61,11 @@ export function SortableTable<T>({
   /** The table's name for anyone navigating with a screen reader. */
   caption: string
   /**
-   * Which parameters the order travels under in the URL.
-   *
-   * Every table needs its own: on a page with three of them, if they all wrote
-   * `?orden=` they would trample each other and sorting the players would leave
-   * the champions in an order their own table does not have.
+   * URL parameter names for the order. Each table on a page needs its own, or
+   * sorting one would overwrite the others.
    */
   params?: { order: string; dir: string }
-  /** Minimum-width class, literal: `min-w-[64rem]`. See the note above. */
+  /** Minimum width as a literal class, e.g. `min-w-[64rem]` (see ALIGN above). */
   minWidth?: string
   emptyText?: string
 }) {
@@ -119,9 +106,8 @@ export function SortableTable<T>({
   }
 
   return (
-    // `tabla-scroll` paints a gradient on the edges that only shows when there
-    // is table left on that side: a phone draws no scrollbar and without this
-    // nothing says the table continues. See globals.css.
+    // `tabla-scroll` shows an edge shadow while there is more table to scroll
+    // (see globals.css).
     <div className="tabla-scroll overflow-x-auto border-2 border-line">
       <table className={`w-full text-sm ${minWidth}`}>
         <caption className="sr-only">{caption}</caption>
@@ -130,8 +116,8 @@ export function SortableTable<T>({
             {columns.map((column, index) => {
               const active = column.id === order.id
               const alignment = ALIGN[column.align ?? 'right']
-              // See `.columna-orden` in globals.css. Never the first one: it
-              // carries its own background because it stays pinned.
+              // See `.columna-orden` in globals.css. The pinned first column
+              // keeps its own background.
               const tint = active && index > 0 ? 'columna-orden' : ''
 
               return (
@@ -143,12 +129,8 @@ export function SortableTable<T>({
                     active ? (order.dir === 'asc' ? 'ascending' : 'descending') : undefined
                   }
                   /*
-                    The first column stays pinned when scrolling sideways.
-                    Without this, on a phone you shift over to see DPM and the
-                    player column has already left the screen: you end up
-                    reading numbers without knowing whose they are. It needs a
-                    background of its own - the row's does not cover it - which
-                    is why `bg-surface` is spelled out.
+                    The first column stays pinned when scrolling sideways, so the
+                    row's name stays visible. It needs its own background.
                   */
                   className={`px-2 py-2 font-medium first:sticky first:left-0 first:z-10 first:bg-surface first:pl-3 last:pr-3 ${alignment} ${tint}`}
                 >
@@ -158,10 +140,8 @@ export function SortableTable<T>({
                       onClick={() => sortBy(column)}
                       aria-label={`Ordenar por ${column.label}`}
                       /*
-                        The `-m-2 p-2` moves the th's padding onto the button
-                        without shifting anything: the tappable area goes from
-                        the 16px the text measures to 32, which is what
-                        WCAG 2.5.8 asks for. The th still looks the same.
+                        `-m-2 p-2` moves the padding onto the button, making the
+                        tap target 32px (WCAG 2.5.8) without changing the layout.
                       */
                       className={`group -m-2 inline-flex items-center gap-1 p-2 uppercase tracking-wide transition-colors hover:text-accent ${
                         active ? 'text-accent' : ''
@@ -181,14 +161,9 @@ export function SortableTable<T>({
 
         <tbody className="divide-y divide-line">
           {sorted.map((row) => (
-            // `hover:bg-raised` and not `bg-surface/60`: over the dark canvas,
-            // surface at 60% gave a four-point difference in luminance, which
-            // is to say none. In a fourteen-column table, following a row with
-            // your eyes is precisely the hardest part. `raised` exists for this
-            // and it is the same hover StatCard uses.
-            //
-            // `group` is so the pinned cell on the left - which carries its own
-            // background - follows the hover instead of staying put.
+            // `hover:bg-raised` gives visible contrast on the dark theme (the
+            // same hover as StatCard). `group` lets the pinned first cell follow
+            // the row hover.
             <tr key={rowKey(row)} className="group hover:bg-raised">
               {columns.map((column, index) => (
                 <td
@@ -211,18 +186,8 @@ export function SortableTable<T>({
 }
 
 /**
- * The header arrow.
- *
- * On the columns that are not sorting it stays invisible until the mouse or the
- * focus passes over: if all ten showed at once the header would be a row of
- * arrows and none of them would say anything, but if they were never there
- * there would be no way to tell the table can be sorted at all.
- *
- * EXCEPT WHERE THERE IS NO MOUSE. On a phone that hover never arrives, so the
- * only sign that the table sorts did not exist: the view's main feature was
- * invisible on exactly the device it is opened on most. The `flecha-orden`
- * class is what hooks the `@media (hover: none)` rule in globals.css, which
- * leaves them at half opacity there from the start.
+ * The header sort arrow. Inactive arrows appear on hover or focus; on touch
+ * screens `flecha-orden` keeps them half visible (see globals.css).
  */
 function SortArrow({ active, dir }: { active: boolean; dir: SortDirection }) {
   return (

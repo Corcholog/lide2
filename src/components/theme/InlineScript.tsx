@@ -1,17 +1,11 @@
 /**
- * A `<script>` that runs while the browser parses the HTML, before the first
- * paint.
+ * A `<script>` that runs while the HTML is parsed, before the first paint.
  *
- * React warns in development every time a component draws a `<script>`, because
- * on the client those tags never execute: inserting a script through the DOM
- * does not run it. That is not a problem here - the script has to run exactly
- * once, on the hard load, and internal navigations no longer need it - but the
- * warning clutters the console.
- *
- * The way out that Next documents: emit `text/javascript` on the server and
- * `text/plain` on the client, so the browser runs it while parsing and React
- * ignores it while hydrating. `suppressHydrationWarning` is for the difference
- * in `type` between the two.
+ * React warns when components render `<script>` tags, which never run on the
+ * client. Following Next's documented approach, the server emits
+ * `text/javascript` and the client `text/plain`, so the browser runs it once on
+ * load and React ignores it when hydrating. `suppressHydrationWarning` covers
+ * the differing `type`.
  */
 export function InlineScript({ html }: { html: string }) {
   return (

@@ -6,19 +6,11 @@ import { formatPosition, ROLES } from '@/lib/format'
 import type { AssignRoleResult } from '@/lib/teams/service'
 
 /**
- * Which lane this account plays, by hand.
+ * Sets an account's lane by hand, next to each nick on the roster.
  *
- * `team_lineup` takes the lane from the match history, and before anything is
- * played it has nowhere to get it from: the slot reads "Sin posición" even when
- * whoever entered the nick already knows they play support because they were
- * told so at signup. This dropdown is that information, next to every nick on
- * the roster.
- *
- * It is a provisional, and since 0023 it says so: the first replay overrides
- * it, because a lane somebody was told at signup can be out of date by Sunday
- * and a scoreboard cannot. The dropdown stays on every row that has an account
- * anyway - it is what fills the lineup for the accounts that have not played
- * yet, and it keeps showing what was entered so a wrong one can be cleared.
+ * Useful before any match is played, when `team_lineup` has no history to
+ * derive lanes from. Since 0023 the first replay overrides it. It keeps showing
+ * the stored value so a wrong assignment can be cleared.
  */
 export function AssignRole({
   teamId,
@@ -40,9 +32,8 @@ export function AssignRole({
       <input type="hidden" name="teamId" value={teamId} />
       <input type="hidden" name="playerId" value={playerId} />
 
-      {/* The `key` is what is stored today: without it, after saving, the
-          dropdown would spend an instant showing the previous assignment until
-          the next render (see the same trick in AssignAccount). */}
+      {/* Keyed by the stored value, so the dropdown does not briefly show the
+          previous assignment after saving (as in AssignAccount). */}
       <select
         key={role ?? 'sin'}
         name="role"

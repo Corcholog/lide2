@@ -8,11 +8,8 @@ import type { SortOrder } from '@/lib/table/sort'
 import { teamPath } from '@/lib/routes'
 
 /**
- * The teams within the scope.
- *
- * It does not replace the standings table on the home page, which is the
- * official one and orders by what the rulebook says. This one is for comparing:
- * who racks up more kills, who pulls more of a gold lead, who closes faster.
+ * The teams in the scope, for comparison. The official ranking is the standings
+ * table on the home page, ordered by the rulebook.
  */
 
 export interface TeamRow {
@@ -31,7 +28,7 @@ export interface TeamRow {
   avgMinutes: number
 }
 
-/** A difference reads better with its sign attached. */
+/** A difference with its sign. */
 function withSign(value: number): string {
   return value > 0 ? `+${value}` : String(value)
 }
@@ -92,8 +89,7 @@ export function TeamTable({ rows, initial }: { rows: TeamRow[]; initial: SortOrd
       id: 'winrate',
       label: 'WR',
       title: 'Porcentaje de victorias',
-      // A team that has not played does not have a 0% win rate: it has no win
-      // rate. As null it goes last in both directions, as on /equipos.
+      // A team with no games has no win rate (null sorts last), as on /equipos.
       sort: (row) => (row.games === 0 ? null : row.winPct),
       cell: (row) => (
         <span className="font-medium text-fg">

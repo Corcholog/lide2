@@ -33,13 +33,9 @@ interface UnassignedRow {
 }
 
 /**
- * The match-day panel.
- *
- * The .rofl gets uploaded, its matchup gets named, and with that the database
- * works out everything else: which teams played, which matchday it belongs to,
- * and - the first time - which Riot account belongs to which team. See
- * `supabase/migrations/0011_asignacion.sql` for why the order is that one and
- * not the reverse.
+ * The match-day panel: upload the .rofl and pick its matchup, and the database
+ * derives the rest (teams, matchday and, the first time, which account belongs
+ * to which team). See `supabase/migrations/0011_asignacion.sql`.
  */
 export default async function AssignMatchesPage() {
   await requireUser()
@@ -65,16 +61,13 @@ export default async function AssignMatchesPage() {
           .order('group_label')
           .order('team_a_name')
       : Promise.resolve({ data: [], error: null }),
-    // Lo que dejaron las fechas ya cargadas por revisar, para todos los equipos
-    // de una. Aca solo se cuenta y se dice donde: lo que hay que decidir sobre
-    // cada cuenta necesita el plantel al lado, y eso esta en la ficha.
+    // Roster issues across every team. Only counted here: resolving them needs
+    // the whole roster, which is on each team page.
     supabase.from('roster_review').select('team_id,team_name,kind'),
   ])
 
-  // Unassigned replays may come from different patches, but champion names do
-  // not change between them: the latest catalogue is enough. A team is
-  // recognized here by looking at the scoreboard, so it had better say the same
-  // thing as the rest of the site and not the .rofl's internal key.
+  // Champion names do not change between patches, so the latest catalog is
+  // enough. Names match the rest of the site instead of the .rofl keys.
   const champNames = await championNames(await assetVersion(null))
   const named = (players: SidePlayer[]): SidePlayer[] =>
     players.map((player) => ({ ...player, champion: championName(champNames, player.champion) }))
@@ -97,8 +90,7 @@ export default async function AssignMatchesPage() {
     reviewRes as never,
     'the roster review',
   )
-  // Por equipo y ordenados por cuanto tienen pendiente: el que mas cosas dejo
-  // sin cerrar es por el que conviene empezar.
+  // Grouped by team, most pending issues first.
   const porEquipo = new Map<string, { id: string; name: string; n: number }>()
   for (const row of review) {
     const previo = porEquipo.get(row.team_id)
@@ -112,8 +104,7 @@ export default async function AssignMatchesPage() {
 
   const fixture = rows<FixtureResultRow>(fixtureRes, 'the fixture')
   const done = fixture.filter((row) => row.match_id !== null)
-  // Awarded without being played: they have no match and never will, so they
-  // are neither "to be played" nor a replay waiting to be hooked up.
+  // Awarded without being played: no match now or later.
   const walkovers = fixture.filter((row) => row.walkover_team_id !== null)
   const pending = fixture.filter((row) => row.match_id === null && row.walkover_team_id === null)
 
@@ -151,10 +142,8 @@ export default async function AssignMatchesPage() {
       </dl>
 
       {/*
-        Que hay para revisar y en que ficha. No se resuelve desde aca a
-        proposito: decidir si un nick que aparecio es el nick nuevo de alguien o
-        un suplente que entro necesita ver el plantel entero al lado, y eso es
-        justo lo que muestra la ficha del equipo.
+        Which teams have roster issues. Resolved on each team page, where the
+        whole roster is visible next to the accounts.
       */}
       {conNovedades.length > 0 && (
         <section className="flex flex-col gap-2">
@@ -188,13 +177,9 @@ export default async function AssignMatchesPage() {
       )}
 
       {/*
-        Cargar el que no se jugo. El reglamento da 15 minutos de tolerancia y
-        pasados esos hay un resultado sin partida, que es lo unico que el resto
-        del panel no puede tomar: todo lo demas arranca de un .rofl.
-
-        Van juntos los pendientes y los ya dados por ganado. Los segundos no se
-        esconden porque un W.O. cargado mal le saca un punto a alguien en la
-        tabla, y para deshacerlo hay que poder verlo.
+        Walkovers: the rules allow 15 minutes, after which the matchup has a
+        result but no match. Awarded ones stay listed so a mistake can be seen
+        and undone.
       */}
       {(pending.length > 0 || walkovers.length > 0) && (
         <section className="flex flex-col gap-3">
@@ -278,11 +263,8 @@ export default async function AssignMatchesPage() {
                   </Link>
                 </div>
                 {/*
-                  Folded, because it is the exception: nearly every played
-                  matchup stands as it was played, and a dropdown on each of the
-                  forty would double the list for a tool used once. It opens on
-                  its own where a ruling is loaded, so undoing one never means
-                  hunting for it.
+                  Collapsed, since rulings are rare. Opens automatically when a
+                  ruling is set, so it is easy to find and undo.
                 */}
                 <details open={row.status === 'reglamento'} className="text-xs">
                   <summary className="cursor-pointer text-faint transition-colors hover:text-accent">

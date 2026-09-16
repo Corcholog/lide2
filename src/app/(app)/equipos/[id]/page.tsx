@@ -30,19 +30,14 @@ import { addPlayerAction, deleteTeamAction, removePlayerAction } from '../action
 export const dynamic = 'force-dynamic'
 
 /**
- * Cuántas partidas se muestran en la ficha.
- *
- * Cinco es lo último, no el historial: la fecha pasada y un poco más de
- * contexto. El historial entero ya tiene su página —/partidas con el filtro de
- * equipo puesto—, así que repetirlo acá sería mantener dos listados de lo
- * mismo, uno de ellos peor.
+ * How many recent matches the team page shows. The full history is /partidas
+ * with the team filter set.
  */
 const RECENT_MATCHES = 5
 
 /**
- * Un inscripto de la planilla. Es otra cosa que un `player`: aca esta el nombre
- * de la persona y alla su cuenta de Riot. Se cruzan por player_id cuando alguien
- * los empareja.
+ * A signup from the registration sheet: a person's legal name, not a Riot
+ * account (`player`). Linked through `player_id` once matched.
  */
 interface RosterRow {
   id: string
@@ -54,11 +49,9 @@ interface RosterRow {
 }
 
 /**
- * El título de la pestaña y de la vista previa al compartir.
- *
- * Consulta aparte y mínima —sólo el nombre— en vez de reusar la de la página:
- * el cliente de Supabase no pasa por `fetch`, así que Next no deduplica sola.
- * Es una lectura por clave primaria; sale más barato que cachear.
+ * Tab title and link preview. A separate minimal query by primary key: the
+ * Supabase client does not use `fetch`, so Next would not deduplicate it with
+ * the page's query anyway.
  */
 export async function generateMetadata({ params }: PageProps<'/equipos/[id]'>) {
   const { id } = await params
@@ -69,23 +62,21 @@ export async function generateMetadata({ params }: PageProps<'/equipos/[id]'>) {
 }
 
 export default async function TeamPage({ params, searchParams }: PageProps<'/equipos/[id]'>) {
-  // La ficha se ve sin sesión. Lo que se edita —y los nombres de los
-  // inscriptos, que son nombres legales— no.
+  // The page is public; editing controls and signups' legal names need a session.
   const user = await getUser()
   const { id } = await params
 
-  // De dónde vino el que está leyendo. Sin `desde` —un link pegado, un
-  // buscador— la flecha apunta al listado, que es de donde se llega si no se
-  // venía de ningún lado. Ver ORIGINS en @/lib/routes.
+  // Where the back arrow leads. Without `desde` (a pasted link, a search engine)
+  // it goes to the team list. See ORIGINS in @/lib/routes.
   const volver = originFrom((await searchParams).desde, 'equipos')
 
   const supabase = await createClient()
   const [teamRes, lineupRes, totalsRes, rosterRes, unisRes, accountsRes, reviewRes, matchesRes] =
     await Promise.all([
       supabase.from('teams').select('id,name,tag').eq('id', id).maybeSingle(),
-      // El plantel son casilleros y no cuentas: los cinco roles están siempre, el
-      // banco sale de cuántos anotó el equipo y el nick aparece cuando la persona
-      // jugó y quedó emparejada. Ver 0014_roster.sql.
+      // Lineup slots: the five roles always exist, bench slots follow the number
+      // of signups, and a nick appears once that person has played and been
+      // matched. See 0014_plantel.sql.
       supabase.from('team_lineup').select('*').eq('team_id', id).order('slot'),
       supabase.from('player_totals').select('*').order('games', { ascending: false }),
       supabase
@@ -93,34 +84,26 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
         .select('id,full_name,display_name,order_index,player_id,universities(tag)')
         .eq('team_id', id)
         .order('order_index'),
-      // Las universidades que representa el equipo, la principal primero. La
-      // mayoria tiene una; los cuatro equipos armados con inscripciones sueltas
-      // tienen hasta tres. `team_universities` es de lectura publica, asi que
-      // esto tambien se ve sin sesion.
+      // The universities the team represents, main one first (mixed teams have
+      // up to three). `team_universities` is publicly readable.
       supabase
         .from('team_universities')
         .select('order_index,universities(tag,name)')
         .eq('team_id', id)
         .order('order_index'),
-      // Los nicks del equipo, para decir de quién es cada uno. Sólo con sesión:
-      // es lo único de esta página que se usa al lado de los nombres legales de
-      // la planilla, y la lista de acá abajo ya no se dibuja sin usuario.
+      // The team's accounts, to link each signup to one. Session only: it is
+      // used next to the signups' legal names.
       user
         ? supabase.from('team_accounts').select('*').eq('team_id', id)
         : Promise.resolve({ data: [], error: null }),
-      // Lo que dejó la fecha por revisar: quién apareció sin estar anotado, quién
-      // no jugó y a quién le cambió la línea. La vista es `security_invoker` sobre
-      // tablas sin policy `anon`, así que sin sesión devuelve cero filas igual;
-      // no se pide para no hacer la consulta al pedo. Ver 0023.
+      // Roster issues from the last matchday. The view is `security_invoker` over
+      // tables with no `anon` policy, so it is skipped without a session. See 0023.
       user
         ? supabase.from('roster_review').select('*').eq('team_id', id)
         : Promise.resolve({ data: [], error: null }),
-      // Las últimas partidas del equipo, de cualquiera de los dos lados.
-      //
-      // `or()` recibe una expresión de filtro cruda y este id viene del path,
-      // así que se comprueba que tenga forma de uuid antes de pegarlo adentro.
-      // Con cualquier otra cosa el equipo tampoco existe y la página termina en
-      // un 404 unas líneas más abajo.
+      // The team's recent matches, from either side. `or()` takes a raw filter
+      // expression and the id comes from the URL, so it must look like a uuid;
+      // otherwise the team does not exist and the page 404s below.
       isUuid(id)
         ? supabase
             .from('match_summaries')
@@ -146,12 +129,8 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
   const totals = rows<PlayerTotalsRow>(totalsRes, 'the per-player totals')
   const matches = rows<ListMatch>(matchesRes as never, 'the recent matches')
 
-  /*
-    Lo que la fila compartida dibuja además del marcador: los diez campeones, el
-    detalle que se abre y los nombres para escribirlos. Son dos consultas y un
-    catálogo por cinco partidas —ver `loadMatchDetails`—, y van después del
-    lote de arriba porque necesitan los ids que ese lote trae.
-  */
+  // Match list rows also need both scoreboards and champion names. Loaded after
+  // the batch above because they need its match ids.
   const version = await assetVersion(null)
   const [detalle, champNames] = await Promise.all([
     loadMatchDetails(
@@ -164,15 +143,14 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
   const memberIds = new Set(lineup.flatMap((slot) => (slot.player_id ? [slot.player_id] : [])))
   const confirmados = memberIds.size
 
-  // Las cuentas del plantel para el multisearch de op.gg. Sale del lineup y no
-  // de `team_accounts` porque esa lista solo se pide con sesión, y este link se
-  // ve sin ella: son Riot IDs, que ya están escritos en la ficha.
+  // Accounts for the op.gg multisearch. Taken from the lineup, which is public,
+  // rather than `team_accounts`, which needs a session.
   const cuentas = lineup
     .filter((slot) => slot.player_id)
     .map((slot) => ({ gameName: slot.game_name, tagLine: slot.tag_line }))
 
   const statsByPlayer = new Map(totals.map((t) => [t.player_id, t]))
-  // Sin equipo asignado y con partidas jugadas: los candidatos a sumar.
+  // Accounts with matches played and no team: candidates to add.
   const available = totals.filter((t) => !memberIds.has(t.player_id) && !t.team_id)
 
   return (
@@ -186,7 +164,7 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
           <UniversityLogos tags={universities.map((u) => u.tag)} size="xl" max={3} />
           <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight">{team.name}</h1>
-            {/* "Equipo 15" no dice de quien es: el nombre largo si. */}
+            {/* The universities' full names; "Equipo 15" alone says little. */}
             {universities.length > 0 && (
               <p className="mt-1 text-sm text-muted">
                 {universities.map((u) => u.name).join(' · ')}
@@ -195,10 +173,8 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
           </div>
         </div>
         {/*
-          El rango, el pool de campeones y las rankeds de los cinco: lo primero
-          que busca cualquiera que mira un equipo, y lo unico que no esta en los
-          replays. Va en el encabezado y no dentro de "Plantel" porque es un
-          link del equipo entero, no de esa lista.
+          op.gg shows rank and champion pool, which the replays do not have. It is
+          in the header because it covers the whole team, not just the lineup.
         */}
         <div className="flex items-center gap-3">
           <OpggLink accounts={cuentas} />
@@ -224,18 +200,16 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
               nick)
             </h2>
             {/*
-              Estos nombres no salen a la web publica: son nombres legales de una
-              planilla de inscripcion, no apodos elegidos. La policy de
-              team_roster es solo `authenticated`, ver 0008_rosters.sql.
+              Legal names from the signup sheet, never public: team_roster is
+              readable by `authenticated` only (see 0008_rosters.sql).
             */}
             <span className="text-xs text-dim">Sólo visible con sesión</span>
           </div>
           <ul className="divide-y divide-line rounded-lg border border-line">
             {roster.map((entry, index) => (
               <li key={entry.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 text-sm">
-                {/* La posición en la lista y no `order_index`: ese es el orden
-                    de la planilla y queda con huecos cuando alguien se da de
-                    baja desde el panel. */}
+                {/* Position in the list, not `order_index`, which has gaps
+                    after removals. */}
                 <span className="tabular w-5 shrink-0 text-right text-xs text-dim">
                   {index + 1}
                 </span>
@@ -248,9 +222,8 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
                     <span className="text-xs text-faint">{entry.universities.tag}</span>
                   </span>
                 )}
-                {/* De quién es cada nick. Los que se cargan más abajo quedan
-                    emparejados solos cuando coinciden con el Riot ID que
-                    declaró la planilla; cuando no, se dice acá. */}
+                {/* Which account belongs to this signup. Nicks matching the
+                    declared Riot ID are linked automatically. */}
                 <AssignAccount
                   teamId={team.id}
                   rosterId={entry.id}
@@ -271,9 +244,8 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
       <section className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-4">
           <h2 className="text-sm font-medium text-muted">Plantel</h2>
-          {/* "Nick" es la palabra del pipeline de ingesta, no la de alguien que
-              entra a ver quién juega en su universidad. Y con cero confirmados,
-              "0 de 5" es una forma rebuscada de decir que no hay ninguno. */}
+          {/* Plain wording for visitors, and no "0 de 5" when none is
+              confirmed. */}
           {confirmados < lineup.length && (
             <span className="text-xs text-dim">
               {confirmados === 0
@@ -283,18 +255,10 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
           )}
         </div>
         {/*
-          Un lugar vacío se muestra igual, con el nombre del rol. El plantel de
-          un equipo del que todavía no se subió ningún replay son cinco líneas
-          en gris, y se van llenando solas a medida que entran las partidas.
-          Del banco para abajo no hay números: son cuentas sin línea asignada,
-          no un orden que alguien haya elegido.
-        */}
-        {/*
-          De dónde sale cada línea. Se dice acá arriba y no en un tooltip porque
-          es lo que explica todo lo raro que puede mostrar esta lista: un nick
-          en una línea que no es la que el equipo declaró, un casillero que
-          cambia solo después de subir un replay, alguien anotado marcado como
-          "No jugó". Sin esta frase las tres cosas parecen errores de la página.
+          Empty slots still show their role, and fill in as replays are uploaded.
+          The note below explains where lanes come from, so a nick in an
+          unexpected lane, a slot that changes after an upload or a "No jugó"
+          badge do not look like bugs.
         */}
         <p className="text-xs text-dim">
           Las líneas salen de las partidas jugadas: cada cuenta queda en la que más jugó y se
@@ -314,8 +278,8 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
                   {slot.role ? formatPosition(slot.role) : 'Sin posición'}
                 </span>
                 {slot.player_id ? (
-                  /* El nick y, al lado, el #TAG: dos "Bruno" en el mismo
-                     plantel son dos líneas iguales sin él. */
+                  /* The #TAG next to the nick tells apart players with the
+                     same name. */
                   <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
                     <Link
                       href={playerPath(slot.player_id)}
@@ -324,10 +288,8 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
                       {playerName(slot.name)}
                     </Link>
                     {tag && <span className="shrink-0 text-xs text-faint">{tag}</span>}
-                    {/* El nick se cargó a mano y el equipo ya jugó sin esta
-                        cuenta. No es lo mismo que un casillero vacío: acá hay
-                        alguien anotado que no apareció en la cancha, y decirlo
-                        es más honesto que mostrarlo como si hubiera jugado. */}
+                    {/* Entered by hand, and the team has played without this
+                        account. Different from an empty slot. */}
                     {slot.did_not_play && (
                       <span className="shrink-0 rounded bg-raised px-1.5 py-0.5 text-xs text-faint">
                         No jugó
@@ -347,8 +309,8 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
                 )}
                 {user && slot.player_id && (
                   <>
-                    {/* La línea efectiva del casillero puede venir de las
-                        partidas; esto es la asignación a mano, que le gana. */}
+                    {/* The effective lane may come from matches; this is the
+                        hand assignment. */}
                     <AssignRole teamId={team.id} playerId={slot.player_id} role={slot.assigned_role} />
                     <form action={removePlayerAction}>
                       <input type="hidden" name="teamId" value={team.id} />
@@ -369,25 +331,9 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
       </section>
 
       {/*
-        LAS ÚLTIMAS PARTIDAS. Va debajo del plantel porque responde la segunda
-        pregunta que trae a alguien a la ficha de un equipo: primero quiénes
-        son, después cómo les está yendo. Hasta ahora la ficha no decía una sola
-        palabra de eso —había que ir a /partidas y filtrar por el equipo a mano—
-        y el nombre en el listado ya llevaba para acá, o sea que el camino
-        existía en un solo sentido.
-
-        Cinco y no todas: el historial completo es su propia página y este
-        bloque es un resumen. El botón lleva a /partidas con el filtro ya
-        puesto, que es la misma pantalla a la que se llega desde el menú, no una
-        segunda versión de ella.
-
-        SON LAS MISMAS FILAS QUE /partidas, y antes no lo eran: acá había un
-        listado propio de una línea —"Ganó · vs Rival · 12 – 7"— escrito desde
-        el punto de vista del equipo. Mantener dos listados de lo mismo terminó
-        como termina siempre: el de allá se llevó los campeones, el MVP y el
-        detalle que se abre, y este se quedó con el marcador pelado. Lo único
-        que hacía mejor —decir cuál de los dos números es del equipo— lo hace
-        ahora el resaltado, que es el mismo que pone el filtro en /partidas.
+        Recent matches, below the lineup. Same rows as /partidas, with this
+        team's side underlined; the button opens /partidas with the team filter
+        set for the full history.
       */}
       <section className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between gap-4">
@@ -419,8 +365,8 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
         )}
       </section>
 
-      {/* Lo que la fecha dejo por revisar. Va justo debajo del plantel: primero
-          se ve como quedo la formacion, despues lo que no cierra de ella. */}
+      {/* Roster issues left by the matchday: first the lineup, then what does
+          not add up in it. */}
       {user && <RosterReview teamId={team.id} rows={review} />}
 
       {user && (
@@ -429,9 +375,8 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
             Agregar jugador ({available.length} sin equipo)
           </h2>
           {/*
-            Dos puertas, y la de arriba es la única que funciona antes de que se
-            juegue algo: la lista de abajo son cuentas detectadas en los
-            replays, así que en la fecha 0 está vacía para todos los equipos.
+            Typing a nick is the only way to add a player before any match is
+            played: the list below only has accounts seen in replays.
           */}
           <AddAccount teamId={team.id} />
           <p className="text-xs text-dim">

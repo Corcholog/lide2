@@ -10,29 +10,19 @@ import { teamPath, type Origin } from '@/lib/routes'
 import type { MatchSummaryRow, MatchTeamStatsRow } from '@/types/db'
 
 /**
- * The matches, as rows that expand.
+ * Match rows that expand into both teams' scoreboards.
  *
- * Inside each one is both teams' summarized scoreboard. You used to have to
- * open the match page to see anything, and going over a whole matchday was ten
- * trips back and forth.
+ * The expander is a native `<details>`: no JavaScript, built-in keyboard and
+ * `aria-expanded` support, and closed content is not rendered.
  *
- * THE EXPANDER IS A NATIVE `<details>` and not a client island: it needs no
- * JavaScript, the browser already gives it `aria-expanded`, toggling with Enter
- * and the focus where it belongs, and on top of that it does not draw the
- * content while closed.
- *
- * IT IS SHARED BY /partidas AND A TEAM'S PAGE, which used to draw a listing of
- * its own - one line each, "Ganó · vs Rival · 12 - 7" - written from that team's
- * point of view. Keeping two listings of the same thing meant one of them got
- * the champions, the MVP and the detail and the other did not; what that one
- * did better, saying whose the scoreline is, is what the mark does here.
+ * Shared by /partidas, team pages and player pages; team pages underline their
+ * team's side (see `markRule`).
  */
 
 /**
- * The `match_summaries` columns a row reads.
- *
- * On a single line and not concatenated: supabase-js looks at this string's
- * TYPE to know what the query returns, and a sum stops being a literal.
+ * The `match_summaries` columns a row reads. Keep it a single string literal:
+ * supabase-js infers the result type from it, and a concatenation widens it to
+ * `string`.
  */
 export const LIST_COLUMNS =
   'id,played_at,patch,matchday,group_label,stage_label,round_label,game_length_ms,winning_side,blue_team_id,blue_team_name,red_team_id,red_team_name,blue_kills,red_kills,mvp_name,mvp_champion,mvp_kills,mvp_deaths,mvp_assists,annulled,ruling,ruling_winner_team_id'
@@ -82,24 +72,18 @@ export function MatchList({
   version: string
   championNames: Record<string, string>
   /**
-   * Where the team names lead FROM, for the back arrow on their page. Left out
-   * where no entry of the table fits - a player's page is reached from the
-   * tables and from a match, and neither is this listing.
+   * The origin passed to team links, for the back arrow on the team page.
+   * Omitted where no origin key fits (e.g. player pages).
    */
   from?: Origin
   /**
-   * A team to underline in every row, for a listing that is already about it.
-   * On /partidas it is left out: there the team is picked in the browser and it
-   * is `MatchFilters` that writes the same rule.
+   * A team to underline in every row. Omitted on /partidas, where
+   * `MatchFilters` writes the same rule in the browser.
    */
   team?: string | null
   /**
-   * A player to ring in every row, on the portrait of whatever they played.
-   *
-   * It is the other half of the same question the underline answers - which of
-   * these ten is the one I came for - asked one level down: a player's history
-   * is rows of a match, and without this the champion they played is one of ten
-   * portraits with nothing to tell it apart.
+   * A player whose champion gets a ring in every row, so it stands out among
+   * the ten portraits on a player's history.
    */
   player?: string | null
 }) {
@@ -108,14 +92,9 @@ export function MatchList({
       {team !== null && <style>{markRule(team)}</style>}
 
       {/*
-        The id and the two attributes on each row are what /partidas' filters
-        work on: one CSS rule hides every row outside the chosen matchday
-        (`data-fecha`), another every row without the chosen team
-        (`data-equipos`), and a third underlines that team's side wherever the
-        listing draws it - `SideBlock` in the row, the header in the open detail
-        - which is what `data-team` is for. They are plain attributes on server
-        HTML, which is why changing the cut costs nothing there: no request, no
-        re-render, not even for the ten scoreboards each row is already holding.
+        /partidas filters work on these attributes with CSS: `data-fecha` for the
+        matchday, `data-equipos` for the team, and `data-team` on each side for
+        the underline. Filtering needs no request and no re-render.
       */}
       <ul id="partidas" className="flex flex-col gap-2">
         {matches.map((match) => (
@@ -138,18 +117,10 @@ export function MatchList({
                 </div>
 
                 {/*
-                  Name, champions, scoreline, champions, name.
-
-                  The two teams sit at the ends and the ten champions against
-                  the scoreline, which is the order it gets read in: who against
-                  whom, with what. Each side is one block - see `SideBlock` -
-                  because that pair is what the mark underlines. Placed below the
-                  name the champions had to fit in half the row's width and never
-                  got past twenty pixels, which for a portrait is a smudge.
-
-                  On small screens the champions are dropped: five 32px ones per
-                  side do not fit beside the names, and what cannot shrink any
-                  further without becoming unreadable is the scoreline.
+                  Name, champions, score, champions, name: each side is one block
+                  (see `SideBlock`) so the underline covers both. Champions are
+                  hidden on small screens, where they do not fit next to the
+                  names.
                 */}
                 <div className="flex flex-1 items-center justify-center gap-3">
                   <SideBlock
@@ -172,9 +143,8 @@ export function MatchList({
                       </span>
                     </p>
                     {/*
-                      Annulled by the organizers: the game happened - the replay is
-                      there - but it is not a result, so the side that won on the
-                      rift is not painted as the winner and the row says why.
+                      Annulled by the organizers: the game was played but is not a
+                      result, so neither side is shown as the winner.
                     */}
                     {match.annulled ? (
                       <p
@@ -249,12 +219,9 @@ export function MatchList({
 }
 
 /**
- * One side's five champions, in lane order.
- *
- * They go without names - they are 20px, a name does not fit - but with an
- * `alt`, so a screen reader reads the composition anyway and the `title` shows
- * it on hover. If a match has no scoreboard loaded, nothing is drawn at all
- * instead of five grey gaps.
+ * One side's five champions, in lane order, without names (too small) but with
+ * `alt` text for screen readers. Nothing is drawn when the match has no
+ * scoreboard loaded.
  */
 function Champions({
   players,
@@ -283,15 +250,12 @@ function Champions({
           <GameIcon
             key={entry.matchPlayerId}
             src={championIcon(version, entry.champion)}
-            // The ring is meaning and not decoration, so it is said out loud
-            // too: read aloud, the row is otherwise ten champions in a line.
+            // The ring is also stated in the alt text for screen readers.
             alt={theirs ? `${champion}, el que jugó` : champion}
             size={32}
             /*
-              Inside the portrait's own box and not around it: at 32px in a row
-              of five with two pixels between them, an outline drawn outside
-              would sit on the neighbour, and a border would push the other four
-              along. `-outline-offset-2` costs two pixels of art and no layout.
+              The ring is drawn inside the portrait: an outer outline would overlap
+              the neighbouring icon and a border would shift the row.
             */
             className={theirs ? 'outline-2 -outline-offset-2 outline-accent' : ''}
           />
@@ -302,16 +266,11 @@ function Champions({
 }
 
 /**
- * One side of the row: the team's name and the five champions it played.
+ * One side of the row: team name and champions.
  *
- * THE TWO GO IN ONE BOX because that box is what the mark underlines - see
- * `markRule` - and a line has to have something to run under. The box is the
- * size of what is in it and the aligner around it is what takes the free space:
- * drawn on the flexible one, the line would carry on under the gap between the
- * name and the date.
- *
- * The red side is mirrored so that the champions of both teams end up against
- * the scoreline, which is how the row gets read: who against whom, with what.
+ * Both sit in one box because that box is what `markRule` underlines; the
+ * outer wrapper takes the free space so the line does not extend past the
+ * content. The red side is mirrored so both teams' champions face the score.
  */
 function SideBlock({
   match,
@@ -361,17 +320,9 @@ function SideBlock({
 }
 
 /**
- * A team's name in the row, and the way to its page.
- *
- * IT IS A LINK NOW, inside a `<summary>` that opens the match on click. The two
- * do not fight: a click lands on the link, which is what runs, so the row does
- * not also expand under the page that is leaving. What it costs is that the
- * name stops being part of the surface that opens the row - which is the point,
- * because a team's name reading as a team's name is what makes the listing
- * walkable in the first place.
- *
- * Without a name there is no link: an unassigned side says "Lado azul" and
- * leads nowhere, because there is nothing to lead to.
+ * A team name in the row, linked to its page. The link sits inside the row's
+ * `<summary>`: clicking it navigates without expanding the row. Unassigned
+ * sides show "Lado azul" / "Lado rojo" without a link.
  */
 function SideName({
   name,
@@ -381,11 +332,11 @@ function SideName({
   from,
 }: {
   name: string | null
-  /** Who they are: where the link goes, and what the mark is keyed on. */
+  /** Link target and underline key. */
   teamId: string | null
   side: 100 | 200
   won: boolean
-  /** Without one the link is the bare path, and the arrow there falls back. */
+  /** Without it the link has no `desde` and the team page uses its default back arrow. */
   from?: Origin
 }) {
   const blue = side === 100

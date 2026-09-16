@@ -6,12 +6,8 @@ import { FORMATS, type Poster, type PosterFormat } from '@/lib/cards/types'
 import { StatPoster, exportPoster } from './StatPoster'
 
 /**
- * A matchday's batch: every piece with its raw data beside it.
- *
- * Both halves come out of the same `StatBlock`, and that is the reason they sit
- * together: whoever downloads the PNG and whoever hands the numbers to a
- * designer publish the same thing. If the text and the image could disagree,
- * one of the two versions would go out into the world wrong.
+ * A matchday's pieces, each next to its raw data. Both come from the same
+ * `StatBlock`, so the image and the text cannot disagree.
  */
 export function PosterBatch({ posters, prefix }: { posters: Poster[]; prefix: string }) {
   const [format, setFormat] = useState<PosterFormat>('post')
@@ -23,12 +19,9 @@ export function PosterBatch({ posters, prefix }: { posters: Poster[]; prefix: st
   const fileName = (poster: Poster) => `${prefix}-${poster.id}-${format}.png`
 
   /**
-   * All of them at once, in order.
-   *
-   * One at a time, awaiting each export: they are eight 1080 x 1350 captures
-   * and firing them together blocks the main thread long enough for the browser
-   * to declare the tab hung. The browser will ask permission to download
-   * several files, which is to be expected.
+   * Downloads every piece in order, one at a time: running the captures in
+   * parallel blocks the main thread long enough for the tab to seem hung. The
+   * browser will ask to allow multiple downloads.
    */
   async function downloadAll() {
     setBusy(true)
@@ -113,10 +106,7 @@ function RawData({ block }: { block: Poster['block'] }) {
         </div>
       </div>
 
-      {/*
-        `pre` and not a table: what shows here is exactly what gets copied, and
-        any layout in between opens the door to the two diverging.
-      */}
+      {/* `pre`, so what is shown is exactly what gets copied. */}
       <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words border border-line bg-canvas px-3 py-2 font-mono text-xs leading-relaxed text-fg-soft">
         {text}
       </pre>
@@ -133,8 +123,7 @@ function CopyButton({ label, value }: { label: string; value: string }) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      // No clipboard permission (http, or the browser blocks it): the text is
-      // in plain sight anyway and can be selected by hand.
+      // No clipboard access (http, or blocked): the text can still be selected.
       setCopied(false)
     }
   }

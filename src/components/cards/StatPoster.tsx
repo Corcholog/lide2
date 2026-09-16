@@ -8,25 +8,17 @@ import type { StatBlock } from '@/lib/stats/types'
 import type { FormatSpec } from '@/lib/cards/types'
 
 /**
- * A piece 1080 wide, ready to publish.
- *
- * It draws any `StatBlock`, so it serves the registry's 34 stats and the two
- * that are built separately. It decides nothing about content: the title, the
- * rows and the caveat all arrive resolved.
- *
- * The piece always comes out dark, even when the site is in the light theme. It
- * is an image going up on Instagram: it has to come out the same whoever
- * exports it.
+ * A 1080-wide Instagram piece for any `StatBlock`. Content arrives resolved;
+ * this only lays it out. Always dark, so exports look the same whatever theme
+ * the admin uses.
  */
 
-/** Preview width. The real piece always measures 1080. */
+/** Preview width; the exported piece is always 1080 wide. */
 const PREVIEW_WIDTH = 340
 
 /*
- * The usual red glow, the same one as the site's backdrop. It goes in an inline
- * style and not in a class because html-to-image clones computed styles: a
- * gradient written here travels just like a Tailwind one, and this way it reads
- * next to the numbers that use it.
+ * The red glow of the site's backdrop. Inline styles are exported the same as
+ * Tailwind classes, since html-to-image copies computed styles.
  */
 const GLOW = [
   'radial-gradient(70% 50% at 88% 0%, color-mix(in srgb, var(--accent) 22%, transparent) 0%, transparent 62%)',
@@ -34,28 +26,17 @@ const GLOW = [
 ].join(', ')
 
 /*
- * WHAT SITS BETWEEN THE ARTWORK AND THE TEXT.
+ * Overlay between the artwork and the text (the crop comes from
+ * `poster-bg.ts`). The text covers the whole piece, so the artwork is only a
+ * texture.
  *
- * The piece now carries the hero's painting behind it - see `poster-bg.ts` for
- * the crop - and a poster is not a hero: there the text lives on the washed
- * left and the picture keeps the right, while here the title, five rows and a
- * footnote cover the whole 1080. So the painting can only ever be a texture,
- * and this is what turns it into one.
- *
- * HEAVIEST AT THE TOP, which is the opposite of what a backdrop usually wants.
- * The artwork's sky is nearly white and the title is 96px of Archivo Black over
- * it: unwashed, that is 96px of nothing. Downwards the painting darkens on its
- * own - it is black armour from the chest down - so the wash can ease off, and
- * it closes again at the foot where the smallest text of the piece is.
- *
- * THESE ARE THE NUMBERS TO TURN. More painting: drop them. More text: raise
- * them. The one with the least room is the first, because it is the one over
- * the sky: the greys of a row's second line stop holding against white long
- * before they stop holding against the armour further down.
+ * Heaviest at the top, where the artwork's sky is nearly white under the
+ * title; lighter in the middle, where the artwork is dark; heavier again at the
+ * bottom for the small footer text. Lower the values to show more artwork,
+ * raise them for more legibility.
  */
 const BACKDROP = [
-  // Vignette, the same idea as the hero's: closes the corners so the piece
-  // ends in the tournament's black and not in a torn photo.
+  // Vignette, like the hero's, so the corners fade to black.
   'radial-gradient(120% 75% at 50% 24%, transparent 24%, color-mix(in srgb, var(--canvas) 55%, transparent) 100%)',
   // The wash.
   [
@@ -68,26 +49,13 @@ const BACKDROP = [
 ].join(', ')
 
 /*
- * WHAT KEEPS THE SMALL TEXT ON TOP OF THE PAINTING.
+ * Keeps text legible over the artwork.
  *
- * The white holds by itself; the greys did not. "434:31 de juego" landing on
- * the artwork's pale hair is grey on grey, and the reason is not the wash being
- * too light: it is that the tokens under `fg-soft` were tuned to sit on a solid
- * canvas, where `faint` and `dim` are a legible bottom step. Over a painting
- * they are a smudge, and no amount of shadow saves a colour that close to what
- * is behind it.
- *
- * So the piece uses TWO greys and not four: `fg` for what is being read - the
- * title, the names - and `fg-soft` for everything that qualifies it. What
- * separates the tiers here is size and weight, which a poster has plenty of:
- * 96px against 28px says more about hierarchy than two shades of the same grey
- * ever did.
- *
- * And every one of them carries this halo. Stacked shadows and not one: a
- * single soft shadow moves the problem a few pixels, while four of increasing
- * radius build a small dark ground that travels with the glyph, which is what
- * makes a grey readable over a texture rather than merely over a colour. It is
- * inherited from the content's wrapper, so nothing has to remember it.
+ * The lower grey tokens (`faint`, `dim`) are tuned for solid backgrounds and
+ * become illegible over an image, so pieces only use `fg` and `fg-soft`, with
+ * size and weight carrying the hierarchy. Four stacked shadows of increasing
+ * radius form a dark ground behind each glyph; it is inherited from the content
+ * wrapper.
  */
 const HALO = [
   '0 1px 2px color-mix(in srgb, var(--canvas) 92%, transparent)',
@@ -156,9 +124,8 @@ export function StatPoster({
       )}
 
       {/*
-        The container shrinks the view; the exported node keeps its 1080. The
-        slot's height is computed, otherwise the whole piece's worth of space is
-        left below the thumbnail.
+        The preview is scaled down; the exported node stays 1080 wide. The
+        wrapper's height is set so no empty space is left below the thumbnail.
       */}
       <div
         className="overflow-hidden border-2 border-line"
@@ -175,11 +142,9 @@ export function StatPoster({
             className="relative flex flex-col overflow-hidden bg-canvas px-[72px] py-[64px] text-fg"
           >
             {/*
-              The artwork. It is the file cut for this - 1080 x 1920, the taller
-              of the two formats - so the story uses it whole and the post takes
-              the same thing anchored at the top, losing the bottom. No
-              `crossOrigin`: it comes from this same origin, which is also what
-              lets html-to-image inline it without tainting the canvas.
+              The artwork, cropped to 1080 x 1920 (the taller format); the 1350
+              post uses it anchored at the top. Same origin, so html-to-image can
+              inline it without tainting the canvas.
             */}
             <img
               src="/lide2-poster.jpg"
@@ -195,9 +160,7 @@ export function StatPoster({
                 <span className="font-display text-[44px] uppercase leading-none tracking-tight">
                   LIDE 2
                 </span>
-                {/* Bold: it is the only red on the piece until the first place
-                    below, and at 28px in a wide tracking the accent was reading
-                    as a grey that happened to be warm. */}
+                {/* Bold, so the red kicker reads as red at this size. */}
                 <span className="text-[28px] font-bold uppercase tracking-[0.18em] text-accent">
                   {kicker}
                 </span>
@@ -205,10 +168,8 @@ export function StatPoster({
 
               <div className="mt-[52px]">
                 {/*
-                  The titles run from "MVP" to "Tabla de universidades", so at
-                  this size nearly all of them break onto two lines.
-                  `text-balance` splits them evenly instead of leaving one word
-                  stranded below.
+                  Most titles wrap at this size; `text-balance` splits the lines
+                  evenly.
                 */}
                 <h1 className="font-display text-balance text-[96px] uppercase leading-[0.85] tracking-[-0.04em]">
                   {block.title}
@@ -221,9 +182,8 @@ export function StatPoster({
               </div>
 
               {/*
-                `justify-around` spreads the rows across whatever height is left
-                over, so the same piece composes well at 1350 and at 1920
-                without two layouts.
+                `justify-around` spreads the rows over the remaining height, so
+                one layout works for both 1350 and 1920.
               */}
               <ol className="flex flex-1 flex-col justify-around py-[36px]">
                 {block.rows.map((row, index) => (
@@ -275,20 +235,16 @@ function Row({
       )}
 
       {/*
-        The logos are not uploaded to the bucket yet, so today this never draws.
-        It stays in so they appear on their own once they are. crossOrigin:
-        without it the canvas is tainted and the export fails.
+        Champion icons and university crests. `crossOrigin` keeps the canvas
+        untainted for the export.
       */}
       {row.logo && (
         <img
           src={row.logo}
           alt=""
           crossOrigin="anonymous"
-          // 96 and not 72: in "Los más elegidos" this is the champion's
-          // portrait, and the portrait IS what that ranking is about - at 72 it
-          // sat below the name beside it and read as a bullet point. It clears
-          // the two lines of the row (a 50px name over a 28px line), so nothing
-          // grows to make room for it.
+          // 96px: in champion rankings the portrait is the subject, and it still
+          // fits within the row's two text lines.
           className="size-[96px] shrink-0 object-contain"
         />
       )}
@@ -309,9 +265,8 @@ function Row({
       </div>
 
       {/*
-        `max-w-[46%]` and truncate: the value is not always a short number. "5.9k
-        de oro" at this size eats half the piece, and with no cap it runs over
-        the name beside it, which is what people came to read.
+        Capped and truncated: some values are long ("5.9k de oro") and would
+        overlap the name.
       */}
       <span
         className={`max-w-[46%] shrink-0 truncate text-right tabular-nums ${
@@ -324,10 +279,7 @@ function Row({
   )
 }
 
-/**
- * The poster as a PNG. The capture itself lives in `downloadNodeAsPng`, which
- * the match card shares.
- */
+/** Exports the poster as a PNG (see `downloadNodeAsPng`). */
 export function exportPoster(node: HTMLElement, format: FormatSpec, fileName: string) {
   return downloadNodeAsPng(node, format, fileName)
 }

@@ -5,27 +5,15 @@ import type { ReactNode } from 'react'
 import type { StatBlock, StatRow } from '@/lib/stats/types'
 
 /**
- * One stat: a title, up to five rows and, where needed, a caveat.
- *
- * Every stat is drawn with this, so the catalogue can grow without touching the
- * page. The place goes in a large number on the left and the value on the
- * right, which is how a ranking is read at a glance.
+ * One stat card: title, up to five rows and an optional note. Every stat uses
+ * it, so new stats need no page changes.
  */
 export function StatCard({ block }: { block: StatBlock }) {
   return (
     <section className="flex flex-col border-2 border-line bg-surface text-fg">
       {/*
-        THE TITLE BAND. Thirty-four cards in a three-column grid, all in the
-        same greys, and the titles were the same size and colour as the rows
-        underneath: scrolling past, nothing said where one ranking ended and
-        the next began, and finding "Multikills" meant reading every heading.
-
-        Red, tinted background and a red rule underneath - the same trio the
-        active chip of the bans panel uses - turn the heading into a band that
-        is found without reading it. The colour is `accent`, which is the one
-        the palette already audited over `accent-dim`: 5.5:1 on the light theme
-        and 4.96:1 on the dark, so it is a title anyone can read and not a
-        decoration that only works if you can tell red from grey.
+        Red title band, so each ranking is easy to find in a long grid. `accent`
+        on `accent-dim` meets AA in both themes.
       */}
       <header className="border-b-2 border-accent bg-accent-dim px-4 py-3">
         <h3 className="font-display text-sm uppercase tracking-wide text-accent">{block.title}</h3>
@@ -47,12 +35,7 @@ export function StatCard({ block }: { block: StatBlock }) {
   )
 }
 
-/**
- * The row, which is a link when there is somewhere to go.
- *
- * The `<a>` wraps the whole row and not just the name: in a list of five lines,
- * a 90px-wide target is awkward to hit, all the more on a phone.
- */
+/** A row, linked as a whole when it has a destination (a larger tap target). */
 function Row({ row, index }: { row: StatRow; index: number }) {
   const content = <RowContent row={row} index={index} />
 
@@ -72,28 +55,11 @@ function Row({ row, index }: { row: StatRow; index: number }) {
 
 function RowContent({ row, index }: { row: StatRow; index: number }): ReactNode {
   /*
-    THE ROW'S HEIGHTS, which is what makes it look aligned or not.
-
-    The icon is the reference: 48px. The text fits entirely inside that height -
-    name (20px) plus the line below it (16px) make 36 - and with everything
-    centred the champion portrait sits level with its name instead of floating
-    against a taller block. The leftover air is deliberate: the champion's face
-    is what gets recognized at a glance, and at 36px it was a smudge.
-
-    Below the name go TWO SEPARATE LINES and not one with both things joined by
-    a `·`. That join was the problem: on universities it gave "Universidad
-    Nacional de José C. Paz · 18-10 en 28 apariciones", sixty characters against
-    the thirty-one that fit on a line in the three-column grid. Two lines left
-    it right at the edge and it clipped on some and not others, depending on the
-    length of the name.
-
-    Kept apart, each clips on its own: the detail - always short - reads in
-    full, and the only thing that can end in an ellipsis is a long name, which
-    also travels complete in the `title`. The height does not change: two lines
-    of one measure the same as one of two.
+    Layout: the 48px icon sets the row height, and the text (name plus one line)
+    fits within it, so everything stays vertically centered. Subtitle and detail
+    are separate lines, so a long university name truncates on its own without
+    cutting the short detail.
   */
-
-
   return (
     <>
       <span
@@ -105,11 +71,9 @@ function RowContent({ row, index }: { row: StatRow; index: number }): ReactNode 
       </span>
 
       {/*
-        Square and bordered, like the crests in the standings table
-        (`UniversityLogo`): the site has every radius at zero, and a rounded
-        icon in the middle of a grid of square corners reads as if it came from
-        another page. The border also gives the crest a shape, since it is a
-        white-backed PNG and over the light theme it would blend into the card.
+        Square with a border, like the crests in the standings table: the site
+        uses no rounded corners, and the border outlines white-backed crests on
+        the light theme.
       */}
       {row.logo && (
         <img
@@ -127,11 +91,8 @@ function RowContent({ row, index }: { row: StatRow; index: number }): ReactNode 
           {row.name}
         </p>
         {/*
-          Up to two lines: university names do not fit on one ("Universidad
-          Nacional de José C. Paz") and the rest of the cards use this spot for
-          the team or the role, which fit on one with room to spare. Since it is
-          `line-clamp` and not a fixed height, the row only grows where it has
-          to.
+          Up to two lines, for long university names; `line-clamp` only grows
+          the rows that need it.
         */}
         {row.subtitle && (
           <p className="line-clamp-2 text-xs leading-4 text-muted" title={row.subtitle}>
@@ -146,15 +107,8 @@ function RowContent({ row, index }: { row: StatRow; index: number }): ReactNode 
       </div>
 
       {/*
-        THE NUMBER, IN RED. It is the same rule as the standings table on the
-        front page, where what a team won is `win` and what it lost is `dim`:
-        on this site the figure that is being ranked is red, and the grey was
-        making it read as one more line of context next to the name.
-
-        The leader keeps the strong tone plus the bold; the other four go in
-        `accent-soft`, which is a step apart in both themes and clears 4.5:1 on
-        `surface` in each. So the ranking is still read off the colour and not
-        only off the number on the left.
+        The ranked value is red, as in the standings table. The leader is bold
+        `accent`; the rest use `accent-soft`, which passes AA on `surface`.
       */}
       <span
         className={`shrink-0 text-right text-sm tabular-nums ${

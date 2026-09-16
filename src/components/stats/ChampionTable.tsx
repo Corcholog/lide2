@@ -7,37 +7,30 @@ import { formatNumber, formatPercent, formatRoles, ROLES } from '@/lib/format'
 import type { SortOrder } from '@/lib/table/sort'
 
 /**
- * The meta, whole and sortable.
- *
- * It is the table that replaces the top five for anyone who came to look
- * properly: the question "how much does X get played?" is not answered by the
- * five most picked.
- *
- * The rows arrive flat and with the numbers already coerced on the server:
- * several of these columns are `numeric` in Postgres and can travel as text,
- * and sorting text compares "0.9" against "0.85" backwards without a word.
+ * The full champion table, sortable. Rows arrive with numbers already coerced
+ * on the server (see the Tables page).
  */
 
-/** A total written as what it was worth in each of the champion's picks. */
+/** A total divided by picks, formatted with one decimal. */
 function perPick(total: number, picks: number): string {
   return picks > 0 ? (total / picks).toFixed(1) : '0.0'
 }
 
 export interface ChampionRow {
-  /** The internal key, which is what builds the icon URL. */
+  /** The internal key, used for the icon URL. */
   champion: string
-  /** The name that gets read: "Wukong" and not "MonkeyKing". */
+  /** Display name: "Wukong", not "MonkeyKing". */
   name: string
-  /** The role it was played in most often, which is what the column sorts on. */
+  /** The role played most, which the Roles column sorts on. */
   position: string | null
-  /** Every role it was played in. One champion is not one lane. */
+  /** Every role it was played in. */
   positions: string[]
   picks: number
   wins: number
   losses: number
   winPct: number | null
   pickRate: number | null
-  /** Null when the rows are a single role: a ban is on the champion, not a lane. */
+  /** Null on single-role rows: bans apply to a champion, not a lane. */
   bans: number | null
   banRate: number | null
   presence: number | null
@@ -65,8 +58,8 @@ export function ChampionTable({
   version: string
   initial: SortOrder
   /**
-   * Whether to draw the three ban columns. Off with no draft entered, and off
-   * with a role selected: bans have no role to be counted in.
+   * Whether to show the three ban columns: off with no draft entered, and off
+   * with a role selected.
    */
   hasBans: boolean
 }) {
@@ -79,12 +72,7 @@ export function ChampionTable({
       sort: (row) => row.name,
       cell: (row) => (
         <div className="flex items-center gap-2">
-          {/*
-            The champion's face is what people scan the table for, more than the
-            name: at 26px it was a smudge of colour. The row grows with it,
-            which in a 170-row table is paid for in scrolling, but finding a
-            champion stops being an act of reading.
-          */}
+          {/* A larger portrait, since people scan the table by champion face. */}
           <GameIcon src={championIcon(version, row.champion)} alt={row.name} size={34} />
           <span className="truncate font-medium">{row.name}</span>
         </div>
@@ -92,17 +80,11 @@ export function ChampionTable({
     },
     {
       id: 'posicion',
-      // Plural because most champions get played in more than one, and the
-      // column used to name only the commonest - which is how Camille, played
-      // top and support, read as a top laner and nothing else.
+      // Plural: champions are often played in more than one role.
       label: 'Roles',
       align: 'left',
       firstClick: 'asc',
-      // Sorted on the MAIN role: a column of lists has no order of its own, and
-      // grouping the champions by the lane each one mostly plays is what
-      // somebody sorting this column is after. By lane order and not
-      // alphabetically - TOP, JUNGLE, MID, ADC, SUP is how a team is read - and
-      // the ones with no role at all go last.
+      // Sorted by main role, in lane order; champions without a role go last.
       sort: (row) => (row.position ? ROLES.indexOf(row.position as (typeof ROLES)[number]) : null),
       cell: (row) => (
         <span className="text-fg-soft">{formatRoles(row.positions, row.position)}</span>
@@ -115,8 +97,7 @@ export function ChampionTable({
       cell: (row) => row.picks,
     },
     {
-      // The % in the header and not only in the cell: a bare "PR" does not say
-      // whether the number below is a count or a proportion.
+      // "%" in the header, so it reads as a proportion rather than a count.
       id: 'pickrate',
       label: 'PR %',
       title: 'Pick rate: en qué porcentaje de las partidas del recorte se eligió',
@@ -129,8 +110,8 @@ export function ChampionTable({
             id: 'bans',
             label: 'Bans',
             sort: (row) => row.bans,
-            // Only ever drawn with `hasBans`, which the page turns off the
-            // moment a role is picked, so the null never reaches the screen.
+            // Only drawn with `hasBans`, which is off whenever a role is picked,
+            // so the null is never shown.
             cell: (row) => row.bans ?? '—',
           },
           {
@@ -167,9 +148,8 @@ export function ChampionTable({
       cell: (row) => (
         <>
           {/*
-            The win rate with its sample beside it. Without that, sorting by WR
-            puts a champion who was played once and won on top, and the table
-            appears to say they are the best in the tournament.
+            The win rate with its sample size, so one game won does not read as
+            the best champion.
           */}
           <span className="font-medium text-fg">{pct(row.winPct)}</span>{' '}
           <span className="text-xs text-faint">
@@ -184,10 +164,7 @@ export function ChampionTable({
       title: 'El KDA de cada partida, promediado sobre los picks del campeón',
       sort: (row) => row.kda,
       /*
-        The K/D/A underneath goes per game as well. It used to be the totals,
-        and with the figure above it now an average the two lines were counting
-        different things: "1.20" over "24/20/18" reads as if the ratio came
-        from those three numbers, and it does not.
+        The K/D/A line is per pick too, matching the averaged KDA above it.
       */
       cell: (row) => (
         <>
@@ -214,8 +191,7 @@ export function ChampionTable({
       rows={rows}
       rowKey={(row) => row.champion}
       initial={initial}
-      // Between two on the same value the more-played one comes first: 100%
-      // across four games says more than 100% across one.
+      // On equal values, more picks first.
       tiebreak={(a, b) => b.picks - a.picks || a.name.localeCompare(b.name, 'es')}
       caption="Campeones del torneo"
       minWidth="min-w-[56rem]"

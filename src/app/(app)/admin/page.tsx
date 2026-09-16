@@ -7,13 +7,9 @@ import { TOURNAMENT } from '@/lib/lide2/tournament'
 export const dynamic = 'force-dynamic'
 
 /**
- * The panel, in the order it gets used on a match day.
- *
- * Upload -> assign -> (if needed) match up -> publish. The numbers beside each
- * step are what is left to do at that step: when they read zero, that day is
- * done. The last two are not mandatory: matching up only corrects the
- * university table, and publishing is what happens afterwards, not what it
- * takes for the site to be right.
+ * The admin panel, in match-day order: upload, assign, match up accounts,
+ * publish. Each step shows what is left to do. The last two are optional:
+ * matching only affects university stats, and publishing happens afterwards.
  */
 export default async function AdminPage() {
   await requireUser()
@@ -37,8 +33,7 @@ export default async function AdminPage() {
           .is('match_id', null)
       : Promise.resolve({ count: 0 }),
     supabase.from('roster_status').select('player_id'),
-    // Matches with no bans entered. `ban_count` comes from match_summaries
-    // (0021) precisely so this can be a count and not a full table fetch.
+    // Matches without bans, counted from `match_summaries.ban_count` (0021).
     tournamentId
       ? supabase
           .from('match_summaries')

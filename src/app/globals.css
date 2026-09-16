@@ -1,30 +1,24 @@
 @import "tailwindcss";
 
 /*
- * El tema se cambia poniendo data-theme="dark" en <html>, no clase por clase.
- * Con esto `dark:` en las utilidades sigue funcionando cuando hace falta un
- * ajuste puntual, pero la regla general es no usarlo: los colores salen de los
- * tokens semánticos de más abajo, que ya vienen con los dos valores.
+ * The theme is set with data-theme="dark" on <html>. `dark:` utilities still
+ * work for one-off tweaks, but colors should normally come from the semantic
+ * tokens below, which already carry both values.
  */
 @custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 /*
- * El inverso, para lo poco que necesita saber en cual de los dos esta. Se usa en
- * el boton del nav: los dos iconos van siempre en el HTML y el CSS elige cual se
- * ve, asi el servidor y el cliente renderizan lo mismo y no hay que adivinar el
- * tema antes de hidratar.
+ * The inverse variant. Used by the theme toggle: both icons are always in the
+ * HTML and CSS shows one, so server and client render the same markup.
  */
 @custom-variant light (&:where([data-theme=light], [data-theme=light] *));
 
 /*
- * PALETA CRUDA
+ * Raw palette
  *
- * Estos son los pomos de pintura y no se usan directo en las páginas: cada
- * valor de acá entra al sitio a través de un token semántico de más abajo. Están
- * separados para poder cambiar un tono sin tener que cazar clases por el árbol.
- * Blanco, negro, grises; acentos rojo y verde agua. Los tres últimos salen del
- * arte de las skins de T1 que usa la portada de LIDE 2: acero azulado de las
- * armaduras, rojo profundo de las gemas y el blanco humo del fondo. El rojo
- * brillante del arte ya es, casi clavado, --color-brand-red.
+ * Not used directly in pages: each value reaches the site through a semantic
+ * token below, so a shade can change in one place. White, black and greys, with
+ * red and aqua accents. Steel, blood and smoke come from the tournament's hero
+ * artwork.
  */
 @theme {
   --color-ink-950: #0a0a0b;
@@ -44,13 +38,11 @@
   --color-brand-red-dim: #4a1119;
 
   /*
-   * Dos tonos por acento a propósito:
-   *   -aqua / -red         texto, bordes e íconos (contraste sobre fondo oscuro)
-   *   -aqua-fill / -red-fill  rellenos de barras y marcas
-   * Los -fill están dentro de la banda de luminosidad L 0.48-0.67 que pide el
-   * validador de paletas para superficies oscuras; el brillante glasea como
-   * relleno. Separación para daltonismo entre rojo y agua: ΔE 11.1 (deuteranopía),
-   * muy por encima del piso de 8.
+   * Two tones per accent:
+   *   -aqua / -red            text, borders and icons (contrast on dark)
+   *   -aqua-fill / -red-fill  bar and marker fills
+   * The fills sit in the lightness band L 0.48-0.67 suited to dark surfaces.
+   * Red and aqua stay distinguishable under deuteranopia (ΔE 11.1, above 8).
    */
   --color-brand-aqua: #2fdcae;
   --color-brand-aqua-fill: #19ad84;
@@ -66,11 +58,7 @@
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-archivo-black);
 
-  /*
-   * Esquinas al ras. El sitio esta lleno de `rounded-*` de antes; poniendo el
-   * radio en cero aca, todas se cuadran de una sola vez y se puede volver atras
-   * igual de rapido. Es el cambio que mas mueve la aguja hacia lo brutalista.
-   */
+  /* Square corners everywhere: every `rounded-*` utility resolves to 0. */
   --radius-xs: 0px;
   --radius-sm: 0px;
   --radius-md: 0px;
@@ -82,13 +70,11 @@
 }
 
 /*
- * MEDIDAS FIJAS
+ * Fixed bar heights
  *
- * La barra del sitio y la de secciones tienen alto declarado y no el que salga
- * del contenido. Eso es lo que le permite a la portada medir `100svh` menos las
- * dos y terminar justo en el pliegue: la barra de secciones queda apoyada abajo
- * de todo y no asoma media tarjeta del calendario debajo. Si alguna de las dos
- * cambia de alto, se cambia acá y la cuenta sigue cerrando sola.
+ * The site header and the section bar have declared heights so the home page
+ * hero can fill `100svh` minus both bars and end exactly at the fold. Change
+ * the heights here and the layout follows.
  */
 :root {
   --site-header: 3.875rem;
@@ -96,28 +82,20 @@
 }
 
 /*
- * DONDE FRENA UN ANCLA
+ * Anchor offset
  *
- * Las dos barras quedan fijas arriba, asi que un salto a #grupos lo dejaba
- * abajo de ellas: el titulo de la seccion tapado y la pagina aparentemente en
- * el lugar equivocado. Esto le dice al navegador que el borde de arriba del
- * scroll no es el borde de la ventana sino el de abajo de las barras, con medio
- * renglon de aire.
- *
- * Va aca y no como `scroll-mt` en cada seccion —que es como estaba, en seis
- * lugares con un 4rem escrito a mano— porque la cuenta es de las barras y ellas
- * se declaran arriba: si cambia el alto de una, esto se acomoda solo.
+ * Both bars stay pinned at the top, so anchor jumps (e.g. #grupos) stop below
+ * them, with half a line of space.
  */
 html {
   scroll-padding-top: calc(var(--site-header) + var(--section-nav) + 0.5rem);
 }
 
 /*
- * TEMA CLARO — humo tibio, no blanco puro
+ * Light theme: warm smoke rather than pure white
  *
- * El default declarado en <html> es el oscuro; esto vive en :root igual porque
- * es el estado base sobre el que el atributo data-theme=dark pisa. El gris del
- * fondo es un punto más oscuro que las tarjetas para que estas levanten.
+ * Defined on :root as the base state; data-theme="dark" overrides it. The
+ * canvas is a shade darker than the cards so cards stand out.
  */
 :root {
   color-scheme: light;
@@ -129,12 +107,9 @@ html {
   --line-strong: #b8b1aa;
 
   /*
-   * Los tres ultimos escalones se oscurecieron para llegar a AA (4.5:1) sobre
-   * las tres superficies del tema, y no solo sobre `surface`. Antes `faint`
-   * daba 4.35 sobre canvas y 3.98 sobre raised, y `dim` andaba en 2.6-3.2, o
-   * sea que el descargo legal del pie y los rotulos de las fichas no llegaban.
-   * El precio es que `faint` y `dim` quedaron cerca: abajo de `muted` ya no
-   * hay lugar para tres escalones que pasen. Ver el anexo de la auditoria.
+   * The lowest text steps meet AA (4.5:1) on all three surfaces, not only on
+   * `surface`. As a result `faint` and `dim` are close: below `muted` there is
+   * little room for three passing steps.
    */
   --fg: #17171b;
   --fg-soft: #3d3d46;
@@ -143,8 +118,8 @@ html {
   --dim: #66626b;
 
   /*
-   * El rojo de marca (#e11d2f) sobre fondo claro queda en 3.9:1, por debajo del
-   * piso de texto: para el tema claro se baja al borde del blood.
+   * The brand red (#e11d2f) is only 3.9:1 on light backgrounds, below the text
+   * minimum, so the light theme uses a darker red.
    */
   --accent: #b01021;
   --accent-soft: #d1152a;
@@ -168,9 +143,7 @@ html {
   --side-red-dim: #f2dcdd;
 }
 
-/*
- * TEMA OSCURO (el default del sitio)
- */
+/* Dark theme (the site default) */
 [data-theme='dark'] {
   color-scheme: dark;
 
@@ -180,7 +153,7 @@ html {
   --line: #1e1e23;
   --line-strong: #2b2b32;
 
-  /* Mismo reacomodo que en el tema claro, por el mismo motivo. */
+  /* Text steps adjusted for AA, as in the light theme. */
   --fg: #e9e9ee;
   --fg-soft: #b4b4bf;
   --muted: #9c9ca8;
@@ -191,10 +164,9 @@ html {
   --accent-soft: #ff7a86;
   --accent-strong: #e11d2f;
   /*
-   * Un punto mas oscuro que el #4a1119 de antes: el chip activo pinta `accent`
-   * sobre esto y quedaba en 4.46:1, apenas abajo del piso. Asi da 4.96. Lo
-   * comparten el fondo de las filas que clasifican y el degradado de la
-   * tarjeta de campeon, los dos con opacidad, donde el cambio no se nota.
+   * Dark enough for `accent` text on it (the active chip) to reach 4.96:1.
+   * Also used, with opacity, for qualifying rows and the champion card
+   * gradient.
    */
   --accent-dim: #3a0d13;
 
@@ -216,29 +188,25 @@ html {
 }
 
 /*
- * TOKENS SEMÁNTICOS
+ * Semantic tokens
  *
- * `inline` es lo que hace que el tema cambie de una: sin él Tailwind copia el
- * valor de la variable al momento de generar la utilidad y `bg-surface` queda
- * clavado en el color del tema claro. Con `inline`, la utilidad emite
- * `background-color: var(--surface)` y sigue lo que diga el data-theme vigente.
+ * `inline` makes utilities reference the variable (`background-color:
+ * var(--surface)`) instead of copying its value, so they follow the active
+ * data-theme.
  *
- *   canvas / surface           fondo de la página y de las tarjetas
- *   raised                     un escalón de contraste contra surface, para
- *                              chips, barras de fondo y placeholders: en el
- *                              tema oscuro aclara y en el claro oscurece,
- *                              que es como se separa una capa en cada uno
- *   line / line-strong          bordes y divisores
- *   fg / fg-soft / muted / faint / dim   texto, de más a menos importante
- *   win / loss                  resultado: rojo el que ganó, gris el que perdió
- *   ok                          confirmaciones (guardado, subido); no es "ganó"
- *   danger                      errores. Comparte el rojo con accent porque la
- *                               marca es roja; lo separa el nombre, para que se
- *                               pueda desacoplar sin cazar clases por el árbol
- *   accent                      links, hovers y foco
- *   side-blue / side-red        lado azul y lado rojo de la partida: no es
- *                               ganó/perdió sino de qué mitad del mapa salió,
- *                               así que sobrevive a la regla rojo/gris
+ *   canvas / surface         page and card backgrounds
+ *   raised                   one contrast step from surface, for chips, bar
+ *                            tracks and placeholders (lighter in dark theme,
+ *                            darker in light)
+ *   line / line-strong       borders and dividers
+ *   fg / fg-soft / muted / faint / dim   text, most to least important
+ *   win / loss               result: red for the winner, grey for the loser
+ *   ok                       confirmations (saved, uploaded), not "won"
+ *   danger                   errors. Shares the red with accent, but has its
+ *                            own name so it can diverge later
+ *   accent                   links, hovers and focus
+ *   side-blue / side-red     the map side a team played on, independent of the
+ *                            result
  */
 @theme inline {
   --color-canvas: var(--canvas);
@@ -274,10 +242,7 @@ html {
   --color-side-red-fill: var(--side-red-fill);
   --color-side-red-dim: var(--side-red-dim);
 
-  /*
-   * Sombra sin difuminar: un bloque proyecta otro bloque, corrido. Es lo que
-   * reemplaza al degradado suave de una sombra normal.
-   */
+  /* Unblurred offset shadow, used instead of soft shadows. */
   --shadow-hard: 4px 4px 0 0 var(--line-strong);
   --shadow-hard-accent: 4px 4px 0 0 var(--accent);
 }
@@ -289,20 +254,12 @@ body {
 }
 
 /*
- * EL FOCO, UNA VEZ Y PARA TODO
+ * Focus ring
  *
- * Los campos del sitio traian `outline-none` y como unico reemplazo un
- * `focus:border-accent`, o sea un borde de 1px que cambia de color: sobre el
- * fondo casi negro se ve apenas y no llega al 3:1 que pide WCAG para el area
- * de foco. Con teclado no habia forma de saber donde estabas parado, y el
- * formulario de login —la unica puerta al panel— era uno de los afectados.
- *
- * Va en `:where()` a proposito: la especificidad queda en cero, asi que
- * cualquier componente que necesite otra cosa la pisa con una clase suelta,
- * sin pelear con !important.
- *
- * Es `:focus-visible` y no `:focus` para que no aparezca al hacer clic con el
- * mouse, que es lo que hace que un contorno permanente moleste.
+ * One default for every interactive element, visible on the dark background
+ * (WCAG asks for 3:1 on the focus indicator). Wrapped in `:where()` so its
+ * specificity is zero and any component can override it with a class. Uses
+ * `:focus-visible` so it does not show on mouse clicks.
  */
 :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
   outline: 2px solid var(--accent);
@@ -310,38 +267,22 @@ body {
 }
 
 /*
- * LO QUE SOBRA CUANDO HAY JAVASCRIPT
+ * Hidden when JavaScript runs
  *
- * El filtro de equipos de /partidas es un `<form method="get">` con su boton
- * de enviar: asi anda sin JavaScript, que es la regla de todos los filtros del
- * sitio —el estado viaja en la URL y la pagina sigue siendo un componente de
- * servidor—. Con JavaScript el `<select>` navega solo al elegir, y ese boton
- * pasa a ser un clic de mas para hacer lo que ya paso.
- *
- * Se esconde con CSS y no con un `useEffect` que lo saque despues de hidratar:
- * asi no aparece y desaparece a los 300ms de cargar la pagina. La regla se
- * levanta desde un <style> dentro del <noscript> del layout, que el navegador
- * solo aplica cuando el scripting esta apagado.
- *
- * `revert` y no `inline-block`: devuelve el display que el navegador le da a
- * ese elemento, asi que sirve para cualquiera. Va sobre elementos que no
- * declaren su propio `display`.
+ * Filters are plain GET forms so they work without JavaScript. With JavaScript
+ * they apply as soon as a value is picked, so their submit button is hidden.
+ * CSS rather than a `useEffect`, so the button does not flash on load; a
+ * <style> inside the layout's <noscript> shows it again when scripting is off.
  */
 .sin-js {
   display: none;
 }
 
 /*
- * LO QUE SOLO SE DESCUBRE CON EL MOUSE
+ * Hover-only affordances on touch screens
  *
- * Dos afordancias del sitio viven en un `:hover`, y en un telefono el hover no
- * existe: la flecha de orden de las tablas —que es lo unico que dice que las
- * columnas se pueden ordenar— y el resaltado del fixture, donde el nombre del
- * equipo se ve igual que un texto muerto.
- *
- * `hover: none` es el puntero grueso sin hover, o sea el dedo. En un escritorio
- * con pantalla tactil pero mouse presente no aplica, que es lo correcto: ahi el
- * hover sigue estando.
+ * The sort arrows and the fixture's clickable team names are only revealed on
+ * hover. `hover: none` (touch without a mouse) keeps them visible.
  */
 @media (hover: none) {
   .flecha-orden {
@@ -355,10 +296,7 @@ body {
   }
 }
 
-/*
- * Titulares en la condensada, sin tener que acordarse de ponerla en cada uno.
- * Las excepciones se marcan con font-sans en el elemento.
- */
+/* Headings use the display font; opt out with font-sans on the element. */
 h1,
 h2,
 h3 {
@@ -366,53 +304,32 @@ h3 {
   letter-spacing: -0.02em;
 }
 
-/* Números de estadísticas: tabular para que las columnas no bailen. */
+/* Tabular figures so numbers line up in columns. */
 .tabular {
   font-variant-numeric: tabular-nums;
 }
 
 /*
- * LA COLUMNA POR LA QUE SE ESTÁ ORDENANDO
+ * Sorted column tint
  *
- * El encabezado de la columna activa ya se pinta de accent, pero eso se queda
- * arriba: apenas la vista baja a las filas, en una tabla de diez columnas y
- * cuarenta filas no hay forma de saber cuál de todas es la que manda el orden,
- * y hay que volver a subir a mirar la flecha. Con la columna teñida, el eje
- * que uno eligió se sigue viendo mientras se lee para abajo.
- *
- * Es un fondo y no un color de texto porque cada celda ya trae el suyo —el
- * daño va en fg-soft, el winrate parte en fg y parte en faint— y pintar el
- * texto desde afuera pintaría unas sí y otras no, según qué celda se hubiera
- * declarado un color. El fondo pasa por debajo de todas.
- *
- * Al 55% para que el hover de la fila siga leyéndose a través. Sobre el tinte,
- * `faint` —el texto más flojo que aparece en estas tablas— da 5.5:1 en oscuro
- * y 5.0:1 en claro, o sea que no baja de AA en ninguno de los dos.
- *
- * La primera columna nunca se tiñe: lleva su propio fondo porque queda fija al
- * hacer scroll lateral, y encima es el nombre de la fila, no una medida.
+ * Keeps the sort column visible while reading down a long table. A background
+ * rather than a text color, since cells already set their own text colors. At
+ * 55% so the row hover shows through; `faint` text on it still passes AA in
+ * both themes. The first column is never tinted: it is pinned with its own
+ * background.
  */
 .columna-orden {
   background-color: color-mix(in srgb, var(--accent-dim) 55%, transparent);
 }
 
 /*
- * "SIGUE PARA ALLÁ": la sombra del borde derecho de las tablas anchas.
+ * Right-edge shadow on wide tables
  *
- * La tabla de jugadores declara 64rem de ancho mínimo, o sea 1024px dentro de
- * los 390 de un teléfono. Como en mobile no se dibuja barra de scroll, no
- * quedaba ninguna señal de que hubiera catorce columnas y no tres.
- *
- * Son dos capas superpuestas sobre el mismo borde:
- *   - la TAPA va en `local`, así que viaja con el contenido; parada en el
- *     final del scroll queda justo encima de la sombra y la borra.
- *   - la SOMBRA va en `scroll`, o sea clavada al borde de la caja.
- * Mientras quede tabla para la derecha, la tapa está más allá y la sombra se
- * ve; al llegar al final, la tapa la alcanza y la sombra desaparece sola. Sin
- * una línea de JavaScript ni un listener de scroll.
- *
- * El borde izquierdo no lleva nada porque ahí está la primera columna, que es
- * `sticky` y siempre se ve: no hay nada escondido de ese lado.
+ * Phones draw no scrollbar, so this signals that the table continues. Two
+ * background layers: the cover (`local`) scrolls with the content and the
+ * shadow (`scroll`) stays at the edge; once the end is reached the cover hides
+ * the shadow. No JavaScript involved. The left edge needs none because the
+ * first column is sticky.
  */
 .tabla-scroll {
   background-image:
@@ -431,12 +348,8 @@ h3 {
 }
 
 /*
- * La tira de universidades de la portada. Recorre media pista y vuelve a cero:
- * como la lista esta dos veces, en ese punto la segunda copia quedo exactamente
- * donde arrancaba la primera y el salto no se ve.
- *
- * Solo se usa dentro de `motion-safe:`, asi que con prefers-reduced-motion la
- * tira no se mueve y queda como una fila que se arrastra a mano.
+ * Home page university strip. The list is rendered twice, so moving it by 50%
+ * loops seamlessly. Only used under `motion-safe:`.
  */
 @keyframes tira {
   from { transform: translateX(0); }
@@ -444,14 +357,8 @@ h3 {
 }
 
 /*
- * El cambio de fecha en el fixture. El panel nuevo entra desde el lado hacia el
- * que se avanza: yendo a la fecha siguiente aparece por la derecha y se acomoda
- * hacia la izquierda.
- *
- * Se desplaza poco (6%) y no una pantalla entera: los paneles estan apilados en
- * el mismo lugar, asi que no hay nada que "venga viajando" desde afuera; el
- * corrimiento corto mas el fundido alcanzan para que se lea como un cambio de
- * pagina sin que parezca que algo se cayo. Solo se usa dentro de motion-safe.
+ * Fixture matchday change: the new panel slides in a short distance from the
+ * direction of travel while fading in. Only used under `motion-safe:`.
  */
 @keyframes entra-izq {
   from { transform: translateX(6%); opacity: 0; }

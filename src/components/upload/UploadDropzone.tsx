@@ -7,7 +7,7 @@ import { MAX_REPLAY_BYTES } from '@/lib/env'
 import { createClient } from '@/lib/supabase/client'
 
 const MAX_MB = MAX_REPLAY_BYTES / 1024 / 1024
-/** Two in parallel: they are 12-17 MB files, more speeds nothing up. */
+/** Two uploads at a time: files are 12-17 MB, and more in parallel does not help. */
 const CONCURRENCY = 2
 
 type Status = 'pending' | 'hashing' | 'uploading' | 'parsing' | 'done' | 'duplicate' | 'error'
@@ -176,7 +176,7 @@ export function UploadDropzone() {
       setBusy(true)
       const queue = [...accepted]
 
-      // One file per request: when one fails, the rest of the batch goes on.
+      // One file per request, so a failure does not stop the rest of the batch.
       await Promise.all(
         Array.from({ length: Math.min(CONCURRENCY, queue.length) }, async () => {
           for (let next = queue.shift(); next; next = queue.shift()) {
@@ -246,8 +246,8 @@ export function UploadDropzone() {
           </div>
 
           {/*
-            Subir no alcanza: hasta que no se diga de qué cruce es cada replay,
-            la partida no tiene equipos ni fecha y no aparece en ningún lado.
+            Uploading is not enough: until each replay is assigned to its matchup,
+            the match has no teams or matchday and appears nowhere.
           */}
           {!busy && done > 0 && (
             <Link

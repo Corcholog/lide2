@@ -1,20 +1,10 @@
 /**
- * The Twitch and Discord marks, for the links that lead there.
+ * Twitch and Discord marks for the links that lead there.
  *
- * They ride on `currentColor` and not on each brand's purple and blue. Those
- * are two strong colours with nothing to do with the palette - the site is red
- * on near-black - and above all they would break the hover: the home page's
- * buttons turn `accent` on hover and an icon nailed to its brand colour would
- * stay behind, as if it were not part of the button. Inheriting the colour,
- * both follow along.
- *
- * The paths are each brand's official ones, on the 24 grid both use. They are
- * drawn by hand and not with an icon library: there are two of them, and
- * pulling in a whole package for that would be tens of kilobytes for the
- * visitor.
- *
- * `aria-hidden` on both: the name is always written beside them, so a screen
- * reader announcing them would say everything twice.
+ * They use `currentColor` rather than brand colors, so they match the palette
+ * and follow the buttons' hover color. Official paths on a 24px grid, drawn
+ * inline instead of adding an icon library for two icons. `aria-hidden`
+ * because the link text already names the destination.
  */
 
 function BrandMark({ path, className }: { path: string; className: string }) {
