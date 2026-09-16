@@ -3,7 +3,7 @@ import { championIndex, resolveChampion } from '../src/lib/champions/catalog'
 import { championKey, championLoading, roflKey } from '../src/lib/ddragon'
 
 /** A slice of ddragon's catalogue, with the most commonly misspelled names. */
-const CATALOGO = [
+const CATALOG = [
   { key: 'MonkeyKing', name: 'Wukong' },
   { key: 'Kaisa', name: "Kai'Sa" },
   { key: 'DrMundo', name: 'Dr. Mundo' },
@@ -13,7 +13,7 @@ const CATALOGO = [
   { key: 'Ahri', name: 'Ahri' },
 ]
 
-const index = championIndex(CATALOGO)
+const index = championIndex(CATALOG)
 
 describe('resolveChampion', () => {
   it('finds by the name that is shown', () => {
@@ -48,7 +48,7 @@ describe('resolveChampion', () => {
   })
 
   it('returns null for a champion that does not exist', () => {
-    expect(resolveChampion(index, 'Chamuyo')).toBeNull()
+    expect(resolveChampion(index, 'NotAChampion')).toBeNull()
   })
 
   it('returns null for an empty field', () => {

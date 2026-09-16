@@ -66,7 +66,7 @@ describe('assigning matches to the fixture', () => {
     await db?.close()
   })
 
-  async function subir(options: {
+  async function upload(options: {
     blue: string[]
     red: string[]
     winner?: 'blue' | 'red'
@@ -93,7 +93,7 @@ describe('assigning matches to the fixture', () => {
   }
 
   it('a freshly uploaded match shows up in the queue with no teams', async () => {
-    const matchId = await subir({ blue: A, red: B })
+    const matchId = await upload({ blue: A, red: B })
 
     const { rows } = await db.query<{
       match_id: string
@@ -109,7 +109,7 @@ describe('assigning matches to the fixture', () => {
   })
 
   it('assigning the matchup teaches the roster and completes the match', async () => {
-    const matchId = await subir({ blue: A, red: B })
+    const matchId = await upload({ blue: A, red: B })
     const result = await assign(matchId, matchupM1, team01)
 
     expect(result.ok).toBe(true)
@@ -142,12 +142,12 @@ describe('assigning matches to the fixture', () => {
     expect(Number(roster.rows[0].n)).toBe(5)
 
     // And it leaves the queue.
-    const cola = await db.query('select 1 from public.unassigned_matches')
-    expect(cola.rows).toHaveLength(0)
+    const queue = await db.query('select 1 from public.unassigned_matches')
+    expect(queue.rows).toHaveLength(0)
   })
 
   it('the table and the stats find out on their own', async () => {
-    const matchId = await subir({ blue: A, red: B })
+    const matchId = await upload({ blue: A, red: B })
     await assign(matchId, matchupM1, team01)
 
     const standings = await db.query<{ team_name: string; games: number; wins: number }>(
@@ -175,43 +175,43 @@ describe('assigning matches to the fixture', () => {
   })
 
   it('with the roster already learned, the second matchday needs no telling', async () => {
-    await assign(await subir({ blue: A, red: B }), matchupM1, team01)
+    await assign(await upload({ blue: A, red: B }), matchupM1, team01)
 
     // Matchday 2: the same teams, with their sides swapped.
-    const segunda = await subir({ blue: B, red: A, playedAt: '2026-09-12T17:00:00Z' })
+    const second = await upload({ blue: B, red: A, playedAt: '2026-09-12T17:00:00Z' })
 
-    const cola = await db.query<{ blue_guess: string; red_guess: string }>(
+    const queue = await db.query<{ blue_guess: string; red_guess: string }>(
       'select blue_guess, red_guess from public.unassigned_matches',
     )
-    expect(cola.rows[0]).toMatchObject({ blue_guess: team15, red_guess: team01 })
+    expect(queue.rows[0]).toMatchObject({ blue_guess: team15, red_guess: team01 })
 
     // With no third argument: the orientation is deduced.
-    const result = await assign(segunda, matchupM2)
+    const result = await assign(second, matchupM2)
     expect(result.ok).toBe(true)
     expect(result.blue_team_id).toBe(team15)
     expect(result.learned).toBe(0)
   })
 
   it('a matchup that team does not play cannot be assigned', async () => {
-    const otro = await db.query<{ id: string }>(
+    const other = await db.query<{ id: string }>(
       `insert into public.teams (tournament_id, name, group_label)
        values ($1, 'Equipo 07', 'Grupo A') returning id`,
       [tournamentId],
     )
 
-    const result = await assign(await subir({ blue: A, red: B }), matchupM1, otro.rows[0].id)
+    const result = await assign(await upload({ blue: A, red: B }), matchupM1, other.rows[0].id)
     expect(result.ok).toBe(false)
     expect(result.error).toMatch(/no juega/i)
   })
 
   it('with no roster and no orientation, it asks instead of inventing', async () => {
-    const result = await assign(await subir({ blue: A, red: B }), matchupM1)
+    const result = await assign(await upload({ blue: A, red: B }), matchupM1)
     expect(result.ok).toBe(false)
     expect(result.error).toMatch(/azul/i)
   })
 
   it('reassigning to another matchup frees the previous one', async () => {
-    const matchId = await subir({ blue: A, red: B })
+    const matchId = await upload({ blue: A, red: B })
     await assign(matchId, matchupM1, team01)
     await assign(matchId, matchupM2, team01)
 
@@ -222,18 +222,18 @@ describe('assigning matches to the fixture', () => {
   })
 
   it('a player who already has a team is not moved on its own: it is reported', async () => {
-    await assign(await subir({ blue: A, red: B }), matchupM1, team01)
+    await assign(await upload({ blue: A, red: B }), matchupM1, team01)
 
     // a1, who belongs to team 01, shows up playing ON team 15's SIDE. Either
     // the match is misassigned or somebody is playing where they should not:
     // both are for a person to look at, not to be settled by silently moving
     // them between teams.
-    const segunda = await subir({
+    const second = await upload({
       blue: ['a1', 'b2', 'b3', 'b4', 'b5'],
       red: ['c1', 'c2', 'c3', 'c4', 'c5'],
       playedAt: '2026-09-12T17:00:00Z',
     })
-    const result = await assign(segunda, matchupM2, team15)
+    const result = await assign(second, matchupM2, team15)
 
     expect(result.ok).toBe(true)
     expect(result.conflicts).toEqual(['a1'])
@@ -248,7 +248,7 @@ describe('assigning matches to the fixture', () => {
   })
 
   it('unassigning frees the match but does not erase what was learned', async () => {
-    const matchId = await subir({ blue: A, red: B })
+    const matchId = await upload({ blue: A, red: B })
     await assign(matchId, matchupM1, team01)
 
     await db.query('select public.unassign_match($1)', [matchId])

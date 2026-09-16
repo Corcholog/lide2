@@ -24,7 +24,7 @@ import { playScoreboard } from './helpers/matches'
  * scoreboard, the match in the listing - is checked just as hard.
  */
 
-interface Resultado {
+interface Result {
   ok: boolean
   error?: string
   cleared?: boolean
@@ -46,8 +46,8 @@ describe('a result overturned by the rulebook', () => {
   let db: PGlite
   let tournamentId: string
   const team = new Map<string, string>()
-  const cruce = new Map<string, string>()
-  const partida = new Map<string, string>()
+  const matchupIds = new Map<string, string>()
+  const matchIds = new Map<string, string>()
 
   beforeEach(async () => {
     db = await createTestDb()
@@ -80,14 +80,14 @@ describe('a result overturned by the rulebook', () => {
          values ($1, 'Grupo D', $2, 1, '2026-09-12T17:00:00Z', $3, $4) returning id`,
         [tournamentId, matchday, team.get(a), team.get(b)],
       )
-      cruce.set(`${a} vs ${b}`, rows[0].id)
+      matchupIds.set(`${a} vs ${b}`, rows[0].id)
     }
   }, 60_000)
 
   afterEach(async () => {
     team.clear()
-    cruce.clear()
-    partida.clear()
+    matchupIds.clear()
+    matchIds.clear()
     await db?.close()
   })
 
@@ -98,7 +98,7 @@ describe('a result overturned by the rulebook', () => {
    * 5-5-5-4-4. The champion of the top laner is one per match, so a champion
    * that only exists in the annulled match can be looked for by name.
    */
-  async function jugar(matchup: string, kills: [number, number], topChampion: string) {
+  async function play(matchup: string, kills: [number, number], topChampion: string) {
     const [a, b] = matchup.split(' vs ')
     const spread = (total: number) => {
       const base = Math.floor(total / 5)
@@ -125,21 +125,21 @@ describe('a result overturned by the rulebook', () => {
 
     await db.query(`update public.fixtures set match_id = $1 where id = $2`, [
       matchId,
-      cruce.get(matchup),
+      matchupIds.get(matchup),
     ])
-    partida.set(matchup, matchId)
+    matchIds.set(matchup, matchId)
     return matchId
   }
 
-  async function fallo(matchup: string, winner: string | null, ruling = 'alineacion_indebida') {
-    const { rows } = await db.query<{ set_fixture_ruling: Resultado }>(
+  async function rule(matchup: string, winner: string | null, ruling = 'alineacion_indebida') {
+    const { rows } = await db.query<{ set_fixture_ruling: Result }>(
       'select public.set_fixture_ruling($1, $2, $3)',
-      [cruce.get(matchup), winner ? team.get(winner) : null, ruling],
+      [matchupIds.get(matchup), winner ? team.get(winner) : null, ruling],
     )
     return rows[0].set_fixture_ruling
   }
 
-  async function tabla(): Promise<Map<string, StandingRow>> {
+  async function standings(): Promise<Map<string, StandingRow>> {
     const { rows } = await db.query<StandingRow>(
       `select team_name, games::int, wins::int, losses::int, kill_diff::int, position::int
          from public.group_standings where tournament_id = $1`,
@@ -155,16 +155,16 @@ describe('a result overturned by the rulebook', () => {
 
   describe('the table', () => {
     it('before the ruling, it has the result that was played', async () => {
-      await jugar('Equipo 06 vs Equipo 17', [23, 25], 'Camille')
+      await play('Equipo 06 vs Equipo 17', [23, 25], 'Camille')
 
-      const rows = await tabla()
+      const rows = await standings()
       expect(rows.get('Equipo 17')).toMatchObject({ wins: 1, losses: 0 })
       expect(rows.get('Equipo 06')).toMatchObject({ wins: 0, losses: 1 })
     })
 
     it('after it, the win changes hands and each side has played ONE game', async () => {
-      await jugar('Equipo 06 vs Equipo 17', [23, 25], 'Camille')
-      const result = await fallo('Equipo 06 vs Equipo 17', 'Equipo 06')
+      await play('Equipo 06 vs Equipo 17', [23, 25], 'Camille')
+      const result = await rule('Equipo 06 vs Equipo 17', 'Equipo 06')
 
       expect(result).toMatchObject({
         ok: true,
@@ -173,17 +173,17 @@ describe('a result overturned by the rulebook', () => {
         annulled_match: true,
       })
 
-      const rows = await tabla()
+      const rows = await standings()
       // Not two games each: the played result is gone, not added to.
       expect(rows.get('Equipo 06')).toMatchObject({ games: 1, wins: 1, losses: 0 })
       expect(rows.get('Equipo 17')).toMatchObject({ games: 1, wins: 0, losses: 1 })
     })
 
     it('carries no kills from the annulled match', async () => {
-      await jugar('Equipo 06 vs Equipo 17', [23, 25], 'Camille')
-      await fallo('Equipo 06 vs Equipo 17', 'Equipo 06')
+      await play('Equipo 06 vs Equipo 17', [23, 25], 'Camille')
+      await rule('Equipo 06 vs Equipo 17', 'Equipo 06')
 
-      const rows = await tabla()
+      const rows = await standings()
       expect(rows.get('Equipo 06')?.kill_diff).toBe(0)
       expect(rows.get('Equipo 17')?.kill_diff).toBe(0)
     })
@@ -194,32 +194,32 @@ describe('a result overturned by the rulebook', () => {
        * on kill difference 17 is far ahead. The game between them - the one
        * the organizers gave to 06 - is what puts 06 above.
        */
-      await jugar('Equipo 06 vs Equipo 17', [23, 25], 'Camille')
-      await jugar('Equipo 17 vs Equipo 11', [30, 2], 'Garen')
-      await jugar('Equipo 06 vs Equipo 14', [2, 30], 'Darius')
-      await fallo('Equipo 06 vs Equipo 17', 'Equipo 06')
+      await play('Equipo 06 vs Equipo 17', [23, 25], 'Camille')
+      await play('Equipo 17 vs Equipo 11', [30, 2], 'Garen')
+      await play('Equipo 06 vs Equipo 14', [2, 30], 'Darius')
+      await rule('Equipo 06 vs Equipo 17', 'Equipo 06')
 
-      const rows = await tabla()
-      const seis = rows.get('Equipo 06')!
-      const diecisiete = rows.get('Equipo 17')!
+      const rows = await standings()
+      const six = rows.get('Equipo 06')!
+      const seventeen = rows.get('Equipo 17')!
 
-      expect([seis.wins, seis.losses]).toEqual([1, 1])
-      expect([diecisiete.wins, diecisiete.losses]).toEqual([1, 1])
-      expect(diecisiete.kill_diff).toBeGreaterThan(seis.kill_diff)
-      expect(seis.position).toBeLessThan(diecisiete.position)
+      expect([six.wins, six.losses]).toEqual([1, 1])
+      expect([seventeen.wins, seventeen.losses]).toEqual([1, 1])
+      expect(seventeen.kill_diff).toBeGreaterThan(six.kill_diff)
+      expect(six.position).toBeLessThan(seventeen.position)
     })
   })
 
   describe('the fixture', () => {
     it('names the ruling instead of a scoreline', async () => {
-      await jugar('Equipo 06 vs Equipo 17', [23, 25], 'Camille')
-      await fallo('Equipo 06 vs Equipo 17', 'Equipo 06')
+      await play('Equipo 06 vs Equipo 17', [23, 25], 'Camille')
+      await rule('Equipo 06 vs Equipo 17', 'Equipo 06')
 
       const { rows } = await db.query(
         `select status, winner_team_id, team_a_win, team_b_win, team_a_kills, team_b_kills,
                 ruling, match_id, walkover_team_id
            from public.fixture_results where id = $1`,
-        [cruce.get('Equipo 06 vs Equipo 17')],
+        [matchupIds.get('Equipo 06 vs Equipo 17')],
       )
 
       expect(rows[0]).toMatchObject({
@@ -232,7 +232,7 @@ describe('a result overturned by the rulebook', () => {
         team_b_kills: null,
         ruling: 'alineacion_indebida',
         // It is still the match that was played: nothing got unhooked.
-        match_id: partida.get('Equipo 06 vs Equipo 17'),
+        match_id: matchIds.get('Equipo 06 vs Equipo 17'),
         walkover_team_id: null,
       })
     })
@@ -245,12 +245,12 @@ describe('a result overturned by the rulebook', () => {
      * on the site built from a match that does not count.
      */
     beforeEach(async () => {
-      await jugar('Equipo 06 vs Equipo 17', [23, 25], 'Camille')
-      await jugar('Equipo 11 vs Equipo 14', [10, 12], 'Garen')
-      await fallo('Equipo 06 vs Equipo 17', 'Equipo 06')
+      await play('Equipo 06 vs Equipo 17', [23, 25], 'Camille')
+      await play('Equipo 11 vs Equipo 14', [10, 12], 'Garen')
+      await rule('Equipo 06 vs Equipo 17', 'Equipo 06')
     })
 
-    const annulled = () => partida.get('Equipo 06 vs Equipo 17')
+    const annulled = () => matchIds.get('Equipo 06 vs Equipo 17')
 
     it('marks the match as annulled, in one place', async () => {
       expect(
@@ -305,7 +305,7 @@ describe('a result overturned by the rulebook', () => {
     })
 
     it('does not touch the match that was played fairly', async () => {
-      const fair = partida.get('Equipo 11 vs Equipo 14')
+      const fair = matchIds.get('Equipo 11 vs Equipo 14')
 
       expect(
         await count(`select count(*) as n from public.player_match_stats where match_id = $1`, [fair]),
@@ -338,13 +338,13 @@ describe('a result overturned by the rulebook', () => {
 
   describe('undoing it', () => {
     it('gives back the played result and its statistics', async () => {
-      await jugar('Equipo 06 vs Equipo 17', [23, 25], 'Camille')
-      await fallo('Equipo 06 vs Equipo 17', 'Equipo 06')
-      const result = await fallo('Equipo 06 vs Equipo 17', null)
+      await play('Equipo 06 vs Equipo 17', [23, 25], 'Camille')
+      await rule('Equipo 06 vs Equipo 17', 'Equipo 06')
+      const result = await rule('Equipo 06 vs Equipo 17', null)
 
       expect(result).toMatchObject({ ok: true, cleared: true })
 
-      const rows = await tabla()
+      const rows = await standings()
       expect(rows.get('Equipo 17')).toMatchObject({ games: 1, wins: 1, losses: 0 })
       expect(
         await count(`select count(*) as n from public.champion_meta where champion = 'Camille'`),
@@ -354,15 +354,15 @@ describe('a result overturned by the rulebook', () => {
 
   describe('what it refuses', () => {
     it('a team that does not play the matchup', async () => {
-      await jugar('Equipo 06 vs Equipo 17', [23, 25], 'Camille')
-      const result = await fallo('Equipo 06 vs Equipo 17', 'Equipo 11')
+      await play('Equipo 06 vs Equipo 17', [23, 25], 'Camille')
+      const result = await rule('Equipo 06 vs Equipo 17', 'Equipo 11')
 
       expect(result).toMatchObject({ ok: false, error: 'Ese equipo no juega este cruce.' })
     })
 
     it('a reason the site has no name for', async () => {
-      await jugar('Equipo 06 vs Equipo 17', [23, 25], 'Camille')
-      const result = await fallo('Equipo 06 vs Equipo 17', 'Equipo 06', 'porque si')
+      await play('Equipo 06 vs Equipo 17', [23, 25], 'Camille')
+      const result = await rule('Equipo 06 vs Equipo 17', 'Equipo 06', 'unknown_reason')
 
       expect(result).toMatchObject({ ok: false, error: 'Ese motivo no existe.' })
     })
@@ -370,9 +370,9 @@ describe('a result overturned by the rulebook', () => {
     it('a matchup already awarded as a walkover', async () => {
       await db.query(`update public.fixtures set walkover_team_id = $1 where id = $2`, [
         team.get('Equipo 11'),
-        cruce.get('Equipo 11 vs Equipo 14'),
+        matchupIds.get('Equipo 11 vs Equipo 14'),
       ])
-      const result = await fallo('Equipo 11 vs Equipo 14', 'Equipo 14')
+      const result = await rule('Equipo 11 vs Equipo 14', 'Equipo 14')
 
       expect(result.ok).toBe(false)
     })
@@ -384,7 +384,7 @@ describe('a result overturned by the rulebook', () => {
               set walkover_team_id = team_a_id, ruling_winner_team_id = team_b_id,
                   ruling = 'alineacion_indebida'
             where id = $1`,
-          [cruce.get('Equipo 11 vs Equipo 14')],
+          [matchupIds.get('Equipo 11 vs Equipo 14')],
         ),
       ).rejects.toThrow(/fixtures_ruling_or_walkover/)
     })
@@ -393,7 +393,7 @@ describe('a result overturned by the rulebook', () => {
       await db.exec('set role anon')
       try {
         await expect(
-          db.query(`select public.set_fixture_ruling($1, null)`, [cruce.get('Equipo 06 vs Equipo 17')]),
+          db.query(`select public.set_fixture_ruling($1, null)`, [matchupIds.get('Equipo 06 vs Equipo 17')]),
         ).rejects.toThrow(/permission denied|permiso denegado/i)
       } finally {
         await db.exec('reset role')

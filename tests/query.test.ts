@@ -30,7 +30,7 @@ describe('reading a query', () => {
     expect(rows({ data: [{ id: 1 }], error: null }, 'the matches')).toEqual([{ id: 1 }])
   })
 
-  it('an error blows up instead of returning empty', () => {
+  it('an error throws instead of returning empty', () => {
     expect(() => rows({ data: null, error: failure }, 'the matches')).toThrow(
       /Could not read the matches/,
     )
@@ -49,7 +49,7 @@ describe('reading a query', () => {
     }
   })
 
-  it('blows up even when data arrived: after an error the data is not trustworthy', () => {
+  it('throws even when data arrived: after an error the data is not trustworthy', () => {
     expect(() => rows({ data: [{ id: 1 }], error: failure }, 'the matches')).toThrow()
   })
 })

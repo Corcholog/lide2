@@ -35,7 +35,7 @@ import { playScoreboard } from './helpers/matches'
  * The dates are left as the protocol's raw text instead of ISO. It is enough
  * for the only thing done with them here, which is comparing to break ties.
  */
-const COMO_POSTGREST = {
+const AS_POSTGREST = {
   20: Number,
   700: Number,
   701: Number,
@@ -65,7 +65,7 @@ async function loadFromDb(db: PGlite, scope: StatScope): Promise<StatsData> {
   // concurrent queries hang without an error. In production it is six parallel
   // trips to Postgres, which does cope.
   const view = async <T>(name: string) =>
-    (await db.query<T>(`select * from public.${name} where ${where}`, params, { parsers: COMO_POSTGREST }))
+    (await db.query<T>(`select * from public.${name} where ${where}`, params, { parsers: AS_POSTGREST }))
       .rows
 
   const recordsWhere = total
@@ -80,7 +80,7 @@ async function loadFromDb(db: PGlite, scope: StatScope): Promise<StatsData> {
   const records = await db.query<MatchRecordRow>(
     `select * from public.match_records where ${recordsWhere}`,
     params,
-    { parsers: COMO_POSTGREST },
+    { parsers: AS_POSTGREST },
   )
 
   return { scope, players, teams, universities, champions, records: records.rows, mvp }
@@ -90,7 +90,7 @@ async function standingsFromDb(db: PGlite, tournamentId: string): Promise<GroupS
   const { rows } = await db.query<GroupStandingRow>(
     'select * from public.group_standings where tournament_id = $1 order by position',
     [tournamentId],
-    { parsers: COMO_POSTGREST },
+    { parsers: AS_POSTGREST },
   )
   return rows
 }
@@ -202,12 +202,12 @@ describe("the matchday's numbers", () => {
       }),
     )!
 
-    const larga = block.rows.find((row) => row.id === 'mas-larga')!
-    const corta = block.rows.find((row) => row.id === 'mas-corta')!
+    const longest = block.rows.find((row) => row.id === 'mas-larga')!
+    const shortest = block.rows.find((row) => row.id === 'mas-corta')!
 
-    expect(larga.display).toBe('45:00')
-    expect(larga.subtitle).toBe('Equipo 01 vs Equipo 12')
-    expect(corta.display).toBe('15:00')
+    expect(longest.display).toBe('45:00')
+    expect(longest.subtitle).toBe('Equipo 01 vs Equipo 12')
+    expect(shortest.display).toBe('15:00')
   })
 
   it('with a single match it does not repeat it as both longest and shortest', () => {
@@ -438,8 +438,8 @@ describe('the batch against the real database', () => {
        returning id, name`,
       [tournamentId, university.rows[0].id],
     )
-    const uno = teams.rows.find((row) => row.name === 'Equipo 01')!.id
-    const siete = teams.rows.find((row) => row.name === 'Equipo 07')!.id
+    const one = teams.rows.find((row) => row.name === 'Equipo 01')!.id
+    const seven = teams.rows.find((row) => row.name === 'Equipo 07')!.id
 
     // Two matchdays, so the total differs from a single matchday's scope.
     for (const matchday of [1, 2]) {
@@ -448,7 +448,7 @@ describe('the batch against the real database', () => {
            (tournament_id, group_label, matchday, slot, kickoff, team_a_id, team_b_id)
          values ($1, 'Grupo A', $2, 1, '2026-09-05T17:00:00Z', $3, $4)
          returning id`,
-        [tournamentId, matchday, uno, siete],
+        [tournamentId, matchday, one, seven],
       )
 
       const matchId = await playScoreboard(db, {
@@ -477,7 +477,7 @@ describe('the batch against the real database', () => {
       await db.query('select public.assign_match_to_fixture($1, $2, $3)', [
         matchId,
         fixture.rows[0].id,
-        uno,
+        one,
       ])
     }
   }, 60_000)

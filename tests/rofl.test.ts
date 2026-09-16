@@ -147,7 +147,7 @@ describe('real anonymized replay (patch 16.12)', () => {
     { rofl: 'E1vsE2-B-LEIF8-FECHA3', fileName: 'E1vsE2-B-LEIF8-FECHA3.rofl' },
   ]
 
-  it.each(fixtures)('$rofl coincide con el snapshot normalizado', async ({ rofl, fileName }) => {
+  it.each(fixtures)('$rofl matches its normalized snapshot', async ({ rofl, fileName }) => {
     const source = await fileSource(`fixtures/${rofl}.fixture.rofl`)
     try {
       const match = normalizeMatch(await parseRofl(source), { fileName })

@@ -275,19 +275,19 @@ describe('stats', () => {
     })
 
     it('the MVP takes in whoever played, in both cuts', async () => {
-      const min = await db.query<{ total: string; fecha: string }>(
-        `select public.mvp_min_games(true) as total, public.mvp_min_games(false) as fecha`,
+      const min = await db.query<{ total: string; matchday: string }>(
+        `select public.mvp_min_games(true) as total, public.mvp_min_games(false) as matchday`,
       )
 
       expect(Number(min.rows[0].total)).toBe(1)
-      expect(Number(min.rows[0].fecha)).toBe(1)
+      expect(Number(min.rows[0].matchday)).toBe(1)
 
       const matchdayRow = await db.query<{ n: string }>(
         `select count(*) as n from public.tournament_mvp
           where tournament_id = $1 and not is_total and matchday = 1`,
         [tournamentId],
       )
-      const fase = await db.query<{ n: string }>(
+      const phaseRows = await db.query<{ n: string }>(
         `select count(*) as n from public.tournament_mvp where tournament_id = $1 and is_total`,
         [tournamentId],
       )
@@ -298,7 +298,7 @@ describe('stats', () => {
       // card did not exist until the tournament was nearly over. See
       // 0026_minimo_una_partida.sql.
       expect(Number(matchdayRow.rows[0].n)).toBe(10)
-      expect(Number(fase.rows[0].n)).toBe(10)
+      expect(Number(phaseRows.rows[0].n)).toBe(10)
     })
   })
 
@@ -386,7 +386,7 @@ describe('stats', () => {
       expect(Number(rows[0].presence)).toBe(1)
     })
 
-    it('los records salen del recorte que se pida', async () => {
+    it('the records come from the requested scope', async () => {
       const { rows } = await db.query<{
         matchday: number
         total_kills: number

@@ -90,7 +90,7 @@ describe('roster matching', () => {
   })
 
   /** Team 15's five play, with these Riot IDs. */
-  async function jugar(nicks: [string, string | null][]): Promise<string> {
+  async function play(nicks: [string, string | null][]): Promise<string> {
     const matchId = await playScoreboard(db, {
       winner: 'blue',
       blue: nicks.map(([name], i) => ({ puuid: `p-${i}-${name}`, kills: 2, deaths: 1, assists: 3 })),
@@ -115,7 +115,7 @@ describe('roster matching', () => {
     return rows[0].assign_match_to_fixture
   }
 
-  async function declarar(name: string, gameName: string, tag: string | null) {
+  async function declare(name: string, gameName: string, tag: string | null) {
     await db.query(
       `update public.team_roster set riot_game_name = $1, riot_tag_line = $2 where id = $3`,
       [gameName, tag, roster.get(name)],
@@ -123,16 +123,16 @@ describe('roster matching', () => {
   }
 
   it('the declared Riot ID can be entered before they play and resolves itself', async () => {
-    await declarar('Dario Ferro', 'DarioFerro', 'LAN')
-    await declarar('Gregorio Aguilar', 'ElGoyo', 'ARG1')
+    await declare('Dario Ferro', 'DarioFerro', 'LAN')
+    await declare('Gregorio Aguilar', 'ElGoyo', 'ARG1')
 
     // Nobody has played yet: there is nothing to match.
-    const antes = await db.query<{ link_roster_accounts: number }>(
+    const before = await db.query<{ link_roster_accounts: number }>(
       'select public.link_roster_accounts(null)',
     )
-    expect(Number(antes.rows[0].link_roster_accounts)).toBe(0)
+    expect(Number(before.rows[0].link_roster_accounts)).toBe(0)
 
-    const matchId = await jugar([
+    const matchId = await play([
       ['DarioFerro', 'LAN'],
       ['Alexis', 'LAS'],
       ['Tere', 'LAN'],
@@ -155,9 +155,9 @@ describe('roster matching', () => {
   })
 
   it('matching moves the stats to the right university', async () => {
-    await declarar('Gregorio Aguilar', 'ElGoyo', 'ARG1')
+    await declare('Gregorio Aguilar', 'ElGoyo', 'ARG1')
 
-    const matchId = await jugar([
+    const matchId = await play([
       ['DarioFerro', 'LAN'],
       ['Alexis', 'LAS'],
       ['Tere', 'LAN'],
@@ -179,9 +179,9 @@ describe('roster matching', () => {
   })
 
   it("with no tag it searches only among the team's accounts", async () => {
-    await declarar('Dario Ferro', 'DarioFerro', null)
+    await declare('Dario Ferro', 'DarioFerro', null)
 
-    const matchId = await jugar([
+    const matchId = await play([
       ['DarioFerro', 'LAN'],
       ['Alexis', 'LAS'],
       ['Tere', 'LAN'],
@@ -194,9 +194,9 @@ describe('roster matching', () => {
   })
 
   it('a declared nick nobody used matches nobody', async () => {
-    await declarar('Dario Ferro', 'NickViejo', 'LAN')
+    await declare('Dario Ferro', 'NickViejo', 'LAN')
 
-    const matchId = await jugar([
+    const matchId = await play([
       ['DarioFerro', 'LAN'],
       ['Alexis', 'LAS'],
       ['Tere', 'LAN'],
@@ -216,10 +216,10 @@ describe('roster matching', () => {
   })
 
   it('two signups cannot take the same account', async () => {
-    await declarar('Dario Ferro', 'DarioFerro', 'LAN')
-    await declarar('Gregorio Aguilar', 'DarioFerro', 'LAN')
+    await declare('Dario Ferro', 'DarioFerro', 'LAN')
+    await declare('Gregorio Aguilar', 'DarioFerro', 'LAN')
 
-    const matchId = await jugar([
+    const matchId = await play([
       ['DarioFerro', 'LAN'],
       ['Alexis', 'LAS'],
       ['Tere', 'LAN'],
@@ -233,9 +233,9 @@ describe('roster matching', () => {
   })
 
   it('what is already matched is not touched again', async () => {
-    await declarar('Dario Ferro', 'DarioFerro', 'LAN')
+    await declare('Dario Ferro', 'DarioFerro', 'LAN')
 
-    const matchId = await jugar([
+    const matchId = await play([
       ['DarioFerro', 'LAN'],
       ['Alexis', 'LAS'],
       ['Tere', 'LAN'],
@@ -244,9 +244,9 @@ describe('roster matching', () => {
     ])
     await assign(matchId)
 
-    const otra = await db.query<{ link_roster_accounts: number }>(
+    const other = await db.query<{ link_roster_accounts: number }>(
       'select public.link_roster_accounts(null)',
     )
-    expect(Number(otra.rows[0].link_roster_accounts)).toBe(0)
+    expect(Number(other.rows[0].link_roster_accounts)).toBe(0)
   })
 })

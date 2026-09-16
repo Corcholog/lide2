@@ -65,7 +65,7 @@ describe('entering a nick by hand', () => {
     await db?.close()
   })
 
-  async function alta(
+  async function addAccount(
     teamId: string,
     gameName: string,
     tagLine: string | null = null,
@@ -78,7 +78,7 @@ describe('entering a nick by hand', () => {
   }
 
   it('registers the account with no PUUID and leaves it on the roster', async () => {
-    const result = await alta(team01, 'DarioFerro', 'LAN')
+    const result = await addAccount(team01, 'DarioFerro', 'LAN')
 
     expect(result.ok).toBe(true)
     expect(result.created).toBe(true)
@@ -102,11 +102,11 @@ describe('entering a nick by hand', () => {
   })
 
   it('the same nick twice does not create two accounts', async () => {
-    await alta(team01, 'DarioFerro', 'LAN')
-    const repetida = await alta(team01, 'darioferro', 'lan')
+    await addAccount(team01, 'DarioFerro', 'LAN')
+    const duplicate = await addAccount(team01, 'darioferro', 'lan')
 
-    expect(repetida.ok).toBe(false)
-    expect(repetida.error).toMatch(/ya está|ya esta/i)
+    expect(duplicate.ok).toBe(false)
+    expect(duplicate.error).toMatch(/ya está|ya esta/i)
 
     const { rows } = await db.query<{ n: string }>('select count(*) as n from public.players')
     expect(Number(rows[0].n)).toBe(1)
@@ -119,7 +119,7 @@ describe('entering a nick by hand', () => {
       red: [{ puuid: 'otro' }],
     })
 
-    const result = await alta(team01, 'DarioFerro')
+    const result = await addAccount(team01, 'DarioFerro')
 
     expect(result.ok).toBe(true)
     expect(result.created).toBe(false)
@@ -130,11 +130,11 @@ describe('entering a nick by hand', () => {
   })
 
   it('does not move anybody between teams on its own', async () => {
-    await alta(team01, 'DarioFerro', 'LAN')
-    const mudanza = await alta(team15, 'DarioFerro', 'LAN')
+    await addAccount(team01, 'DarioFerro', 'LAN')
+    const moved = await addAccount(team15, 'DarioFerro', 'LAN')
 
-    expect(mudanza.ok).toBe(false)
-    expect(mudanza.error).toContain('Equipo 01')
+    expect(moved.ok).toBe(false)
+    expect(moved.error).toContain('Equipo 01')
   })
 
   it('a repeated name with no #TAG does not resolve itself', async () => {
@@ -143,7 +143,7 @@ describe('entering a nick by hand', () => {
        values ('manual:a#lan', 'Repetido', 'LAN'), ('manual:a#las', 'Repetido', 'LAS')`,
     )
 
-    const result = await alta(team01, 'Repetido')
+    const result = await addAccount(team01, 'Repetido')
 
     expect(result.ok).toBe(false)
     expect(result.error).toMatch(/#TAG/)
@@ -151,12 +151,12 @@ describe('entering a nick by hand', () => {
 
   it('when that person plays, the ingest gives them their real PUUID', async () => {
     const payload = await fixturePayload()
-    const primero = (payload.players as Record<string, unknown>[])[0]
+    const first = (payload.players as Record<string, unknown>[])[0]
 
-    const result = await alta(
+    const result = await addAccount(
       team01,
-      primero.riot_game_name as string,
-      primero.riot_tag_line as string | null,
+      first.riot_game_name as string,
+      first.riot_tag_line as string | null,
     )
     expect(result.ok).toBe(true)
 
@@ -166,11 +166,11 @@ describe('entering a nick by hand', () => {
     const players = await db.query<{ n: string }>('select count(*) as n from public.players')
     expect(Number(players.rows[0].n)).toBe(10)
 
-    const adoptada = await db.query<{ puuid: string }>(
+    const adopted = await db.query<{ puuid: string }>(
       'select puuid from public.players where id = $1',
       [result.player_id],
     )
-    expect(adoptada.rows[0].puuid).toBe(primero.puuid)
+    expect(adopted.rows[0].puuid).toBe(first.puuid)
 
     // And it is still on the team's roster, now with its match attached.
     const roster = await db.query<{ games: string }>(

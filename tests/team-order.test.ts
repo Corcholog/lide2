@@ -70,10 +70,10 @@ describe('sortTeams', () => {
 
   it('the order is always the same: two identical teams do not take turns', () => {
     const teams = [team('Equipo 02', 2, 4), team('Equipo 01', 2, 4)]
-    const una = sortTeams(teams, 'winrate').map((t) => t.name)
-    const otra = sortTeams([...teams].reverse(), 'winrate').map((t) => t.name)
+    const one = sortTeams(teams, 'winrate').map((t) => t.name)
+    const other = sortTeams([...teams].reverse(), 'winrate').map((t) => t.name)
 
-    expect(una).toEqual(['Equipo 01', 'Equipo 02'])
-    expect(otra).toEqual(una)
+    expect(one).toEqual(['Equipo 01', 'Equipo 02'])
+    expect(other).toEqual(one)
   })
 })

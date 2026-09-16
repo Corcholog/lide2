@@ -214,7 +214,7 @@ describe('public access', () => {
 
     it('nor can it write', async () => {
       expect(
-        await anonFails(db, `insert into public.teams (name) values ('Equipo Trucho')`),
+        await anonFails(db, `insert into public.teams (name) values ('Equipo 99')`),
       ).toMatch(/permission denied|policy/i)
       expect(await anonFails(db, 'delete from public.fixtures')).toMatch(
         /permission denied|policy/i,

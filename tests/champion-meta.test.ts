@@ -19,10 +19,10 @@ const BLUE = ['b-top', 'b-jgl', 'b-mid', 'b-adc', 'b-sup']
 const RED = ['r-top', 'r-jgl', 'r-mid', 'r-adc', 'r-sup']
 
 /** The blue side's five. Ahri goes mid and is the one nearly everything looks at. */
-const AZUL_A = ['Garen', 'Ahri', 'Lux', 'Jinx', 'Thresh']
+const BLUE_PICKS_A = ['Garen', 'Ahri', 'Lux', 'Jinx', 'Thresh']
 /** Group B plays Yasuo where A plays Ahri: that makes Ahri exclusive to A. */
-const AZUL_B = ['Garen', 'Yasuo', 'Lux', 'Jinx', 'Thresh']
-const ROJO = ['Darius', 'Zed', 'Orianna', 'Caitlyn', 'Leona']
+const BLUE_PICKS_B = ['Garen', 'Yasuo', 'Lux', 'Jinx', 'Thresh']
+const RED_PICKS = ['Darius', 'Zed', 'Orianna', 'Caitlyn', 'Leona']
 
 interface MetaRow {
   champion: string
@@ -51,7 +51,7 @@ describe('champion meta', () => {
 
   /** The requested scope, exactly as `metaFilter` builds it on the app side. */
   async function meta(
-    grupo: string | null,
+    groupLabel: string | null,
     matchday: number | null,
     champion?: string,
   ): Promise<MetaRow[]> {
@@ -72,8 +72,8 @@ describe('champion meta', () => {
         order by champion`,
       [
         tournamentId,
-        grupo === null,
-        grupo,
+        groupLabel === null,
+        groupLabel,
         matchday === null,
         matchday,
         champion ?? null,
@@ -92,16 +92,16 @@ describe('champion meta', () => {
     tournamentId = tournament.rows[0].id
 
     const stage = new Map<string, string>()
-    for (const [index, grupo] of ['Grupo A', 'Grupo B'].entries()) {
+    for (const [index, groupLabel] of ['Grupo A', 'Grupo B'].entries()) {
       const { rows } = await db.query<{ id: string }>(
         `insert into public.stages (tournament_id, name, kind, order_index)
          values ($1, $2, 'grupos', $3) returning id`,
-        [tournamentId, grupo, index],
+        [tournamentId, groupLabel, index],
       )
-      stage.set(grupo, rows[0].id)
+      stage.set(groupLabel, rows[0].id)
     }
 
-    for (const [name, grupo] of [
+    for (const [name, groupLabel] of [
       ['A1', 'Grupo A'],
       ['A2', 'Grupo A'],
       ['B1', 'Grupo B'],
@@ -110,30 +110,30 @@ describe('champion meta', () => {
       const { rows } = await db.query<{ id: string }>(
         `insert into public.teams (tournament_id, name, group_label)
          values ($1, $2, $3) returning id`,
-        [tournamentId, name, grupo],
+        [tournamentId, name, groupLabel],
       )
       team.set(name, rows[0].id)
     }
 
     // Four matches: each group plays its matchup on both matchdays.
     for (const matchday of [1, 2]) {
-      for (const [grupo, local, visitante, azules] of [
-        ['Grupo A', 'A1', 'A2', AZUL_A],
-        ['Grupo B', 'B1', 'B2', AZUL_B],
+      for (const [groupLabel, home, away, bluePicks] of [
+        ['Grupo A', 'A1', 'A2', BLUE_PICKS_A],
+        ['Grupo B', 'B1', 'B2', BLUE_PICKS_B],
       ] as const) {
         const matchId = await playScoreboard(db, {
           tournamentId,
-          blueTeamId: team.get(local),
-          redTeamId: team.get(visitante),
+          blueTeamId: team.get(home),
+          redTeamId: team.get(away),
           winner: 'blue',
           blue: BLUE.map((puuid, i) => ({
-            puuid: `${grupo}-${puuid}`,
-            champion: azules[i],
+            puuid: `${groupLabel}-${puuid}`,
+            champion: bluePicks[i],
             kills: 3,
           })),
           red: RED.map((puuid, i) => ({
-            puuid: `${grupo}-${puuid}`,
-            champion: ROJO[i],
+            puuid: `${groupLabel}-${puuid}`,
+            champion: RED_PICKS[i],
             deaths: 3,
           })),
         })
@@ -145,11 +145,11 @@ describe('champion meta', () => {
            values ($1, $2, $3, $4, 1, now(), $5, $6, $7)`,
           [
             tournamentId,
-            stage.get(grupo),
-            grupo,
+            stage.get(groupLabel),
+            groupLabel,
             matchday,
-            team.get(local),
-            team.get(visitante),
+            team.get(home),
+            team.get(away),
             matchId,
           ],
         )
@@ -172,12 +172,12 @@ describe('champion meta', () => {
 
   it('the group scope separates what each one played', async () => {
     // Ahri is exclusive to Group A: in B she does not exist.
-    const enA = await meta('Grupo A', null, 'Ahri')
-    const enB = await meta('Grupo B', null, 'Ahri')
+    const inA = await meta('Grupo A', null, 'Ahri')
+    const inB = await meta('Grupo B', null, 'Ahri')
 
-    expect(enA).toHaveLength(1)
-    expect(enA[0].picks).toBe(2)
-    expect(enB).toHaveLength(0)
+    expect(inA).toHaveLength(1)
+    expect(inA[0].picks).toBe(2)
+    expect(inB).toHaveLength(0)
   })
 
   it('group plus matchday is the intersection of the two', async () => {
@@ -191,20 +191,20 @@ describe('champion meta', () => {
     // whole. Ahri was played 2 times across 4 matches (0.5), but within her
     // group she was played in 2 out of 2 (1.0).
     const [total] = await meta(null, null, 'Ahri')
-    const [enGrupo] = await meta('Grupo A', null, 'Ahri')
+    const [inGroup] = await meta('Grupo A', null, 'Ahri')
 
     expect(Number(total.pick_rate)).toBe(0.5)
-    expect(Number(enGrupo.pick_rate)).toBe(1)
+    expect(Number(inGroup.pick_rate)).toBe(1)
   })
 
   it('the two flags identify the scope with no repeated rows', async () => {
-    for (const [grupo, matchday] of [
+    for (const [groupLabel, matchday] of [
       [null, null],
       [null, 1],
       ['Grupo A', null],
       ['Grupo A', 1],
     ] as const) {
-      const found = await meta(grupo, matchday, 'Garen')
+      const found = await meta(groupLabel, matchday, 'Garen')
       expect(found).toHaveLength(1)
     }
   })

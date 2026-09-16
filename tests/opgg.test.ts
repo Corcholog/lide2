@@ -11,7 +11,7 @@ import { multisearchUrl, searchableCount, summonerUrl } from '@/lib/opgg'
  * can be checked by reading the code.
  */
 
-const equipo = [
+const team = [
   { gameName: 'falling forever', tagLine: '1101' },
   { gameName: 'UNDAV Natko', tagLine: 'CARP' },
   { gameName: 'UNDAV Morey', tagLine: 'OLD' },
@@ -21,7 +21,7 @@ const equipo = [
 
 describe('op.gg multisearch', () => {
   it('rebuilds a real op.gg link exactly', () => {
-    expect(multisearchUrl(equipo)).toBe(
+    expect(multisearchUrl(team)).toBe(
       'https://op.gg/es/lol/multisearch/las?summoners=falling+forever%231101%2C%2CUNDAV+Natko%23CARP%2C%2CUNDAV+Morey%23OLD%2C%2CUNDAV+Kempes%23ARG%2C%2CEl+Barto%23XL55',
     )
   })
@@ -70,8 +70,8 @@ describe('op.gg multisearch', () => {
   })
 
   it('counts only what will end up in the link', () => {
-    expect(searchableCount(equipo)).toBe(5)
-    expect(searchableCount([...equipo, { gameName: 'SinTag', tagLine: null }])).toBe(5)
+    expect(searchableCount(team)).toBe(5)
+    expect(searchableCount([...team, { gameName: 'SinTag', tagLine: null }])).toBe(5)
   })
 })
 

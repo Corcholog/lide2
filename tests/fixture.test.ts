@@ -176,13 +176,13 @@ describe('rosters', () => {
 
   it("puts the team's most represented university first", () => {
     for (const team of TEAMS) {
-      const conteo = new Map<string, number>()
+      const counts = new Map<string, number>()
       for (const entry of ROSTERS[team.number]) {
-        conteo.set(entry.university, (conteo.get(entry.university) ?? 0) + 1)
+        counts.set(entry.university, (counts.get(entry.university) ?? 0) + 1)
       }
 
-      const masJugadores = Math.max(...conteo.values())
-      expect(conteo.get(team.universities[0]), `team ${team.number}`).toBe(masJugadores)
+      const mostPlayers = Math.max(...counts.values())
+      expect(counts.get(team.universities[0]), `team ${team.number}`).toBe(mostPlayers)
     }
   })
 

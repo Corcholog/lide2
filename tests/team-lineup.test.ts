@@ -71,7 +71,7 @@ describe('team lineup', () => {
   })
 
   /** Signs people up on Team 01's sheet. Legal names, as in real life. */
-  async function anotar(...names: string[]) {
+  async function signUp(...names: string[]) {
     for (const [index, name] of names.entries()) {
       await db.query(
         `insert into public.team_roster (team_id, full_name, university_id, order_index)
@@ -86,7 +86,7 @@ describe('team lineup', () => {
    * the other side. Assigning the matchup is what teaches the database who
    * plays for each team.
    */
-  async function jugarFecha(matchday: number, nicks: string[]) {
+  async function playMatchday(matchday: number, nicks: string[]) {
     const matchId = await playScoreboard(db, {
       winner: 'blue',
       blue: nicks.map((nick) => ({ puuid: `puuid-${nick}`, kills: 2, deaths: 1, assists: 3 })),
@@ -127,7 +127,7 @@ describe('team lineup', () => {
   })
 
   it('each nick lands in the lane they played', async () => {
-    await jugarFecha(1, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Eco'])
+    await playMatchday(1, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Eco'])
 
     const rows = await roster(team01)
 
@@ -143,32 +143,32 @@ describe('team lineup', () => {
 
   it('whoever rotates lanes ends up in the one they played most', async () => {
     // In the first, Alfa plays top and Charlie mid; in the other two, the reverse.
-    await jugarFecha(1, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Eco'])
-    await jugarFecha(2, ['Charlie', 'Bravo', 'Alfa', 'Delta', 'Eco'])
-    await jugarFecha(3, ['Charlie', 'Bravo', 'Alfa', 'Delta', 'Eco'])
+    await playMatchday(1, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Eco'])
+    await playMatchday(2, ['Charlie', 'Bravo', 'Alfa', 'Delta', 'Eco'])
+    await playMatchday(3, ['Charlie', 'Bravo', 'Alfa', 'Delta', 'Eco'])
 
     const rows = await roster(team01)
-    const porRol = new Map(rows.map((r) => [r.role, r.name]))
+    const roleToName = new Map(rows.map((r) => [r.role, r.name]))
 
-    expect(porRol.get('MIDDLE')).toBe('Alfa')
-    expect(porRol.get('TOP')).toBe('Charlie')
+    expect(roleToName.get('MIDDLE')).toBe('Alfa')
+    expect(roleToName.get('TOP')).toBe('Charlie')
     // Both are starters: nobody ends up on the bench for having rotated.
     expect(rows).toHaveLength(5)
   })
 
   it('one signup too many leaves a bench slot waiting, and the sixth to play fills it', async () => {
-    await anotar('Uno', 'Dos', 'Tres', 'Cuatro', 'Cinco', 'Seis')
+    await signUp('Uno', 'Dos', 'Tres', 'Cuatro', 'Cinco', 'Seis')
 
-    const vacio = await roster(team01)
-    expect(vacio).toHaveLength(6)
-    expect(vacio[5]).toMatchObject({ slot: 6, role: null, sub_number: 1, is_substitute: true })
-    expect(vacio[5].player_id).toBeNull()
+    const empty = await roster(team01)
+    expect(empty).toHaveLength(6)
+    expect(empty[5]).toMatchObject({ slot: 6, role: null, sub_number: 1, is_substitute: true })
+    expect(empty[5].player_id).toBeNull()
 
-    await jugarFecha(1, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Eco'])
-    await jugarFecha(2, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Eco'])
+    await playMatchday(1, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Eco'])
+    await playMatchday(2, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Eco'])
     // Foxtrot plays support in the third. The role's starter is still Eco, who
     // played it twice; Foxtrot fills the bench slot.
-    await jugarFecha(3, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Foxtrot'])
+    await playMatchday(3, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Foxtrot'])
 
     const rows = await roster(team01)
     expect(rows.map((r) => r.name)).toEqual(['Alfa', 'Bravo', 'Charlie', 'Delta', 'Eco', 'Foxtrot'])
@@ -177,9 +177,9 @@ describe('team lineup', () => {
 
   it('if more accounts turn up than signups, the bench grows anyway', async () => {
     // Nobody on the sheet: the accounts are what set the bench slots.
-    await jugarFecha(1, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Eco'])
-    await jugarFecha(2, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Eco'])
-    await jugarFecha(3, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Foxtrot'])
+    await playMatchday(1, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Eco'])
+    await playMatchday(2, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Eco'])
+    await playMatchday(3, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Foxtrot'])
 
     const rows = await roster(team01)
     expect(rows).toHaveLength(6)
@@ -187,7 +187,7 @@ describe('team lineup', () => {
   })
 
   it('the signups never leave: the sheet yields a number and nothing else', async () => {
-    await anotar('Nombre Legal De Una Persona', 'Otro Nombre Legal')
+    await signUp('Nombre Legal De Una Persona', 'Otro Nombre Legal')
 
     const { rows } = await db.query<{ column_name: string }>(
       `select column_name from information_schema.columns
@@ -248,10 +248,10 @@ describe('support is called SUPPORT', () => {
     await db.query(`update public.match_players set position = 'UTILITY' where match_id = $1`, [
       matchId,
     ])
-    const despues = await db.query<{ position: string }>(
+    const after = await db.query<{ position: string }>(
       'select distinct position from public.match_players where match_id = $1',
       [matchId],
     )
-    expect(despues.rows).toEqual([{ position: 'SUPPORT' }])
+    expect(after.rows).toEqual([{ position: 'SUPPORT' }])
   })
 })

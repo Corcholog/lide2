@@ -18,7 +18,7 @@ interface Ban {
   champion: string
 }
 
-interface Resultado {
+interface Result {
   ok: boolean
   error?: string
   bans?: number
@@ -42,15 +42,15 @@ describe('entering bans', () => {
   let db: PGlite
   let matchId: string
 
-  async function setBans(bans: Ban[], id = matchId): Promise<Resultado> {
-    const { rows } = await db.query<{ result: Resultado }>(
+  async function setBans(bans: Ban[], id = matchId): Promise<Result> {
+    const { rows } = await db.query<{ result: Result }>(
       `select public.set_match_bans($1, $2::jsonb) as result`,
       [id, JSON.stringify(bans)],
     )
     return rows[0].result
   }
 
-  async function bansGuardados(): Promise<{ side: number; order_index: number; champion: string }[]> {
+  async function savedBans(): Promise<{ side: number; order_index: number; champion: string }[]> {
     const { rows } = await db.query<{ side: number; order_index: number; champion: string }>(
       `select side, order_index, champion from public.match_bans
         where match_id = $1 order by side, order_index`,
@@ -84,15 +84,15 @@ describe('entering bans', () => {
   })
 
   it('stores all ten and returns them in order', async () => {
-    const resultado = await setBans(DRAFT)
+    const outcome = await setBans(DRAFT)
 
-    expect(resultado.ok).toBe(true)
-    expect(resultado.bans).toBe(10)
+    expect(outcome.ok).toBe(true)
+    expect(outcome.bans).toBe(10)
 
-    const guardados = await bansGuardados()
-    expect(guardados).toHaveLength(10)
-    expect(guardados[0]).toMatchObject({ side: 100, order_index: 1, champion: 'Teemo' })
-    expect(guardados[9]).toMatchObject({ side: 200, order_index: 5, champion: 'Camille' })
+    const stored = await savedBans()
+    expect(stored).toHaveLength(10)
+    expect(stored[0]).toMatchObject({ side: 100, order_index: 1, champion: 'Teemo' })
+    expect(stored[9]).toMatchObject({ side: 200, order_index: 5, champion: 'Camille' })
   })
 
   it('calling it twice does not duplicate', async () => {
@@ -101,24 +101,24 @@ describe('entering bans', () => {
 
     // Without replacing the lot this would blow up against the table's unique
     // constraint, or worse, leave twenty rows behind.
-    expect(await bansGuardados()).toHaveLength(10)
+    expect(await savedBans()).toHaveLength(10)
   })
 
   it('sending fewer deletes the ones left over', async () => {
     await setBans(DRAFT)
     await setBans(DRAFT.slice(0, 3))
 
-    expect(await bansGuardados()).toHaveLength(3)
+    expect(await savedBans()).toHaveLength(3)
   })
 
   it('an empty field is not stored: a team may pass on a ban', async () => {
-    const resultado = await setBans([
+    const outcome = await setBans([
       { side: 100, order_index: 1, champion: 'Teemo' },
       { side: 100, order_index: 2, champion: '   ' },
     ])
 
-    expect(resultado.bans).toBe(1)
-    expect(await bansGuardados()).toHaveLength(1)
+    expect(outcome.bans).toBe(1)
+    expect(await savedBans()).toHaveLength(1)
   })
 
   it('honours the spelling the database already uses', async () => {
@@ -128,8 +128,8 @@ describe('entering bans', () => {
     // and no way of noticing.
     await setBans([{ side: 100, order_index: 1, champion: 'Fiddlesticks' }])
 
-    const guardados = await bansGuardados()
-    expect(guardados[0].champion).toBe('FiddleSticks')
+    const stored = await savedBans()
+    expect(stored[0].champion).toBe('FiddleSticks')
 
     // `all_roles` because since 0030 the view also returns one row per role the
     // champion was played in, and what is being counted here is the champion:
@@ -146,47 +146,47 @@ describe('entering bans', () => {
   })
 
   it('rejects a side that does not exist', async () => {
-    const resultado = await setBans([
+    const outcome = await setBans([
       { side: 300 as 100, order_index: 1, champion: 'Teemo' },
     ])
 
-    expect(resultado.ok).toBe(false)
-    expect(resultado.error).toContain('300')
-    expect(await bansGuardados()).toHaveLength(0)
+    expect(outcome.ok).toBe(false)
+    expect(outcome.error).toContain('300')
+    expect(await savedBans()).toHaveLength(0)
   })
 
   it('rejects an order outside 1 to 5', async () => {
-    const resultado = await setBans([{ side: 100, order_index: 7, champion: 'Teemo' }])
+    const outcome = await setBans([{ side: 100, order_index: 7, champion: 'Teemo' }])
 
-    expect(resultado.ok).toBe(false)
-    expect(resultado.error).toContain('7')
+    expect(outcome.ok).toBe(false)
+    expect(outcome.error).toContain('7')
   })
 
   it('rejects the same champion twice', async () => {
     // In a draft the same champion cannot be banned twice: nearly always it
     // means whoever is entering them skipped a slot.
-    const resultado = await setBans([
+    const outcome = await setBans([
       { side: 100, order_index: 1, champion: 'Teemo' },
       { side: 200, order_index: 1, champion: 'Teemo' },
     ])
 
-    expect(resultado.ok).toBe(false)
-    expect(resultado.error).toContain('Teemo')
-    expect(await bansGuardados()).toHaveLength(0)
+    expect(outcome.ok).toBe(false)
+    expect(outcome.error).toContain('Teemo')
+    expect(await savedBans()).toHaveLength(0)
   })
 
   it('rejects a match that does not exist', async () => {
-    const resultado = await setBans(DRAFT, '00000000-0000-0000-0000-000000000000')
+    const outcome = await setBans(DRAFT, '00000000-0000-0000-0000-000000000000')
 
-    expect(resultado.ok).toBe(false)
-    expect(resultado.error).toContain('no existe')
+    expect(outcome.ok).toBe(false)
+    expect(outcome.error).toContain('no existe')
   })
 
   it('a rejection does not touch what was already entered', async () => {
     await setBans(DRAFT)
     await setBans([{ side: 100, order_index: 9, champion: 'Teemo' }])
 
-    expect(await bansGuardados()).toHaveLength(10)
+    expect(await savedBans()).toHaveLength(10)
   })
 
   it('anon cannot execute it', async () => {

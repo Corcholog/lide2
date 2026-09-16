@@ -145,10 +145,10 @@ describe('tournament structure', () => {
   })
 
   it('a series winner appears on its own in the next round', async () => {
-    const cuartos = await db.query<{ id: string }>(
+    const quarterFinals = await db.query<{ id: string }>(
       `select id from public.series where round = 'Cuartos de final' order by order_index`,
     )
-    const [q1, q2] = cuartos.rows
+    const [q1, q2] = quarterFinals.rows
 
     // Alfa takes the first quarter 2-0: the series closes without a third game.
     for (const game of [1, 2]) {
@@ -191,11 +191,11 @@ describe('tournament structure', () => {
     )
 
     const semi = rows.find((row) => row.round === 'Semifinales')
-    const cuartosRows = rows.filter((row) => row.round === 'Cuartos de final')
+    const quarterFinalRows = rows.filter((row) => row.round === 'Cuartos de final')
 
-    expect([cuartosRows[0].wins_a, cuartosRows[0].wins_b, cuartosRows[0].games_played]).toEqual([2, 0, 2])
-    expect(cuartosRows[0].status).toBe('finished')
-    expect([cuartosRows[1].wins_a, cuartosRows[1].wins_b]).toEqual([2, 1])
+    expect([quarterFinalRows[0].wins_a, quarterFinalRows[0].wins_b, quarterFinalRows[0].games_played]).toEqual([2, 0, 2])
+    expect(quarterFinalRows[0].status).toBe('finished')
+    expect([quarterFinalRows[1].wins_a, quarterFinalRows[1].wins_b]).toEqual([2, 1])
 
     // Nobody entered the semi by hand: advance_series filled both sides.
     expect(semi?.team_a_name).toBe('Alfa')
