@@ -3,18 +3,13 @@ import { forSlot, projectBracketSlots, type SlotProjection } from '@/lib/lide2/p
 import type { FixtureResultRow, GroupStandingRow } from '@/types/db'
 
 /*
- * The bracket's preview writes team names into the quarter-finals before the
- * organizers do, and the whole thing rests on one promise: a name only appears
- * when no combination of the remaining games can take it away. That is not
- * something you can check by looking at the page - you would have to wait for
- * the group phase to end and see whether it lied - so it is checked here.
+ * The bracket preview writes team names into quarter-final slots before the
+ * organizers do, so a name must only appear when no remaining result can change
+ * it. These tests check that promise.
  *
- * Most of these are about the tiebreak, which is the rulebook's (2.2): level on
- * points, the game between them decides. What makes it projectable is that it
- * is always known - either those two have played already, or the game between
- * them is one of the ones being played out and the scenario says who won it -
- * and what it does not settle, three teams beating each other in a circle, goes
- * to the organizers and has to come out of here unresolved.
+ * Most cover the rulebook tiebreak (2.2): level on points, the game between the
+ * teams decides. A tie it cannot break (three teams beating each other in a
+ * cycle) is left to the organizers and must stay unresolved.
  */
 
 /** A `group_standings` row with only what the projection reads filled in. */
@@ -51,10 +46,7 @@ function standing(
   }
 }
 
-/**
- * A matchup. `winner` is the id of whoever took it, or null while it is still
- * to be played.
- */
+/** A matchup; `winner` is the winning team's id, or null while unplayed. */
 function matchup(a: string, b: string, winner: string | null = null): FixtureResultRow {
   return {
     id: `${a}-${b}`,
@@ -89,7 +81,7 @@ function matchup(a: string, b: string, winner: string | null = null): FixtureRes
   }
 }
 
-/** The slot the bracket asks for, or a failure that says which one was missing. */
+/** The projection for a slot label, failing with the label when it is missing. */
 function slot(projection: SlotProjection[], label: string): SlotProjection {
   const found = forSlot(projection, label)
   if (!found) throw new Error(`there is no projection for ${label}`)
@@ -99,17 +91,14 @@ function slot(projection: SlotProjection[], label: string): SlotProjection {
 const names = (projection: SlotProjection) =>
   projection.candidates.map((candidate) => candidate.teamName)
 
-/** Whether the bracket would write this slot in: settled AND the team is done. */
+/** Whether the bracket would show this slot's team: settled and the team has finished. */
 const written = (projection: SlotProjection) =>
   projection.locked?.finished ? projection.locked.teamName : null
 
 describe('the head to head separates two teams level on points', () => {
   /*
-   * The case that prompted the rule, in the shape it turned up in: two teams
-   * that can both finish 3-1, and one of them has already beaten the other.
-   * Under the old kill-difference tiebreak neither place could be settled until
-   * the last game was uploaded; under the rulebook's, the game between them was
-   * played on matchday 1 and the order has been fixed ever since.
+   * Two teams can both finish 3-1, and one already beat the other on matchday 1,
+   * so the head to head settles their order.
    */
   const table = [
     standing('a', 3, 0, 1),
@@ -136,9 +125,8 @@ describe('the head to head separates two teams level on points', () => {
 
   it('is the case that was reported: two at 3-1, and one beat the other', () => {
     /*
-     * The whole group of five played out, with `a` and `b` both on 3-1 and the
-     * game between them won by `a` back on matchday 1. `d` and `e` end level
-     * too, at the bottom, and the same rule orders them.
+     * The full group played out: `a` and `b` both 3-1, `a` won their game; `d`
+     * and `e` are also level at the bottom and ordered the same way.
      */
     const five = [
       standing('a', 3, 1, 1),
@@ -168,14 +156,9 @@ describe('the head to head separates two teams level on points', () => {
 
   it('settles a place before the group ends, which kill difference never could', () => {
     /*
-     * `a` and `b` have played their four and both finished 3-1; the game still
-     * to come is between `c` and `d`, neither of whom can get past 2-2. So the
-     * two places are settled with a game still to play, and what settles them
-     * is the head to head - on points alone the pair is level.
-     *
-     * Under a kill-difference tiebreak neither place could be called: `c` and
-     * `d` cannot catch them, but their game moves nobody's kill difference
-     * either, and the pair would stay unresolved for no reason at all.
+     * `a` and `b` have played all four games and both finished 3-1; the remaining
+     * game is between `c` and `d`, who cannot pass 2-2. Both places are settled
+     * with a game left, decided by the head to head.
      */
     const open = [
       standing('a', 3, 1, 1),
@@ -208,10 +191,9 @@ describe('the head to head separates two teams level on points', () => {
 
   it('settles them even when the game between them is one of the ones left', () => {
     /*
-     * Neither has played the other yet, so who comes first depends on that
-     * game - but whoever wins it is first in that scenario, so the pair is
-     * separated in every one of them and the two of them are through either
-     * way. What is not settled is which place each takes.
+     * They have not played each other yet: whoever wins that game is first in
+     * that scenario, so both are through either way, but which place each takes
+     * is not settled.
      */
     const table2 = [standing('a', 2, 0, 1), standing('b', 2, 0, 2), standing('c', 0, 2, 3), standing('d', 0, 2, 4)]
     const games = [
@@ -235,10 +217,9 @@ describe('the head to head separates two teams level on points', () => {
 
 describe('three teams in a circle are left to the organizers', () => {
   /*
-   * `a` beat `b`, `b` beat `c`, `c` beat `a`, and the three finish level. The
-   * mini league gives them one win each, so "enfrentamiento directo" separates
-   * nothing and the rulebook hands the case over. The three have to come out as
-   * possibles for both places instead of one of them being written in.
+   * `a` beat `b`, `b` beat `c`, `c` beat `a`, and all three finish level. The
+   * mini league gives each one win, so nothing separates them and all three
+   * remain candidates for both places.
    */
   const table = [standing('a', 2, 1, 1), standing('b', 2, 1, 2), standing('c', 2, 1, 3), standing('d', 0, 3, 4)]
 
@@ -271,15 +252,12 @@ describe('three teams in a circle are left to the organizers', () => {
 
 describe('three teams level that the mini league does separate', () => {
   /*
-   * Three level on points without a circle: `a` beat `b` and `c`, `b` beat `c`.
-   * Two wins, one and none among themselves, so the order is settled and
-   * nothing goes to the organizers.
+   * Three level teams without a cycle: `a` beat `b` and `c`, `b` beat `c`. Two,
+   * one and zero wins among themselves, so the order is settled.
    *
-   * It takes five teams. With four, three level teams have played a complete
-   * round robin among themselves and their three mutual wins can only come out
-   * one each - a circle, always. The room for a 2-1-0 comes from the games
-   * against the rest of the group, and that needs a fifth team: here `a` loses
-   * both of its games outside the trio, `b` one, `c` neither.
+   * This needs five teams: with four, three level teams have played each other
+   * and their mutual wins can only split one each (a cycle). The 2-1-0 split
+   * comes from the games against the other two teams.
    */
   const table = [
     standing('e', 3, 1, 1),
@@ -305,7 +283,7 @@ describe('three teams level that the mini league does separate', () => {
   const projection = projectBracketSlots(table, fixture)
 
   it('orders them by the games among themselves', () => {
-    // `e` is on its own at 3-1; the second place is the top of the mini league.
+    // `e` is alone at 3-1; second place is the top of the mini league.
     expect(slot(projection, '1º A').locked?.teamName).toBe('Equipo e')
     expect(slot(projection, '2º A').locked?.teamName).toBe('Equipo a')
   })
@@ -313,9 +291,8 @@ describe('three teams level that the mini league does separate', () => {
 
 describe('a first place nobody can take away', () => {
   /*
-   * A group of five with the last matchday to play. `a` has won its four and is
-   * out of reach whatever happens, so the slot carries its name while the rest
-   * of the group is still moving.
+   * A group of five before its last matchday. `a` has won all four and cannot be
+   * caught, so its slot is settled while the rest of the group is still open.
    */
   const table = [
     standing('a', 4, 0, 1),
@@ -354,30 +331,24 @@ describe('a first place nobody can take away', () => {
 
   it('leaves second place open, because one branch ends in a circle', () => {
     /*
-     * `b` is second in three of the four scenarios. In the fourth - `e` beating
-     * both `b` and `d` - `b`, `c` and `e` all finish 2-2 with a win each over
-     * the next: `b` beat `c`, `c` beat `e`, `e` beat `b`. Nothing separates
-     * them, so the three share the second and third places and the slot cannot
-     * be written in.
+     * `b` is second in three of four scenarios. In the fourth (`e` beats `b` and
+     * `d`), `b`, `c` and `e` finish 2-2 in a cycle (`b` beat `c`, `c` beat `e`,
+     * `e` beat `b`), so the slot cannot be settled.
      */
     const second = slot(projection, '2º A')
 
     expect(second.locked).toBeNull()
     expect(names(second)).toEqual(['Equipo b', 'Equipo c', 'Equipo e'])
     expect(second.candidates.map((entry) => entry.scenarios)).toEqual([4, 1, 1])
-    // Second in four scenarios out of four is still not "through": in that
-    // fourth one it can just as well come third.
+    // In that fourth scenario it can also finish third, so it is not "through".
     expect(second.candidates[0].qualified).toBe(false)
   })
 })
 
 describe('a group where nothing has been played', () => {
   /*
-   * Four teams, the whole round robin to play. Every one of them wins its three
-   * in one of the sixty-four scenarios, so every one is a possible for both
-   * places: the projection says so, and it is the bracket that decides a list
-   * of the whole group is worth one line and not four chips (see `Possibles`,
-   * in Playoffs).
+   * Four teams with the whole round robin to play: each one wins all its games
+   * in some scenario, so every team is a candidate for both places.
    */
   const teams = ['a', 'b', 'c', 'd']
   const table = teams.map((id, index) => standing(id, 0, 0, index + 1))
@@ -407,9 +378,8 @@ describe('what counts as a game still to be decided', () => {
 
   it('takes a walkover as settled, and it counts for the head to head', () => {
     /*
-     * `b` did not turn up against `c`, so `c` took the game. The two finish
-     * level on 1-1 and the game between them - the one nobody played - is what
-     * puts `c` second.
+     * `b` did not turn up against `c`. They finish level at 1-1, and that awarded
+     * game puts `c` second.
      */
     const decided = projectBracketSlots(
       [standing('a', 2, 0, 1), standing('b', 1, 1, 2), standing('c', 1, 1, 3)],
@@ -477,10 +447,8 @@ describe('reading a slot label', () => {
 
 describe('a group that branches too far', () => {
   /*
-   * Six teams with the whole round robin to play is 15 games and 32,768 ways it
-   * can end, past the ceiling. The format is not one this tournament uses; what
-   * matters is that the page goes back to showing the placeholder instead of
-   * grinding through it.
+   * Six teams with the whole round robin to play: 15 games, 32,768 scenarios,
+   * above the limit. The group is not projected and slots keep the placeholder.
    */
   const teams = ['a', 'b', 'c', 'd', 'e', 'f']
   const table = teams.map((id, index) => standing(id, 0, 0, index + 1))
@@ -494,16 +462,10 @@ describe('a group that branches too far', () => {
 
 describe('a team that is through but has not finished playing', () => {
   /*
-   * What the bracket keys off is not the same as what the arithmetic settles,
-   * and the two come apart exactly here. `a` has won its three and cannot be
-   * caught: the slot is settled. But it still has a game to play, and the
-   * bracket waits for that before writing anybody in - naming a quarter-final
-   * while its group is still being played is what takes the air out of the last
-   * matchday.
-   *
-   * `b`, level with `a` on points if `a` loses its last one, HAS finished its
-   * four and lost the game between them, so second place is both settled and
-   * written in.
+   * Settled is not the same as shown. `a` has won three and cannot be caught, so
+   * its slot is settled, but it still has a game left and the bracket waits for
+   * it. `b` has finished its four games and lost to `a`, so second place is
+   * settled and shown.
    */
   const table = [
     standing('a', 3, 0, 1),

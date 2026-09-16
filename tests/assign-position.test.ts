@@ -4,16 +4,9 @@ import { createTestDb } from './helpers/db'
 import { playScoreboard } from './helpers/matches'
 
 /**
- * Saying by hand which lane an account plays.
- *
- * The case is the same as the manual entry (0017) and the manual matching
- * (0019): before matchday 1 there is not one match to deduce anything from, and
- * whoever entered the team's nicks already knows who plays where because they
- * were told at signup.
- *
- * Since 0023 that is all it is: a provisional. It fills the lineup while there
- * are no replays and loses against the first one, because what somebody was
- * told at signup can be out of date by Sunday and the scoreboard cannot.
+ * Setting an account's lane by hand, useful before any match is played (like
+ * the manual account entry in 0017 and matching in 0019). Since 0023 the first
+ * replay overrides it.
  */
 
 interface AssignResult {
@@ -36,8 +29,8 @@ describe('assigning an account lane by hand', () => {
   let team01: string
   const account = new Map<string, string>()
 
-  // The full migrations per test: Postgres in WASM is slow, and vitest's
-  // default for a hook is 10 seconds.
+  // Full migrations per test: PGlite is slow, and vitest's default hook timeout
+  // is 10 seconds.
   beforeEach(async () => {
     db = await createTestDb()
 
@@ -90,8 +83,8 @@ describe('assigning an account lane by hand', () => {
     expect(top.player_id).toBe(account.get('Corcho'))
     expect(top.assigned_role).toBe('TOP')
 
-    // The other four lanes stay empty, and Pachu - who has nothing assigned
-    // and has not played - stays in the pool with no lane.
+    // The other four lanes stay empty, and Pachu (no lane, no games) stays
+    // unassigned.
     expect(rows.filter((r) => r.role !== null && r.player_id !== null)).toHaveLength(1)
     expect(rows.filter((r) => r.role === null && r.player_id !== null)).toEqual([
       expect.objectContaining({ player_id: account.get('Pachu'), assigned_role: null }),
@@ -126,9 +119,8 @@ describe('assigning an account lane by hand', () => {
   })
 
   it('what was played beats what was entered by hand', async () => {
-    // Somebody really played top. They are added to the roster by hand: it is
-    // what `assign_match_to_fixture()` does in real life (0012_planteles.sql);
-    // here the whole fixture is skipped because it is not what is under test.
+    // Someone actually played top and is added to the roster by hand, as
+    // `assign_match_to_fixture()` would do (0012_planteles.sql).
     await playScoreboard(db, {
       blueTeamId: team01,
       winner: 'blue',
@@ -155,15 +147,14 @@ describe('assigning an account lane by hand', () => {
     const before = await roster()
     expect(before.find((r) => r.slot === 1)!.player_id).toBe(topPlayer)
 
-    // The signup sheet said support. It played top, so top is what it is: from
-    // 0023 the sheet is a provisional that loses against the first replay.
+    // Assigned support, but played top: since 0023 the replay wins.
     await assign(topPlayer, 'SUPPORT')
 
     const after = await roster()
     expect(after.find((r) => r.slot === 1)!.player_id).toBe(topPlayer)
     expect(after.find((r) => r.slot === 5)!.player_id).toBeNull()
-    // The hand assignment is still stored, and the dropdown still shows it:
-    // it just no longer decides the slot.
+    // The hand assignment is still stored for the dropdown; it no longer decides
+    // the slot.
     expect(after.find((r) => r.slot === 1)!.assigned_role).toBe('SUPPORT')
   })
 
@@ -182,8 +173,7 @@ describe('assigning an account lane by hand', () => {
   })
 
   it('the real Team 01: five hand-entered nicks end up in the lineup', async () => {
-    // Five on the sheet and five nicks without a single match: the whole
-    // roster was a pool with no lanes, which is where all of this came from.
+    // Five signups and five nicks without any match: no lanes yet.
     for (const [index, fullName] of ['Uno', 'Dos', 'Tres', 'Cuatro', 'Cinco'].entries()) {
       await db.query(
         `insert into public.team_roster (team_id, full_name, order_index) values ($1, $2, $3)`,
@@ -214,7 +204,7 @@ describe('assigning an account lane by hand', () => {
     ] as const
     for (const [nick, role] of lines) await assign(account.get(nick)!, role)
 
-    // All five in their lane and not one extra row: the bench empties itself.
+    // All five in their lanes, and no extra bench rows.
     const after = await roster()
     expect(after).toHaveLength(5)
     expect(after.map((r) => [r.role, r.name])).toEqual([
@@ -235,7 +225,7 @@ describe('assigning an account lane by hand', () => {
 
     const rows = await roster()
     expect(rows.find((r) => r.slot === 1)!.player_id).toBeNull()
-    // The account is still on the roster, now on the bench with no lane.
+    // The account stays on the roster, on the bench without a lane.
     expect(rows.some((r) => r.player_id === account.get('Corcho'))).toBe(true)
   })
 })

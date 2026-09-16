@@ -1,48 +1,26 @@
 /**
- * Leaves the 13 university logos ready to use on the site.
+ * Normalizes the university logos for the site.
  *
- *   npx tsx scripts/normalize-logos.ts          shows what it would do
- *   npx tsx scripts/normalize-logos.ts --write  generates public/universidades
+ *   npm run logos                 shows what it would do
+ *   npm run logos -- --write      writes public/universidades/
  *
- * The originals arrive as each university sends them and look nothing like one
- * another: there is JPEG, PNG with transparency and PNG with a palette; they go
- * from 280px to 1146px; one is square and another landscape; and above all the
- * backgrounds point three different ways - white, transparent and dark blue.
- * Dropped into a table as they are, they look different sizes, and in the dark
- * theme the black-ink ones on transparent simply vanish.
+ * The originals (in assets/universidades/, not committed) differ in format,
+ * size, margins and background (white, transparent or dark). This:
  *
- * WHAT IT DOES AND WHY
+ * 1. Flattens onto white, so a logo looks the same in both themes and in cards
+ *    exported with html-to-image (a black crest on transparent would vanish on
+ *    dark). <UniversityLogo> draws them on a light chip accordingly.
+ * 2. Trims the margin, so logos look the same size.
+ * 3. Squares them to 256x256 with 16px of padding.
+ * 4. Writes PNGs named after the lower-case `tag` in the `universities` table,
+ *    which is how the site finds them: `/universidades/${tag.toLowerCase()}.png`.
  *
- * 1. Flattens onto white. It is the underlying decision and it deserves an
- *    explanation, because it throws the transparency away on purpose. The site
- *    has a light and a dark theme, and it also exports cards to PNG with
- *    html-to-image: if the logo depended on the background, a black crest on
- *    transparent would come out invisible in an image that then gets shared,
- *    with nobody finding out until they see it published. With the white inside
- *    the file, the logo looks the same in both themes and in the exported card.
- *    The trade-off is that they always have to be drawn on a light chip, which
- *    is exactly what <UniversityLogo> does.
+ * It also avoids production-only issues in the originals: a JPEG with a .png
+ * extension, `.jfif` files Next does not serve with a known Content-Type, and
+ * an upper-case file name that 404s on a case-sensitive file system.
  *
- * 2. Trims the margin. Each one carried a different amount of air (the opaque
- *    ones run from 19% to 100% of the image), which is what made some look
- *    large and others lost in the middle of the same box.
- *
- * 3. Squares them and takes them to 256x256, with 16px of air of their own.
- *    That way the component can trust they all have the same shape and none has
- *    to be corrected by hand.
- *
- * 4. One format and a lower-case name, equal to the `tag` in the `universities`
- *    table. The name is what ties the file to the database, so it has to be
- *    derivable: `/universidades/${tag.toLowerCase()}.png`.
- *
- * Along the way it fixes three traps that only show up in production: `uai.png`
- * is really a JPEG with its extension changed, both `.jfif` files use an
- * extension Next does not know (it does not appear once in its dist, so the
- * Content-Type is left to chance), and `UNLP.png` was the only upper-case one,
- * which works on Windows and is a 404 on Vercel's Linux.
- *
- * The originals stay untouched in assets/universidades/. If a new university
- * joins tomorrow, it gets copied there and this is run again.
+ * To add a university, copy its logo into assets/universidades/ and run this
+ * again.
  */
 
 import sharp from 'sharp'
@@ -52,18 +30,16 @@ import { basename, extname, join } from 'node:path'
 const SOURCE_DIR = 'assets/universidades'
 const OUTPUT_DIR = 'public/universidades'
 const SIDE = 256
-/** The file's own air, so the logo does not touch the chip's edge. */
+/** Padding inside the file, so the logo does not touch the chip's edge. */
 const PADDING = 16
 const WHITE = { r: 255, g: 255, b: 255, alpha: 1 }
 
 const write = process.argv.includes('--write')
 
 /**
- * The 13 `tag` values from the `universities` table, in lower case. They are
- * written here and not read from the database on purpose: the script has to run
- * without credentials, and if some day a file stops corresponding to a
- * university, it is better for it to fail loudly than to generate a PNG nobody
- * uses.
+ * The 13 `tag` values of the `universities` table, lower case. Hardcoded so the
+ * script runs without credentials, and fails loudly if a file matches no
+ * university.
  */
 const TAGS = new Set([
   'uade', 'uai', 'uap', 'unahur', 'unam', 'uncuyo', 'undav',
@@ -89,23 +65,20 @@ async function main() {
 
     const flattened = await sharp(input).flatten({ background: WHITE }).toBuffer()
 
-    // The trim runs against white because the previous step left everything
-    // white. The two logos that carry a dark background edge to edge have no
-    // white border at all, so this step does not touch them, which is right.
+    // Trim against white, since the previous step flattened onto white. Logos
+    // with a full dark background have no white border and are left as they are.
     let trimmed: Buffer
     try {
       trimmed = await sharp(flattened).trim({ background: WHITE, threshold: 12 }).toBuffer()
     } catch {
-      // trim() throws when the image is a single colour; in that case there is
-      // nothing to trim and it works as it is.
+      // trim() throws on single-color images; nothing to trim then.
       trimmed = flattened
     }
 
     const buffer = await sharp(trimmed)
       .resize(SIDE - PADDING * 2, SIDE - PADDING * 2, { fit: 'contain', background: WHITE })
       .extend({ top: PADDING, bottom: PADDING, left: PADDING, right: PADDING, background: WHITE })
-      // Palette: they are flat-colour logos, so 256 colours are enough and the
-      // total of all 13 drops from 558kB to 206kB with no visible difference.
+      // 256-color palette: flat logos, much smaller files, no visible change.
       .png({ compressionLevel: 9, palette: true, quality: 90 })
       .toBuffer()
 
@@ -117,14 +90,13 @@ async function main() {
         ` ->  ${tag}.png  ${after.width}x${after.height} ${kb(buffer.length)}`,
     )
 
-    // The buffer is written as it is. Passing it through sharp().toFile() would
-    // decode it and re-encode it with the default options, throwing away the
-    // palette that was just chosen.
+    // Write the buffer as is: sharp().toFile() would re-encode it and drop the
+    // palette.
     if (write) writeFileSync(output, buffer)
   }
 
   console.log(`\n${files.length} logos ${write ? `written to ${OUTPUT_DIR}/` : 'ready'}.`)
-  if (!write) console.log('To generate them: npx tsx scripts/normalize-logos.ts --write')
+  if (!write) console.log('To generate them: npm run logos -- --write')
 }
 
 main().catch((error) => {

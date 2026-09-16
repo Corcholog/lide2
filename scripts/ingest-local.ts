@@ -1,13 +1,11 @@
 /**
- * Ingests replays from disk, taking exactly the same path as the upload screen:
- * signed upload URL -> storage -> range parsing -> RPC.
- *
- * It serves for backfills (loading every .rofl of an already-played tournament
- * at once) and for exercising the whole flow without a browser.
+ * Ingests replays from disk through the same path as the upload screen:
+ * signed upload URL -> storage -> range parsing -> RPC. Useful for backfills
+ * and for exercising the whole flow without a browser.
  *
  *   npm run ingest -- fixtures --auto
- *   npm run ingest -- fixtures --stage "Suizo" --round "Ronda 3"
- *   npm run ingest -- "fixtures/13.06 BLOQUE A/LA2-1602349752.rofl"
+ *   npm run ingest -- fixtures --stage "Bloque B" --round "Fecha 1"
+ *   npm run ingest -- "fixtures/13.06 - FECHA 3 (Replays)/13.06 BLOQUE A/LA2-1602349752.rofl"
  *   npm run ingest -- fixtures --dry-run
  */
 import { readFileSync, statSync } from 'node:fs'
@@ -22,8 +20,8 @@ import { createAdminClient } from '../src/lib/supabase/admin'
 import { collectReplays } from './lib/replays'
 
 /**
- * Reprocessing a backfill with better labels has to correct what is already
- * stored; otherwise the first runs are left with provisional data forever.
+ * Re-running a backfill with better labels updates what is already stored, so
+ * earlier runs do not keep provisional labels.
  */
 async function relabel(
   matchId: string,
@@ -54,7 +52,7 @@ async function main() {
   const auto = args.includes('--auto')
 
   if (targets.length === 0) {
-    console.error('Usage: npm run ingest -- <file.rofl | folder> [--stage "Suizo"] [--round "Ronda 3"] [--dry-run]')
+    console.error('Usage: npm run ingest -- <file.rofl | folder> [--stage "Bloque B"] [--round "Fecha 1"] [--dry-run]')
     process.exit(1)
   }
 
@@ -75,7 +73,7 @@ async function main() {
     }
   }
 
-  console.log(`\n  ${files.length} replay(s) a procesar${dryRun ? ' (dry run)' : ''}\n`)
+  console.log(`\n  ${files.length} replay(s) to process${dryRun ? ' (dry run)' : ''}\n`)
   if (dryRun) {
     for (const file of files) {
       const labels = labelsFor(file)
@@ -108,7 +106,7 @@ async function main() {
       if (known) {
         duplicated++
         const updated = await relabel(known.matchId, labelsFor(path))
-        console.log(`duplicada${updated ? ' (etiquetas actualizadas)' : ''}`)
+        console.log(`duplicate${updated ? ' (labels updated)' : ''}`)
         continue
       }
 
@@ -118,15 +116,15 @@ async function main() {
         .from(REPLAYS_BUCKET)
         .uploadToSignedUrl(target.path, target.token, new Blob([new Uint8Array(buffer)]))
 
-      if (uploadError) throw new Error(`subida: ${uploadError.message}`)
+      if (uploadError) throw new Error(`upload: ${uploadError.message}`)
 
       const labels = labelsFor(path)
       const result = await ingestReplay({
         storagePath: target.path,
         fileName: name,
         fileSize: buffer.length,
-        // The mtime is when the file was copied, not when it was played: it is
-        // only used when the path says nothing.
+        // The mtime is when the file was copied, not played: only used when the
+        // path has no date.
         lastModified: (labels.playedAt ?? statSync(path).mtime).getTime(),
         sha256: hash,
         stageLabel: labels.stageLabel,
@@ -145,7 +143,7 @@ async function main() {
         console.log('duplicate (another .rofl of the same match, kept as proof)')
       } else {
         created++
-        console.log(`ok  parche ${result.patch ?? '?'}  ${result.players} jugadores`)
+        console.log(`ok  patch ${result.patch ?? '?'}  ${result.players} players`)
       }
     } catch (error) {
       failed++

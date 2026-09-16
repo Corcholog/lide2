@@ -7,8 +7,8 @@ const eslintConfig = defineConfig([
   ...nextTs,
   {
     rules: {
-      // Se usa el patrón `const { raw: _raw, ...resto } = fila` para descartar
-      // campos pesados (los 365 crudos del .rofl) al armar snapshots.
+      // Allows `const { raw: _raw, ...rest } = row`, used to drop heavy fields
+      // (the raw .rofl stats) when building snapshots.
       "@typescript-eslint/no-unused-vars": [
         "warn",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_", ignoreRestSiblings: true },

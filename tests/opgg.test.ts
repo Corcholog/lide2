@@ -2,13 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { multisearchUrl, searchableCount, summonerUrl } from '@/lib/opgg'
 
 /**
- * The op.gg multisearch link.
- *
- * The first test is the whole point of the file: a URL copied from op.gg's own
- * multisearch box, rebuilt from its five accounts and compared character by
- * character. Everything about the format that is not obvious - the double
- * comma, `+` instead of `%20`, `#` as `%23` - is load-bearing and none of it
- * can be checked by reading the code.
+ * The op.gg multisearch link. The first test rebuilds a URL copied from op.gg's
+ * own search box, character by character: the double comma, `+` for spaces and
+ * `%23` for `#` all matter and cannot be verified by reading the code.
  */
 
 const team = [
@@ -27,8 +23,7 @@ describe('op.gg multisearch', () => {
   })
 
   it('leaves out the accounts op.gg cannot resolve', () => {
-    // A Riot ID without its tag is not unique, so op.gg cannot look it up:
-    // including it would put a dud in the search, not that person.
+    // Without a tag a Riot ID is not unique, so op.gg cannot resolve it.
     const url = multisearchUrl([
       { gameName: 'Corcho', tagLine: 'fkc' },
       { gameName: 'SinTag', tagLine: null },
@@ -64,7 +59,7 @@ describe('op.gg multisearch', () => {
     expect(url).toBe(
       'https://op.gg/es/lol/multisearch/las?summoners=%C3%91and%C3%BA+%26+Co%23LAS',
     )
-    // And it survives the round trip back to the Riot ID.
+    // It decodes back to the Riot ID.
     const value = new URL(url!).searchParams.get('summoners')
     expect(value).toBe('Ñandú & Co#LAS')
   })
@@ -76,13 +71,9 @@ describe('op.gg multisearch', () => {
 })
 
 /**
- * One player's own page, which is the other shape of op.gg link and shares
- * nothing with the multisearch but the region and the locale.
- *
- * Same deal as above: the first test is a URL pasted out of a browser's address
- * bar and rebuilt from the account it belongs to. What matters is what changes
- * against the multisearch - %20 instead of +, because this one is a path, and a
- * hyphen where the Riot ID has its #.
+ * One player's op.gg page. Unlike the multisearch, the Riot ID is part of the
+ * path: spaces are %20 and the `#` becomes a hyphen. The first test rebuilds a
+ * URL copied from the browser.
  */
 describe('op.gg summoner page', () => {
   it('rebuilds a real op.gg link exactly', () => {
@@ -92,7 +83,7 @@ describe('op.gg summoner page', () => {
   })
 
   it('writes the spaces as a path does', () => {
-    // The multisearch spells the same name with +, which here would be a plus.
+    // The multisearch uses `+` for spaces, which in a path would be a literal plus.
     expect(summonerUrl({ gameName: 'falling forever', tagLine: '1101' })).toBe(
       'https://op.gg/es/lol/summoners/las/falling%20forever-1101',
     )
@@ -106,11 +97,9 @@ describe('op.gg summoner page', () => {
       ['a/b?c#d', 'LAS', 'a%2Fb%3Fc%23d-LAS'],
       ['100%', 'LAS', '100%25-LAS'],
       ['El & Barto', 'XL55', 'El%20%26%20Barto-XL55'],
-      // A dot and an underscore, which encodeURIComponent leaves alone and a
-      // path is happy with.
+      // Dots and underscores are left as they are.
       ['jose.perez_77', 'LAS', 'jose.perez_77-LAS'],
-      // And a nick that already carries a hyphen: op.gg reads the tag off the
-      // last one, so both stay literal.
+      // A nick with its own hyphen: op.gg reads the tag after the last one.
       ['Jean-Luc', 'LAS', 'Jean-Luc-LAS'],
     ]
 

@@ -78,7 +78,7 @@ describe('schema and ingest (embedded Postgres)', () => {
     expect(Number(players.rows[0].n)).toBe(10)
     expect(Number(players.rows[0].kills)).toBe(42)
 
-    // The 365 raw fields are kept for stats not promoted to columns yet.
+    // The raw per-player fields are kept for stats not yet promoted to columns.
     const raw = await db.query<{ keys: number }>(
       `select count(*)::int as keys
          from public.match_players mp, jsonb_object_keys(mp.raw)
@@ -126,7 +126,7 @@ describe('schema and ingest (embedded Postgres)', () => {
       'select champion, kills, score_pct::text from public.match_player_scores where match_id = $1 and match_rank = 1',
       [matchId],
     )
-    // Yasuo 17/4/9 with 45k damage in the real match
+    // Yasuo 17/4/9 with 45k damage in the source match.
     expect(mvp.rows[0].champion).toBe('Yasuo')
     expect(mvp.rows[0].kills).toBe(17)
     expect(Number(mvp.rows[0].score_pct)).toBe(1)
@@ -142,8 +142,7 @@ describe('schema and ingest (embedded Postgres)', () => {
 
   it('accumulates per player even with no teams loaded yet', async () => {
     const { rows } = await db.query<{ games: string; kda: string; mvp_count: string }>(
-      // By player_id and no longer by puuid: the puuid stopped leaving the
-      // database when the site opened to the public (0013_publico.sql).
+      // By player_id, not puuid: the puuid is not exposed publicly (0013_publico.sql).
       `select pt.games::text, pt.kda::text, pt.mvp_count::text
          from public.player_totals pt
          join public.match_players mp on mp.player_id = pt.player_id

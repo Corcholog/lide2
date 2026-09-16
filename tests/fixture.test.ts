@@ -13,13 +13,9 @@ import {
 } from '@/lib/lide2/tournament'
 
 /**
- * The fixture and the rosters are transcribed by hand from the organizers'
- * sheets, so what gets verified here is the transcription: that the matchups
- * add up to a complete round robin, that nobody plays twice in the same slot
- * and that the totals give the same numbers the organizers announced.
- *
- * The three sources - the announcement, the groups sheet and the fixture sheet
- * - were produced by different people, so if they agree that is a good sign.
+ * The fixture and rosters are transcribed by hand from the organizers' sheets,
+ * so this checks the transcription: a complete round robin, nobody playing twice
+ * in a slot, and totals matching the announced numbers.
  */
 describe('LIDE 2 structure', () => {
   it('has 20 teams numbered 1 to 20, with no repeats', () => {
@@ -47,7 +43,7 @@ describe('LIDE 2 structure', () => {
     for (const tag of used) {
       expect(UNIVERSITIES[tag], `universidad ${tag}`).toBeDefined()
     }
-    // None is spare: the 13 from the announcement are exactly the ones playing.
+    // Exactly the announced universities are used, none extra.
     expect(used.size).toBe(TOURNAMENT.universities)
   })
 
@@ -57,7 +53,7 @@ describe('LIDE 2 structure', () => {
         expect(team.entry, `team ${team.number}`).toBe('individual')
       }
     }
-    // Four teams came out mixing universities.
+    // Four teams mix universities.
     expect(TEAMS.filter((team) => team.universities.length > 1)).toHaveLength(4)
   })
 })
@@ -167,7 +163,7 @@ describe('rosters', () => {
         expect(UNIVERSITIES[tag], `universidad ${tag}`).toBeDefined()
         expect(team.universities, `team ${team.number} no declara ${tag}`).toContain(tag)
       }
-      // And the other way round: what the team declares has to be on the roster.
+      // And the reverse: every university a team declares is on its roster.
       for (const tag of team.universities) {
         expect(onRoster, `team ${team.number} declares ${tag} with no players`).toContain(tag)
       }
@@ -191,7 +187,7 @@ describe('rosters', () => {
       for (const entry of entries) {
         expect(entry.name.trim(), `team ${number}`).not.toBe('')
         expect(entry.name, `team ${number}: ${entry.name}`).toBe(entry.name.trim())
-        // "ZemelkaUNAHUR" was an artefact of copying the sheet.
+        // Catches university tags pasted onto names when copying the sheet.
         expect(entry.name, `team ${number}: ${entry.name}`).not.toMatch(
           new RegExp(`[a-z]${entry.university}$`),
         )

@@ -3,10 +3,8 @@ import { maybeRow, rows } from '@/lib/supabase/query'
 import type { PostgrestError } from '@supabase/supabase-js'
 
 /**
- * That a query error never disguises itself as "nothing here yet".
- *
- * It is the difference that matters on a match day: without this, a broken
- * policy and an unplayed matchday look exactly the same on screen.
+ * A failed query must never look like "nothing here yet": a broken policy and an
+ * unplayed matchday must not render the same.
  */
 
 const failure: PostgrestError = Object.assign(new Error('permission denied for table matches'), {

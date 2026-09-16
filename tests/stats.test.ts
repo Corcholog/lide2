@@ -4,16 +4,11 @@ import { createTestDb } from './helpers/db'
 import { playScoreboard } from './helpers/matches'
 
 /**
- * The stats engine, over embedded Postgres.
+ * The stats views, over embedded Postgres.
  *
- * Two teams from one group and two matchdays' worth of games are built by hand.
- * An invented scoreboard is stricter than real data for this: the exact case to
- * be verified can be set up (the support who kills nobody, the top who never
- * dies but never participates, the team with three universities) instead of
- * waiting for it to turn up.
- *
- * Team 15 is the hard case from the real LIDE 2: it came out of individual
- * signups and mixes UNER, UADE and UNLP.
+ * Two teams from one group over two matchdays, with hand-built scoreboards that
+ * set up specific cases (a support with no kills, a top laner who never dies,
+ * a team from three universities).
  */
 
 const BLUE = ['b-top', 'b-jgl', 'b-mid', 'b-adc', 'b-sup']
@@ -159,8 +154,7 @@ describe('stats', () => {
     let matchId: string
 
     beforeAll(async () => {
-      // Deliberately wrong labels: this is how a .rofl filed in the wrong
-      // folder ends up.
+      // Deliberately wrong labels, as with a .rofl filed in the wrong folder.
       matchId = await playScoreboard(db, {
         tournamentId,
         blueTeamId: team.get('Equipo 15'),
@@ -253,11 +247,9 @@ describe('stats', () => {
         [tournamentId],
       )
 
-      // b-top played 4/0/0 and then 0/1/1. Over the totals that is
-      // (4 + 1) / 1 = 5.00, because the game without deaths leaves nothing in
-      // the denominator; game by game it is (4.00 + 1.00) / 2 = 2.50. Same
-      // player, same two games, two different numbers: that is exactly why
-      // both columns exist and why each card says which one it is showing.
+      // b-top played 4/0/0 and then 0/1/1. Ratio of totals: (4 + 1) / 1 = 5.00
+      // (the deathless game adds nothing to the denominator); per-game average:
+      // (4.00 + 1.00) / 2 = 2.50. Hence both columns exist.
       expect(Number(rows[0].kda)).toBe(5)
       expect(Number(rows[0].avg_kda)).toBe(2.5)
     })
@@ -292,11 +284,8 @@ describe('stats', () => {
         [tournamentId],
       )
 
-      // The ten played both games, so they are all in both cuts. The number
-      // that matters here is the one the threshold used to be: at three the
-      // phase MVP was empty with two matchdays played, which is to say the
-      // card did not exist until the tournament was nearly over. See
-      // 0026_minimo_una_partida.sql.
+      // All ten played both games, so they appear in both scopes (see
+      // 0026_minimo_una_partida.sql for the minimum of games).
       expect(Number(matchdayRow.rows[0].n)).toBe(10)
       expect(Number(phaseRows.rows[0].n)).toBe(10)
     })
@@ -379,7 +368,7 @@ describe('stats', () => {
         [tournamentId],
       )
 
-      // Una de las dos partidas tiene draft cargado: el ban vale sobre esa.
+      // One of the two matches has a draft entered; the ban counts over that one.
       expect(Number(rows[0].bans)).toBe(1)
       expect(Number(rows[0].matches)).toBe(2)
       expect(Number(rows[0].matches_with_bans)).toBe(1)
@@ -398,7 +387,7 @@ describe('stats', () => {
       )
 
       expect(rows.map((r) => Number(r.matchday))).toEqual([1, 2])
-      // Fecha 1: 20 del ganador y 5 del perdedor.
+      // Matchday 1: 20 kills for the winner and 5 for the loser.
       expect(Number(rows[0].total_kills)).toBe(25)
       expect(Number(rows[0].kill_gap)).toBe(15)
     })

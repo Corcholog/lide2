@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { championIndex, resolveChampion } from '../src/lib/champions/catalog'
 import { championKey, championLoading, roflKey } from '../src/lib/ddragon'
 
-/** A slice of ddragon's catalogue, with the most commonly misspelled names. */
+/** A subset of ddragon's catalog, with the most often misspelled names. */
 const CATALOG = [
   { key: 'MonkeyKing', name: 'Wukong' },
   { key: 'Kaisa', name: "Kai'Sa" },
@@ -67,8 +67,8 @@ describe('roflKey', () => {
   })
 
   it('is the inverse of championKey', () => {
-    // Both ends have to meet: otherwise a stored ban does not match the pick
-    // of the same champion and the meta counts it twice.
+    // The two mappings must round-trip, or stored bans would not match picks and
+    // the champion would be counted twice.
     expect(championKey(roflKey('Fiddlesticks'))).toBe('Fiddlesticks')
   })
 })
@@ -79,7 +79,7 @@ describe('championLoading', () => {
   })
 
   it('builds the path with the ddragon key and not the .rofl spelling', () => {
-    // The CDN path is case-sensitive, same as the icon's.
+    // CDN paths are case-sensitive, as for icons.
     expect(championLoading('FiddleSticks')).toBe(
       '/api/ddragon/cdn/img/champion/loading/Fiddlesticks_0.jpg',
     )

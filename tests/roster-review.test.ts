@@ -4,16 +4,12 @@ import { createTestDb } from './helpers/db'
 
 
 /**
- * What the matchday leaves to sort out.
+ * Roster issues left by a matchday.
  *
- * The nicks and the lanes get entered by hand during the week, from whatever
- * people send in. Then it gets played, and the replay is the first hard fact
- * about any of it: somebody changed their nick and did not say so, two of them
- * swapped lanes, a substitute nobody had signed up went in.
- *
- * `roster_review` is that list, per team, and `merge_manual_account()` closes
- * the case that actually loses data - the nick change - by handing the real
- * account the signup its placeholder was holding.
+ * Nicks and lanes are entered by hand before playing; the replay then shows what
+ * actually happened: a nick change, swapped lanes, an unlisted substitute.
+ * `roster_review` lists them per team, and `merge_manual_account()` resolves a
+ * nick change by moving the signup to the real account.
  */
 
 interface ReviewRow {
@@ -82,7 +78,7 @@ describe('roster review', () => {
     await db?.close()
   })
 
-  /** Types a nick into Team 01's roster, the way the team page does. */
+  /** Enters a nick into Team 01's roster, as the team page does. */
   async function addNick(nick: string, tag: string | null, role?: string) {
     const { rows } = await db.query<{ add_team_account: { player_id: string } }>(
       'select public.add_team_account($1, $2, $3)',
@@ -97,7 +93,7 @@ describe('roster review', () => {
     return playerId
   }
 
-  /** Signs a legal name up on the sheet and matches it with an account. */
+  /** Adds a legal name to the signup sheet and links it to an account. */
   async function signUp(fullName: string, orderIndex: number, playerId?: string) {
     const { rows } = await db.query<{ id: string }>(
       `insert into public.team_roster (team_id, full_name, order_index)
@@ -113,14 +109,11 @@ describe('roster review', () => {
   /**
    * Plays a matchday for Team 01 with the given Riot IDs, in lane order.
    *
-   * It walks the same steps as `ingest_match()` and in the same order, instead
-   * of using the `playScoreboard` helper, because the order is the whole point
-   * here: the scoreboard lands first with nothing but PUUIDs, THEN
-   * `adopt_manual_accounts()` gives the real PUUID to the hand-typed row that
-   * matches, and only then are the remaining accounts created. Creating the
-   * `players` rows up front - which is what the shared helper does - skips the
-   * adoption and leaves two rows for every nick that was typed in correctly,
-   * which is exactly the bug this feature is about.
+   * Follows `ingest_match()`'s steps in order instead of using `playScoreboard`:
+   * the scoreboard is inserted with PUUIDs only, `adopt_manual_accounts()` gives
+   * the real PUUID to matching hand-entered rows, and only then are the remaining
+   * accounts created. Creating `players` rows first would skip the adoption and
+   * duplicate every correctly typed nick.
    */
   async function playMatchday(matchday: number, nicks: [string, string | null][]) {
     const lanes = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'SUPPORT']
@@ -152,7 +145,7 @@ describe('roster review', () => {
       )
     }
 
-    // The three lines of ingest_match(), in its order.
+    // The steps of ingest_match(), in order.
     await db.query('select public.adopt_manual_accounts($1)', [matchId])
     await db.query(
       `insert into public.players (puuid, riot_game_name, riot_tag_line)
@@ -213,7 +206,7 @@ describe('roster review', () => {
     await addNick('Pachu', '777', 'JUNGLE')
 
     expect(await review()).toEqual([])
-    // And the lineup does not accuse anybody of not having played.
+    // The lineup does not mark anyone as not having played.
     expect((await lineup()).every((r) => r.did_not_play === false)).toBe(true)
   })
 
@@ -237,16 +230,16 @@ describe('roster review', () => {
       played_role: null,
     })
 
-    // And the lineup says so where the nick is drawn.
+    // The lineup shows it too.
     const corcho = (await lineup()).find((r) => r.name === 'Corcho')!
     expect(corcho.did_not_play).toBe(true)
-    // Top belongs to whoever played it, not to the one who was promised it.
+    // Top goes to the player who played it, not the one assigned.
     expect((await lineup()).find((r) => r.slot === 1)!.name).toBe('Alfa')
   })
 
   it('four of five recognized and one left over: it suggests the pairing', async () => {
-    // The week's roster. Four of them play under the nick that was typed in;
-    // Corcho shows up as Corchito, which is what a nick change looks like.
+    // The roster entered before the matchday. Four play under their typed nick;
+    // Corcho appears as Corchito, i.e. a nick change.
     for (const [nick, tag] of [
       ['Corcho', 'fkc'],
       ['Bravo', 'arg'],
@@ -285,8 +278,8 @@ describe('roster review', () => {
       await addNick(nick, tag)
     }
 
-    // Two did not play and two are new, so the "only one left" rule cannot
-    // fire. The tag is what pairs Corcho with Corchito.
+    // Two did not play and two are new, so the "only one left" rule does not
+    // apply; the tag pairs Corcho with Corchito.
     await playMatchday(1, [
       ['Corchito', 'fkc'],
       ['Otro', 'nnn'],
@@ -300,7 +293,7 @@ describe('roster review', () => {
 
     const corcho = didNotPlay.find((r) => r.name === 'Corcho')!
     expect(corcho).toMatchObject({ suggested_name: 'Corchito', suggested_reason: 'mismo_tag' })
-    // Pachu's tag matches nobody, and the count rules out the arithmetic.
+    // Pachu's tag matches nobody, and the counts rule out the other rule.
     expect(didNotPlay.find((r) => r.name === 'Pachu')!.suggested_player_id).toBeNull()
   })
 
@@ -322,8 +315,8 @@ describe('roster review', () => {
       ['Delta', 'arg'],
       ['Eco', 'arg'],
     ])
-    // Eco sits out the second and Foxtrot goes in. Eco has games behind them,
-    // so they are a substitute who did not play - not an old nick to absorb.
+    // Eco sits out matchday 2 and Foxtrot plays. Eco already has games, so this is
+    // a substitute, not an old nick to merge.
     await playMatchday(2, [
       ['Alfa', 'arg'],
       ['Bravo', 'arg'],
@@ -346,8 +339,8 @@ describe('roster review', () => {
     ] as const) {
       await addNick(nick, tag)
     }
-    // The legal name behind the nick: this is what would be lost, and with it
-    // which university that person's matches count towards.
+    // The signup (legal name) is what decides which university the matches count
+    // for, so it must follow the account.
     const rosterId = await signUp('Apellido, Nombre', 0, corcho)
 
     await playMatchday(1, [
@@ -368,7 +361,7 @@ describe('roster review', () => {
       roster_moved: true,
     })
 
-    // The signup now points at the account that actually played.
+    // The signup now points to the account that played.
     const { rows: roster } = await db.query<{ player_id: string }>(
       'select player_id from public.team_roster where id = $1',
       [rosterId],
@@ -382,7 +375,7 @@ describe('roster review', () => {
     )
     expect(remaining[0].n).toBe(0)
 
-    // Nothing left pending, and the lineup is the five who played.
+    // Nothing pending, and the lineup is the five who played.
     expect((await review()).filter((r) => r.kind === 'no_jugo')).toEqual([])
     const rows = await lineup()
     expect(rows).toHaveLength(5)
@@ -463,7 +456,7 @@ describe('roster review', () => {
   })
 
   it('a lane that changed is reported, and the lineup already shows the played one', async () => {
-    // Charlie was written down as mid and played support.
+    // Charlie was assigned mid and played support.
     const charlie = await addNick('Charlie', 'arg', 'MIDDLE')
     for (const [nick, tag] of [
       ['Alfa', 'arg'],

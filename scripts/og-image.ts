@@ -1,25 +1,18 @@
 /**
- * Generates the image that shows when somebody pastes the site's link.
+ * Generates the link preview image (src/app/opengraph-image.jpg).
  *
  *   npm run og
  *
- * It is generated once and committed as src/app/opengraph-image.jpg, which is
- * the name Next looks for on its own. Static and not `ImageResponse` on
- * purpose: the image depends on no data, so generating it on every request
- * would be paying at runtime for something that never changes. It also means
- * the result can be looked at before it goes up.
- *
- * The text is set in Arial Black because the SVG is drawn by the machine that
- * runs this, not by the browser, and the site's Archivo Black only exists as a
- * webfont. They are the two heavy grotesques of the same family and at this
- * size the difference does not show; if it ever bothers anyone, the way out is
- * putting the .ttf in the repo.
+ * Generated once and committed rather than rendered per request with
+ * `ImageResponse`: it depends on no data, and the result can be reviewed before
+ * it is published. Text uses Arial Black because the SVG is rendered locally,
+ * where the site's Archivo Black webfont is not available.
  */
 import { writeFileSync } from 'node:fs'
 import sharp from 'sharp'
 import { TOURNAMENT, SLOGAN_PARTS, tournamentStartDate } from '../src/lib/lide2/tournament'
 
-/** What Facebook, WhatsApp, Discord and Twitter ask for: 1200 x 630. */
+/** The size link previews use: 1200 x 630. */
 const WIDTH = 1200
 const HEIGHT = 630
 
@@ -27,26 +20,21 @@ const HERO = 'public/lide2-hero.jpg'
 const OUTPUT = 'src/app/opengraph-image.jpg'
 
 const RED = '#ff4353'
-/** The same --fg as the dark theme, which is what the title uses. */
+/** The dark theme's --fg, used for the title. */
 const LIGHT = '#e9e9ee'
 const BACKGROUND = '#0a0a0b'
 
-/** `&` and `<` break the SVG, and the names come from a data file. */
+/** Escapes `&`, `<` and `>` for the SVG. */
 function xml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
 /*
- * The slogan in two colours, same as the hero: the article light and the noun
- * red, which is where the phrase's weight is (see the Hero in
- * src/components/home/Hero.tsx). It used to come out entirely red, so the
- * thumbnail seen when pasting the link did not match the first thing seen on
- * arrival.
+ * The slogan in two colors, like the hero: light article, red noun.
  *
- * It is assembled as tspans and with xml:space="preserve" on one line: without
- * that the SVG collapses the newlines and the indentation, and the words come
- * out stuck together or with too much air. That is why this string already
- * carries markup and cannot be run through xml() again when interpolated.
+ * Built as tspans on a single line with xml:space="preserve", since the SVG
+ * would otherwise collapse or merge the spaces. It already contains markup, so
+ * it must not be passed through xml() again.
  */
 const slogan = SLOGAN_PARTS.map(
   ({ article, noun }) =>
@@ -55,11 +43,8 @@ const slogan = SLOGAN_PARTS.map(
 ).join(' ')
 
 /*
- * The layers, bottom to top: the cropped photo, a gradient dimming it from the
- * left - which is where the text rests - and the text.
- *
- * The crop points at the same place as the site's hero (52% 20%), so the
- * thumbnail and the page show the same part of the artwork.
+ * Layers, bottom to top: the cropped artwork, a gradient darkening the left side
+ * behind the text, and the text. The crop uses the hero's focus point (52% 20%).
  */
 const textLayer = Buffer.from(`
 <svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">

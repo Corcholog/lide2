@@ -4,14 +4,10 @@ import { createTestDb } from './helpers/db'
 import { playScoreboard } from './helpers/matches'
 
 /**
- * What is visible without a session.
+ * What is readable without a session (migration 0013).
  *
- * This is the only thing that really verifies migration 0013: the publishable
- * key travels to the browser, so anybody can hit PostgREST directly. The pages
- * not showing something proves nothing; what proves it is the database not
- * handing it over.
- *
- * The tests run as the `anon` role, just like a visitor.
+ * The publishable key is public, so anyone can query PostgREST directly; only
+ * the database's own permissions matter. Tests run as the `anon` role.
  */
 
 async function asAnon<T>(db: PGlite, sql: string, params: unknown[] = []): Promise<T[]> {
@@ -138,16 +134,14 @@ describe('public access', () => {
       expect(await asAnon(db, 'select * from public.university_totals')).not.toHaveLength(0)
       expect(await asAnon(db, 'select * from public.match_records')).toHaveLength(1)
 
-      // The Tables tab's meta. It is the only way to catch a misplaced
-      // `security_invoker`: the symptom would be zero rows with no error at
-      // all, and only for somebody without a session - which is to say
-      // invisible in development, where you are always signed in.
+      // The Tables tab's champion stats. A misplaced `security_invoker` would
+      // return zero rows without error, only for signed-out visitors.
       expect(await asAnon(db, 'select * from public.champion_meta')).not.toHaveLength(0)
     })
 
     it('the new match_summaries columns', async () => {
-      // The scope and the draft's state (0021): /partidas' filters and the
-      // panel's "sin draft" badge come from here.
+      // Scope columns and draft state (0021), used by /partidas and the panel's
+      // "sin draft" badge.
       const rows = await asAnon<{ matchday: number | null; ban_count: number }>(
         db,
         'select matchday, group_label, ban_count from public.match_summaries',
@@ -161,10 +155,8 @@ describe('public access', () => {
         await asAnon(db, `select * from public.team_accounts where team_id = '${team01}'`),
       ).toHaveLength(5)
 
-      // The lineup is what a visitor sees on the team page: the five slots
-      // with the nick of whoever plays them. The view reads team_roster to
-      // count the signups, so it runs as definer; that an `anon` can read it is
-      // precisely what has to be proven.
+      // The lineup shown on team pages. The view reads team_roster to count
+      // signups, so it runs as definer; this checks `anon` can read it.
       const roster = await asAnon<{ role: string | null; name: string | null }>(
         db,
         `select role, name from public.team_lineup where team_id = '${team01}' order by slot`,
@@ -188,7 +180,7 @@ describe('public access', () => {
           where table_schema = 'public' and column_name = 'puuid'`,
       )
 
-      // Only the raw tables, which are not readable without a session.
+      // Only the raw tables are unreadable without a session.
       expect(rows.map((r) => r.table_name).sort()).toEqual(['match_players', 'players'])
     })
 

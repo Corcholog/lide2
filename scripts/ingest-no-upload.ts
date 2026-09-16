@@ -1,25 +1,16 @@
 /**
- * Loads replays from disk WITHOUT uploading them to storage.
+ * Loads replays from disk without uploading them to storage.
  *
- * It is the light-weight sibling of `npm run ingest`: same parser, same
- * payload, same RPC, but without the `uploadToSignedUrl` in the middle. The
- * difference matters when what you want is data to look at the site with and
- * not the file itself: the 30 LEIF replays in `fixtures/` weigh 408 MB, which
- * is nearly half the Supabase free plan's quota, only to have to purge them
- * afterwards.
+ * Same parser, payload and RPC as `npm run ingest`, minus the upload: useful
+ * for filling the site with test data without spending storage quota.
  *
  *   npm run ingest:no-upload -- fixtures --dry-run    shows what it would do
  *   npm run ingest:no-upload -- fixtures              loads
  *
- * What is lost without the file: the match has no `match_files` row, so
- * `file_count` stays at 0 and there is no .rofl to download from the match page
- * (the link only shows to whoever has a session). Deduplication cannot go by
- * sha256 either, but that is not needed: a match's identity is the
- * `fingerprint` the parser computes, and re-running this over the same folder
- * duplicates nothing.
- *
- * For the real flow - a match day, with the replay kept as proof of the result
- * - there is `npm run ingest`. This script is for test data and nothing else.
+ * Without the file there is no `match_files` row, so the match has no .rofl to
+ * download and cannot be deduplicated by sha256. Re-running is still safe: the
+ * parser's `fingerprint` identifies the match. For real match days use
+ * `npm run ingest`.
  */
 import { statSync } from 'node:fs'
 import { basename } from 'node:path'
@@ -45,10 +36,9 @@ async function main() {
     process.exit(1)
   }
 
-  // The labels come from the path ("16.05 - FECHA 1 (Replays)/..."), same as in
-  // `npm run ingest -- --auto`. They are not enough to hook the match to its
-  // matchup - /admin/asignar takes care of that - but they
-  // leave something readable in the meantime.
+  // Labels come from the path ("16.05 - FECHA 1 (Replays)/..."), as with
+  // `npm run ingest -- --auto`. Linking to a matchup still happens in
+  // /admin/asignar.
   const roundDates = buildRoundDateMap(files, new Date().getUTCFullYear())
 
   console.log(`\n  ${files.length} replay(s)${dryRun ? ' (dry run)' : ''}, not uploaded to storage\n`)
@@ -89,7 +79,7 @@ async function main() {
       if (result.status === 'created') created++
       else duplicated++
 
-      console.log(result.status === 'created' ? 'cargada' : 'duplicada')
+      console.log(result.status === 'created' ? 'loaded' : 'duplicate')
     } catch (error) {
       failed++
       const message =
@@ -97,7 +87,7 @@ async function main() {
           ? `[${error.code}] ${error.message}`
           : error instanceof Error
             ? error.message
-            : 'error desconocido'
+            : 'unknown error'
       console.log(`ERROR ${message}`)
     } finally {
       await source.close?.()

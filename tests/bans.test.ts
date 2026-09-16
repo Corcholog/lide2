@@ -4,12 +4,9 @@ import { createTestDb } from './helpers/db'
 import { playScoreboard } from './helpers/matches'
 
 /**
- * `set_match_bans`: entering the draft by hand (0021_meta_y_bans.sql).
- *
- * The .rofl does not store the bans, so the only way to have them is for
- * somebody to type them. This function is what receives that, and what matters
- * is not that it inserts - that is easy - but that it replaces the whole draft
- * atomically and does not let in spellings that later split the meta in two.
+ * `set_match_bans`: saving a hand-entered draft (0021_meta_y_bans.sql). It must
+ * replace the whole draft atomically and normalize champion spellings, or the
+ * champion stats would split one champion in two.
  */
 
 interface Ban {
@@ -69,8 +66,8 @@ describe('entering bans', () => {
     matchId = await playScoreboard(db, {
       tournamentId: tournament.rows[0].id,
       winner: 'blue',
-      // FiddleSticks with the capital S: it is the .rofl's spelling, different
-      // from ddragon's. It is the trap the test further down exercises.
+      // "FiddleSticks" is the .rofl spelling (ddragon writes "Fiddlesticks"),
+      // used by the normalization test below.
       blue: ['a', 'b', 'c', 'd', 'e'].map((p, i) => ({
         puuid: `azul-${p}`,
         champion: ['Garen', 'FiddleSticks', 'Lux', 'Jinx', 'Thresh'][i],
@@ -99,8 +96,8 @@ describe('entering bans', () => {
     await setBans(DRAFT)
     await setBans(DRAFT)
 
-    // Without replacing the lot this would blow up against the table's unique
-    // constraint, or worse, leave twenty rows behind.
+    // Without replacing the whole draft this would violate the unique constraint
+    // or leave twenty rows.
     expect(await savedBans()).toHaveLength(10)
   })
 
@@ -122,19 +119,15 @@ describe('entering bans', () => {
   })
 
   it('honours the spelling the database already uses', async () => {
-    // ddragon says "Fiddlesticks" and the .rofl writes "FiddleSticks". Stored
-    // exactly as it came, the champion would appear TWICE in champion_meta: one
-    // row with the picks and another with the bans, each with half the numbers
-    // and no way of noticing.
+    // ddragon writes "Fiddlesticks" and the .rofl "FiddleSticks". Stored as sent,
+    // the champion would appear twice in champion_meta, picks and bans split.
     await setBans([{ side: 100, order_index: 1, champion: 'Fiddlesticks' }])
 
     const stored = await savedBans()
     expect(stored[0].champion).toBe('FiddleSticks')
 
-    // `all_roles` because since 0030 the view also returns one row per role the
-    // champion was played in, and what is being counted here is the champion:
-    // that it is ONE and not two, the picks under one spelling and the bans
-    // under another.
+    // `all_roles`: since 0030 the view also has per-role rows, and this checks
+    // the whole champion is a single row.
     const { rows } = await db.query<{ picks: number; bans: number }>(
       `select picks, bans from public.champion_meta
         where all_groups and all_matchdays and all_roles and champion = 'FiddleSticks'`,
@@ -163,8 +156,8 @@ describe('entering bans', () => {
   })
 
   it('rejects the same champion twice', async () => {
-    // In a draft the same champion cannot be banned twice: nearly always it
-    // means whoever is entering them skipped a slot.
+    // The same champion cannot be banned twice in a draft; it usually means a
+    // skipped slot.
     const outcome = await setBans([
       { side: 100, order_index: 1, champion: 'Teemo' },
       { side: 200, order_index: 1, champion: 'Teemo' },

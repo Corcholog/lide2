@@ -1,9 +1,7 @@
 /**
- * Compares the replays bucket against the database and reports orphan objects.
- *
- * Mind what "orphan" means: the files of a failed ingest have no match_files
- * row either, but they are kept on purpose so the ingest can be retried. Only
- * what is in neither match_files nor ingest_failures counts as an orphan.
+ * Compares the replays bucket with the database and reports orphaned objects.
+ * Files from failed ingests are kept on purpose for retries, so only objects in
+ * neither `match_files` nor `ingest_failures` count as orphans.
  *
  *   npm run storage:audit
  *   npm run storage:audit -- --fix     (deletes the orphans)
@@ -21,7 +19,7 @@ async function listObjects(prefix: string): Promise<{ path: string; size: number
 
   const results: { path: string; size: number }[] = []
   for (const entry of data ?? []) {
-    // A folder carries no metadata; you have to go one level down.
+    // Folders have no metadata; list one level down.
     if (!entry.metadata) {
       results.push(...(await listObjects(prefix ? `${prefix}/${entry.name}` : entry.name)))
     } else {

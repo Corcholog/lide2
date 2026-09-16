@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildRoundDateMap, deriveLabels } from '../src/lib/ingest/labels'
 
-/** Real group-phase paths, exactly as the teams handed them over. */
+/** Real group-phase paths, as the teams delivered them. */
 const PATHS = [
   '16.05 - FECHA 1 (Replays)/16.05 BLOQUE B/E1vsE4-LEIF8-FECHA1-B.rofl',
   '16.05 - FECHA 1 (Replays)/16.05 BLOQUE A/WINNERS-LEIF8-FECHA1-A.rofl',
@@ -32,8 +32,7 @@ describe('labels derived from the path', () => {
   })
 
   it('for a misfiled file it believes the name, not the folder', () => {
-    // It sits inside "FECHA 2" but the name says Fecha 3: the right date is
-    // round 3's, not that of the folder it ended up in.
+    // In the "FECHA 2" folder but named Fecha 3: the date follows the name.
     const labels = deriveLabels(PATHS[3], dates)
     expect(labels.roundLabel).toBe('Fecha 3')
     expect(labels.playedAt?.toISOString().slice(0, 10)).toBe('2026-06-13')

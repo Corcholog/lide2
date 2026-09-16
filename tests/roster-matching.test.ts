@@ -4,11 +4,9 @@ import { createTestDb } from './helpers/db'
 import { playScoreboard } from './helpers/matches'
 
 /**
- * Matching signups with Riot accounts.
- *
- * The model case is the real Team 15: five people from three universities.
- * Unmatched, all five count towards UNER (the team's main one) and UADE is left
- * with nobody. Matched, each goes to their own.
+ * Matching signups to Riot accounts, on a mixed team: five people from three
+ * universities. Unmatched, all five count for the team's main university;
+ * matched, each counts for their own.
  */
 
 describe('roster matching', () => {
@@ -49,7 +47,7 @@ describe('roster matching', () => {
     team15 = teams.rows.find((r) => r.name === 'Equipo 15')!.id
     team01 = teams.rows.find((r) => r.name === 'Equipo 01')!.id
 
-    // Team 15's real roster, with the university each one declared.
+    // The roster, with each signup's declared university.
     const signups: [string, string][] = [
       ['Dario Ferro', 'UNER'],
       ['Andrea Sol Aranda', 'UNER'],
@@ -89,7 +87,7 @@ describe('roster matching', () => {
     await db?.close()
   })
 
-  /** Team 15's five play, with these Riot IDs. */
+  /** Team 15 plays a match with these Riot IDs. */
   async function play(nicks: [string, string | null][]): Promise<string> {
     const matchId = await playScoreboard(db, {
       winner: 'blue',
@@ -126,7 +124,7 @@ describe('roster matching', () => {
     await declare('Dario Ferro', 'DarioFerro', 'LAN')
     await declare('Gregorio Aguilar', 'ElGoyo', 'ARG1')
 
-    // Nobody has played yet: there is nothing to match.
+    // Nobody has played yet: nothing to match.
     const before = await db.query<{ link_roster_accounts: number }>(
       'select public.link_roster_accounts(null)',
     )
@@ -140,7 +138,7 @@ describe('roster matching', () => {
       ['ElGoyo', 'ARG1'],
     ])
 
-    // Assigning the matchup is what triggers the matching.
+    // Assigning the matchup triggers the matching.
     const result = await assign(matchId)
     expect(result.matched).toBe(2)
 
@@ -173,7 +171,7 @@ describe('roster matching', () => {
     )
 
     const byTag = new Map(rows.map((r) => [r.university_tag, Number(r.players)]))
-    // Without the matching, UADE would not exist and UNER would have all five.
+    // Without matching, UADE would have no players and UNER all five.
     expect(byTag.get('UADE')).toBe(1)
     expect(byTag.get('UNER')).toBe(4)
   })
@@ -207,7 +205,7 @@ describe('roster matching', () => {
 
     expect(result.matched).toBe(0)
 
-    // And it stays visible in the panel: five team accounts with no owner.
+    // It stays visible in the panel: team accounts with no owner.
     const { rows } = await db.query<{ n: string }>(
       `select count(*) as n from public.team_accounts where team_id = $1 and not linked`,
       [team15],
@@ -228,7 +226,7 @@ describe('roster matching', () => {
     ])
     const result = await assign(matchId)
 
-    // The first takes the account; the second is left for somebody to look at.
+    // The first gets the account; the second is left for an admin.
     expect(result.matched).toBe(1)
   })
 

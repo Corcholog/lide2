@@ -4,23 +4,21 @@ import { createTestDb } from './helpers/db'
 import { playScoreboard } from './helpers/matches'
 
 /**
- * `champion_meta`: the meta with the group dimension (0021_meta_y_bans.sql).
+ * `champion_meta`: the champion stats with the group dimension
+ * (0021_meta_y_bans.sql).
  *
- * TWO groups of two teams and TWO matchdays are built, that is four matches,
- * which is the minimum for the four scopes to give different numbers from each
- * other: if the total and the group's came out the same, the test would pass
- * even with the view ignoring the group.
- *
- * The matches are hooked to their fixture matchup and not to a text label,
- * which is how `match_context` resolves the group in production.
+ * Two groups of two teams over two matchdays (four matches), the minimum for
+ * the four scopes to give different numbers; otherwise the test could pass with
+ * the view ignoring the group. Matches are linked to fixture matchups, which is
+ * how `match_context` resolves the group in production.
  */
 
 const BLUE = ['b-top', 'b-jgl', 'b-mid', 'b-adc', 'b-sup']
 const RED = ['r-top', 'r-jgl', 'r-mid', 'r-adc', 'r-sup']
 
-/** The blue side's five. Ahri goes mid and is the one nearly everything looks at. */
+/** Blue side picks for group A. Ahri plays mid and is the focus of most tests. */
 const BLUE_PICKS_A = ['Garen', 'Ahri', 'Lux', 'Jinx', 'Thresh']
-/** Group B plays Yasuo where A plays Ahri: that makes Ahri exclusive to A. */
+/** Group B plays Yasuo instead, so Ahri only appears in group A. */
 const BLUE_PICKS_B = ['Garen', 'Yasuo', 'Lux', 'Jinx', 'Thresh']
 const RED_PICKS = ['Darius', 'Zed', 'Orianna', 'Caitlyn', 'Leona']
 
@@ -49,7 +47,7 @@ describe('champion meta', () => {
   let tournamentId: string
   const team = new Map<string, string>()
 
-  /** The requested scope, exactly as `metaFilter` builds it on the app side. */
+/** The requested scope, built like `metaFilter` does in the app. */
   async function meta(
     groupLabel: string | null,
     matchday: number | null,
@@ -171,7 +169,7 @@ describe('champion meta', () => {
   })
 
   it('the group scope separates what each one played', async () => {
-    // Ahri is exclusive to Group A: in B she does not exist.
+    // Ahri is only played in group A.
     const inA = await meta('Grupo A', null, 'Ahri')
     const inB = await meta('Grupo B', null, 'Ahri')
 
@@ -187,9 +185,8 @@ describe('champion meta', () => {
   })
 
   it("pick_rate uses the scope's denominator and not the tournament's", async () => {
-    // This is the easy mistake: scoping the picks but leaving the match total
-    // whole. Ahri was played 2 times across 4 matches (0.5), but within her
-    // group she was played in 2 out of 2 (1.0).
+    // The pick rate must use the scope's match count: Ahri was picked in 2 of 4
+    // matches overall (0.5), but in 2 of 2 within her group (1.0).
     const [total] = await meta(null, null, 'Ahri')
     const [inGroup] = await meta('Grupo A', null, 'Ahri')
 
@@ -219,14 +216,10 @@ describe('champion meta', () => {
   })
 
   it('the averages are taken over the picks and not over anything else', async () => {
-    // Against `player_match_stats`, which is what the view aggregates: this is
-    // what catches a sum where an average was meant, or an average taken over
-    // the wrong set of rows.
-    //
-    // The four matches of this fixture are identical, so here `kda` and
-    // `avg_kda` land on the same number - the case where they part ways is
-    // covered in tests/stats.test.ts, over `player_phase_totals`, which is the
-    // same pair of columns computed the same way.
+    // Checked against `player_match_stats`, which the view aggregates, to catch a
+    // sum used instead of an average or an average over the wrong rows. The four
+    // matches are identical, so `kda` and `avg_kda` coincide here; the case where
+    // they differ is covered in tests/stats.test.ts.
     const expected = await db.query<{ avg_kda: string; dpm: string; picks: string }>(
       `select round(avg(s.kda), 2) as avg_kda, round(avg(s.dpm)) as dpm, count(*) as picks
          from public.player_match_stats s
@@ -243,9 +236,7 @@ describe('champion meta', () => {
   })
 
   it('with no draft entered, ban_rate and presence are null and not 0', async () => {
-    // Zero bans and "unknown" are different things: drawing them the same
-    // would say a champion is never banned when in fact nobody entered the
-    // draft.
+    // Zero bans and "unknown" are different: without a draft, bans are unknown.
     const [garen] = await meta(null, null, 'Garen')
     expect(garen.matches_with_bans).toBe(0)
     expect(garen.ban_rate).toBeNull()
@@ -254,8 +245,7 @@ describe('champion meta', () => {
 
   describe('with a draft entered', () => {
     beforeAll(async () => {
-      // Only Group A's matchday 1 match: that leaves the coverage partial and
-      // shows the denominator is not "every match".
+      // Only group A's matchday 1 match, so coverage is partial.
       const { rows } = await db.query<{ match_id: string }>(
         `select match_id from public.match_context
           where tournament_id = $1 and group_label = 'Grupo A' and matchday = 1`,
@@ -270,17 +260,15 @@ describe('champion meta', () => {
     })
 
     it('a champion that was only banned still appears', async () => {
-      // Teemo was never played. Without the union of picks and bans in the
-      // view, the meta would say he does not exist when in fact he is the most
-      // respected.
+      // Teemo was never played; without the union of picks and bans in the view
+      // he would not appear at all.
       const [teemo] = await meta(null, null, 'Teemo')
       expect(teemo).toBeDefined()
       expect(teemo.picks).toBe(0)
       expect(teemo.bans).toBe(1)
       expect(teemo.win_pct).toBeNull()
-      // Zero and not null, unlike the rates: these two are coalesced because
-      // the table draws them as numbers in a column of numbers, and a champion
-      // that was never played did do zero damage a minute.
+      // Zero, not null, unlike the rates: the table shows these as numbers, and a
+      // champion never played did zero damage per minute.
       expect(Number(teemo.avg_kda)).toBe(0)
       expect(Number(teemo.dpm)).toBe(0)
     })
@@ -295,8 +283,8 @@ describe('champion meta', () => {
     })
 
     it('presence adds the picks from matches with a draft plus the bans', async () => {
-      // Ahri was played twice, but only one was in a match with a draft; and
-      // in that same match she was also banned from the other side.
+      // Ahri was picked twice, once in a match with a draft, where she was also
+      // banned by the other side.
       const [ahri] = await meta(null, null, 'Ahri')
       expect(ahri.picks).toBe(2)
       expect(ahri.bans).toBe(1)
@@ -311,9 +299,8 @@ describe('champion meta', () => {
     })
 
     it('champion_stats did not change', async () => {
-      // The old view still returns ONE row per champion in the accumulated
-      // total. If groups are ever added to it, /estadisticas and the Instagram
-      // cards start repeating champions without throwing any error.
+      // `champion_stats` must still return one row per champion in the total, or
+      // /estadisticas and the Instagram cards would repeat champions.
       const { rows } = await db.query<{ picks: number }>(
         `select picks from public.champion_stats
           where tournament_id = $1 and phase = 'grupos' and is_total and champion = 'Garen'`,

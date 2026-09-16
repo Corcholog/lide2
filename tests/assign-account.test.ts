@@ -3,12 +3,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { createTestDb } from './helpers/db'
 
 /**
- * Saying by hand who an account belongs to.
+ * Linking a signup to an account by hand.
  *
- * The case is Team 01 before matchday 1: the five nicks entered by hand, the
- * five signups from the sheet, and nobody who has played yet. The automatic
- * matching needs the sheet to carry the Riot ID; when it does not, this is the
- * only thing that closes the link.
+ * Team 01 before the first matchday: five nicks entered by hand, five signups
+ * without a declared Riot ID, nobody has played. Automatic matching needs the
+ * Riot ID, so this is the only way to link them.
  */
 
 interface AssignResult {
@@ -26,8 +25,8 @@ describe('assigning an account to a signup', () => {
   const signup = new Map<string, string>()
   const account = new Map<string, string>()
 
-  // The full migrations per test: Postgres in WASM is slow, and vitest's
-  // default for a hook is 10 seconds.
+  // Full migrations per test: PGlite is slow, and vitest's default hook timeout
+  // is 10 seconds.
   beforeEach(async () => {
     db = await createTestDb()
 
@@ -37,8 +36,8 @@ describe('assigning an account to a signup', () => {
     team01 = teams.rows.find((row) => row.name === 'Equipo 01')!.id
     team19 = teams.rows.find((row) => row.name === 'Equipo 19')!.id
 
-    // Team 01's sheet, with no declared Riot ID: the case where the automatic
-    // matching has nothing to work with.
+    // Team 01's signups, with no declared Riot ID, so automatic matching cannot
+    // help.
     for (const [index, fullName] of ['Paula Ibarra', 'Elena Sosa'].entries()) {
       const { rows } = await db.query<{ id: string }>(
         `insert into public.team_roster (team_id, full_name, order_index)
@@ -107,7 +106,7 @@ describe('assigning an account to a signup', () => {
     expect(rows[0].linked_game_name).toBe('Pachu')
     expect(rows[0].linked_tag_line).toBe('777')
     expect(Number(rows[0].games)).toBe(0)
-    // The matching does not invent what the sheet never declared.
+    // The link does not invent a declared Riot ID.
     expect(rows[0].declared_game_name).toBeNull()
   })
 
@@ -137,7 +136,7 @@ describe('assigning an account to a signup', () => {
     expect(result.cleared).toBe(true)
     expect(await accountOf('Paula Ibarra')).toBeNull()
 
-    // And the account is free for whoever it really belongs to.
+    // The account is free to be linked to its real owner.
     const other = await assign(signup.get('Elena Sosa')!, account.get('Pachu')!)
     expect(other.ok).toBe(true)
   })
@@ -163,7 +162,7 @@ describe('assigning an account to a signup', () => {
   it('the hand match beats the automatic one: link_roster_accounts does not trample it', async () => {
     await assign(signup.get('Paula Ibarra')!, account.get('Pachu')!)
 
-    // The sheet said something else, and it is loaded afterwards.
+    // The sheet declared a different Riot ID, loaded afterwards.
     await db.query(
       `update public.team_roster
           set riot_game_name = 'LIDE CHAMPION', riot_tag_line = 'fkc'

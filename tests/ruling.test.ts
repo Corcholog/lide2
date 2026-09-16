@@ -4,24 +4,19 @@ import { createTestDb } from './helpers/db'
 import { playScoreboard } from './helpers/matches'
 
 /**
- * A result the organizers annul by the rulebook (0031_alineacion_indebida.sql).
+ * A result the organizers overturn by ruling (0031_alineacion_indebida.sql):
+ * the winner on the rift fielded an ineligible lineup, the matchup is awarded
+ * to the other team, and the match stops counting for anything.
  *
- * The real case: matchday 2, Equipo 06 vs Equipo 17. Team 17 won on the rift,
- * 25 to 23, with a lineup that was not its registered roster, and the result
- * was overturned - 06 wins, 17 loses, and the match itself stops counting for
- * anything.
+ * Two risks are covered:
  *
- * Two traps are what these tests are for.
+ * Double counting. The walkover tool would require unlinking the match, which
+ * then counts again from its file labels. So each team must have played one
+ * game, not two.
  *
- * THE DOUBLE COUNT. The walkover tool cannot do this, because it needs the
- * match unhooked first, and an unhooked match falls back to its file labels
- * and is counted AGAIN - the win on the rift plus the awarded one. So the
- * first thing checked is that each team has played one game, not two.
- *
- * THE LEAK. "The match does not count" has to hold in every aggregate, and
- * four of them read `matches` directly instead of the two bases that were cut.
- * Each of those is checked by name. And what must NOT disappear - the
- * scoreboard, the match in the listing - is checked just as hard.
+ * Leaks. The annulment must hold in every aggregate, including the four that
+ * read `matches` directly; each is checked by name. What must stay (the
+ * scoreboard, the listing entry) is checked too.
  */
 
 interface Result {
@@ -92,11 +87,11 @@ describe('a result overturned by the rulebook', () => {
   })
 
   /**
-   * Plays a matchup with a full scoreboard and hooks it to its fixture.
+   * Plays a matchup with a full scoreboard and links it to its fixture.
    *
-   * `kills` is per side, spread over the five: 25 is five kills each, 23 is
-   * 5-5-5-4-4. The champion of the top laner is one per match, so a champion
-   * that only exists in the annulled match can be looked for by name.
+   * `kills` is per side, spread over the five players (25 is five each, 23 is
+   * 5-5-5-4-4). The top laner's champion is unique per match, so a champion only
+   * present in the annulled match can be searched for by name.
    */
   async function play(matchup: string, kills: [number, number], topChampion: string) {
     const [a, b] = matchup.split(' vs ')
@@ -174,7 +169,7 @@ describe('a result overturned by the rulebook', () => {
       })
 
       const rows = await standings()
-      // Not two games each: the played result is gone, not added to.
+      // One game each, not two: the played result is replaced, not added.
       expect(rows.get('Equipo 06')).toMatchObject({ games: 1, wins: 1, losses: 0 })
       expect(rows.get('Equipo 17')).toMatchObject({ games: 1, wins: 0, losses: 1 })
     })
@@ -190,9 +185,8 @@ describe('a result overturned by the rulebook', () => {
 
     it('counts the ruling for the head to head, against the kill difference', async () => {
       /*
-       * 06 and 17 end level on 1-1. 17 routed 11 and 06 was routed by 14, so
-       * on kill difference 17 is far ahead. The game between them - the one
-       * the organizers gave to 06 - is what puts 06 above.
+       * 06 and 17 finish level at 1-1, and 17 has the far better kill difference.
+       * The awarded game between them puts 06 above.
        */
       await play('Equipo 06 vs Equipo 17', [23, 25], 'Camille')
       await play('Equipo 17 vs Equipo 11', [30, 2], 'Garen')
@@ -227,11 +221,11 @@ describe('a result overturned by the rulebook', () => {
         winner_team_id: team.get('Equipo 06'),
         team_a_win: true,
         team_b_win: false,
-        // The 23-25 is not a result any more, so it is not drawn as one.
+        // The 23-25 is no longer a result, so no score is shown.
         team_a_kills: null,
         team_b_kills: null,
         ruling: 'alineacion_indebida',
-        // It is still the match that was played: nothing got unhooked.
+        // Still the same match: nothing was unlinked.
         match_id: matchIds.get('Equipo 06 vs Equipo 17'),
         walkover_team_id: null,
       })
@@ -240,9 +234,8 @@ describe('a result overturned by the rulebook', () => {
 
   describe('the statistics', () => {
     /*
-     * One check per aggregate, by name. The two bases cover most of them, but
-     * four read `matches` directly, and a leak in any one of those is a number
-     * on the site built from a match that does not count.
+     * One check per aggregate, by name: the two base views cover most, but four
+     * read `matches` directly.
      */
     beforeEach(async () => {
       await play('Equipo 06 vs Equipo 17', [23, 25], 'Camille')
@@ -264,7 +257,7 @@ describe('a result overturned by the rulebook', () => {
       expect(
         await count(`select count(*) as n from public.player_match_stats where match_id = $1`, [annulled()]),
       ).toBe(0)
-      // A champion that was only ever played in that match is nowhere in the meta.
+      // A champion only played in that match does not appear in the champion stats.
       expect(
         await count(`select count(*) as n from public.champion_meta where champion = 'Camille'`),
       ).toBe(0)
@@ -316,7 +309,7 @@ describe('a result overturned by the rulebook', () => {
     })
 
     it('keeps the scoreboard and the match in the listing, marked', async () => {
-      // The evidence of what was sanctioned stays: only the counting stops.
+      // The evidence stays; only the counting stops.
       expect(
         await count(`select count(*) as n from public.match_player_scores where match_id = $1`, [annulled()]),
       ).toBe(10)

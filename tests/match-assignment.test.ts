@@ -4,12 +4,11 @@ import { createTestDb } from './helpers/db'
 import { playScoreboard } from './helpers/matches'
 
 /**
- * Hooking a match up with its fixture matchup.
+ * Linking a match to its fixture matchup.
  *
- * The case that matters is 5 September: no roster is loaded, so the database
- * cannot know who played. What gets verified is that assigning the matchup is
- * enough for everything else to fall into place on its own, and that the second
- * matchday no longer needs to be told the orientation.
+ * Covers the first matchday, when no roster exists yet: assigning the matchup
+ * must be enough to resolve everything else, and from the second matchday on the
+ * side orientation is deduced.
  */
 
 interface AssignResult {
@@ -103,7 +102,7 @@ describe('assigning matches to the fixture', () => {
 
     expect(rows).toHaveLength(1)
     expect(rows[0].match_id).toBe(matchId)
-    // With no rosters loaded there is nothing to deduce: hence the panel asks.
+    // No rosters yet, so nothing can be deduced and the panel asks.
     expect(rows[0].blue_guess).toBeNull()
     expect(rows[0].blue_players.map((p) => p.name)).toEqual(A)
   })
@@ -141,7 +140,7 @@ describe('assigning matches to the fixture', () => {
     )
     expect(Number(roster.rows[0].n)).toBe(5)
 
-    // And it leaves the queue.
+    // It leaves the unassigned queue.
     const queue = await db.query('select 1 from public.unassigned_matches')
     expect(queue.rows).toHaveLength(0)
   })
@@ -224,10 +223,8 @@ describe('assigning matches to the fixture', () => {
   it('a player who already has a team is not moved on its own: it is reported', async () => {
     await assign(await upload({ blue: A, red: B }), matchupM1, team01)
 
-    // a1, who belongs to team 01, shows up playing ON team 15's SIDE. Either
-    // the match is misassigned or somebody is playing where they should not:
-    // both are for a person to look at, not to be settled by silently moving
-    // them between teams.
+    // a1 (team 01) appears on team 15's side. Either the match is misassigned or
+    // someone played for another team; an admin should decide, so nobody is moved.
     const second = await upload({
       blue: ['a1', 'b2', 'b3', 'b4', 'b5'],
       red: ['c1', 'c2', 'c3', 'c4', 'c5'],

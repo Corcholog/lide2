@@ -4,12 +4,9 @@ import { createTestDb } from './helpers/db'
 import { playScoreboard } from './helpers/matches'
 
 /**
- * The lineup a visitor sees.
- *
- * `team_lineup` returns slots, not players: the five roles are always there and
- * the bench comes from how many the team signed up on the sheet. The nick
- * appears in its slot once that person has played; until then the slot stays
- * empty and the page draws it with the role's name.
+ * The lineup visitors see. `team_lineup` returns slots, not players: the five
+ * roles always exist and bench slots follow the number of signups. A nick fills
+ * its slot once that person has played.
  */
 
 interface SlotRow {
@@ -70,7 +67,7 @@ describe('team lineup', () => {
     await db?.close()
   })
 
-  /** Signs people up on Team 01's sheet. Legal names, as in real life. */
+  /** Adds legal names to Team 01's signup sheet. */
   async function signUp(...names: string[]) {
     for (const [index, name] of names.entries()) {
       await db.query(
@@ -82,9 +79,8 @@ describe('team lineup', () => {
   }
 
   /**
-   * Plays a matchday: Team 01's five nicks in lane order and five throwaways on
-   * the other side. Assigning the matchup is what teaches the database who
-   * plays for each team.
+   * Plays a matchday: Team 01's five nicks in lane order and five opponents.
+   * Assigning the matchup is what tells the database who plays for each team.
    */
   async function playMatchday(matchday: number, nicks: string[]) {
     const matchId = await playScoreboard(db, {
@@ -152,7 +148,7 @@ describe('team lineup', () => {
 
     expect(roleToName.get('MIDDLE')).toBe('Alfa')
     expect(roleToName.get('TOP')).toBe('Charlie')
-    // Both are starters: nobody ends up on the bench for having rotated.
+    // Both are starters: rotating lanes does not bench anyone.
     expect(rows).toHaveLength(5)
   })
 
@@ -166,8 +162,8 @@ describe('team lineup', () => {
 
     await playMatchday(1, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Eco'])
     await playMatchday(2, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Eco'])
-    // Foxtrot plays support in the third. The role's starter is still Eco, who
-    // played it twice; Foxtrot fills the bench slot.
+    // Foxtrot plays support in the third; Eco, who played it twice, keeps the
+    // slot and Foxtrot takes a bench slot.
     await playMatchday(3, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Foxtrot'])
 
     const rows = await roster(team01)
@@ -176,7 +172,7 @@ describe('team lineup', () => {
   })
 
   it('if more accounts turn up than signups, the bench grows anyway', async () => {
-    // Nobody on the sheet: the accounts are what set the bench slots.
+    // No signups: accounts alone determine the bench slots.
     await playMatchday(1, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Eco'])
     await playMatchday(2, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Eco'])
     await playMatchday(3, ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Foxtrot'])
@@ -195,14 +191,13 @@ describe('team lineup', () => {
     )
 
     expect(rows.map((r) => r.column_name).sort()).toEqual([
-      // `assigned_role` is the hand assignment exactly as stored (0020); the
-      // effective one - which now comes from the matches - is still `role`.
+      // `assigned_role` is the hand assignment as stored (0020); the effective
+      // lane, from matches, is `role`.
       'assigned_role',
-      // Somebody whose nick was typed in and who never turned up (0023). It is
-      // a number, not a name: it says the slot is filled by a promise.
+      // A nick entered by hand that never played (0023). A boolean, not a name.
       'did_not_play',
-      // `game_name` and `tag_line` are the Riot account, which has always been
-      // public (`player_profiles`). The sheet's name is not there.
+      // The Riot account (public through `player_profiles`); legal names are
+      // not exposed.
       'game_name',
       'games',
       'is_substitute',
@@ -244,7 +239,7 @@ describe('support is called SUPPORT', () => {
     )
     expect(rows.map((r) => r.position)).toEqual(['SUPPORT', 'SUPPORT'])
 
-    // And it does not get in through a hand-written update either.
+    // Nor through a direct update.
     await db.query(`update public.match_players set position = 'UTILITY' where match_id = $1`, [
       matchId,
     ])
