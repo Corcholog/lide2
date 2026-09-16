@@ -65,7 +65,7 @@ export default async function BansPage({ searchParams }: PageProps<'/admin/bans'
               'match_id',
               matches.map((m) => m.id),
             ),
-          'los bans cargados',
+          'the entered bans',
         )
       : []
 

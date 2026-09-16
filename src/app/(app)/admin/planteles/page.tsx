@@ -53,7 +53,7 @@ export default async function RostersPage() {
 
   const teams = rows<{ id: string; name: string; group_label: string | null }>(
     teamsRes,
-    'los equipos',
+    'the teams',
   )
   const roster = rows<RosterStatusRow>(rosterRes, 'the signups')
   const accounts = rows<TeamAccountRow>(accountsRes, 'the linked accounts')

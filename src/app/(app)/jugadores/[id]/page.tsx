@@ -125,7 +125,7 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
             scores.map((score) => score.match_id),
           )
           .order('played_at', { ascending: false, nullsFirst: false }),
-        'las partidas del jugador',
+        'the player matches',
       )
     : []
 

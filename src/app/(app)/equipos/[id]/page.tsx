@@ -136,7 +136,7 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
 
   const universities = rows<{ universities: { tag: string; name: string } | null }>(
     unisRes as never,
-    'las universidades del equipo',
+    'the team universities',
   ).flatMap((row) => (row.universities ? [row.universities] : []))
 
   const lineup = rows<TeamLineupRow>(lineupRes, 'the lineup')
