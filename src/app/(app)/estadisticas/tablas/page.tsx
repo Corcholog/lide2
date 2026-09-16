@@ -119,6 +119,10 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
     rol: role?.id ?? null,
   }
 
+  // Changing a filter remounts the tables, so a sort picked by clicking a
+  // header does not outlive the URL that no longer carries it.
+  const tableKey = [filters.fecha, filters.grupo, filters.rol].join(':')
+
   const [metaRes, playersRes, teamsRes, version] = await Promise.all([
     supabase.from('champion_meta').select('*').match(metaFilter(scope, group)),
     supabase.from('player_phase_totals').select('*').match(scopeFilter(scope)),
@@ -293,6 +297,7 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
               .join(' ')}
           >
             <ChampionTable
+              key={tableKey}
               rows={championRows}
               version={version}
               hasBans={showBans}
@@ -314,6 +319,7 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
             }
           >
             <PlayerTable
+              key={tableKey}
               rows={playerRows}
               initial={parseSortOrder(
                 params['orden-jugadores'],
@@ -338,6 +344,7 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
             }
           >
             <TeamTable
+              key={tableKey}
               rows={teamRows}
               initial={parseSortOrder(params['orden-equipos'], params['dir-equipos'], TEAM_COLUMNS, {
                 id: 'winrate',

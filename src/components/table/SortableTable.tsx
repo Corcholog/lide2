@@ -82,7 +82,10 @@ export function SortableTable<T>({
   minWidth?: string
   emptyText?: string
 }) {
-  const [order, setOrder] = useState<SortOrder>(initial)
+  const [picked, setPicked] = useState<SortOrder>(initial)
+  // A column can disappear while its sort is still picked (the ban columns
+  // when a role is selected): fall back to the order the URL asked for.
+  const order = columns.some((c) => c.id === picked.id) ? picked : initial
 
   const sorted = useMemo(() => {
     const column = columns.find((c) => c.id === order.id)
@@ -99,7 +102,7 @@ export function SortableTable<T>({
           : 'asc'
         : (column.firstClick ?? 'desc')
 
-    setOrder({ id: column.id, dir })
+    setPicked({ id: column.id, dir })
 
     const url = new URL(window.location.href)
     url.searchParams.set(params.order, column.id)
