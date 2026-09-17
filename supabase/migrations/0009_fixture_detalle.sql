@@ -1,28 +1,23 @@
--- LIDE 2: universidades en el fixture y ordinales bien escritos
---
--- Dos arreglos chicos sobre lo que ya esta cargado.
+-- LIDE 2: universities in the fixture and correct ordinals
 
--- --- 1. Ordinales de los slots del bracket -----------------------------------
+-- --- 1. Bracket slot ordinals ----------------------------------------------
 --
--- Los cuartos se sembraron con etiquetas "1o A" / "2o B". La abreviatura de
--- "primero" en castellano lleva el indicador ordinal masculino: 1º, no "1o" ni
--- "1°" (ese es el simbolo de grado, otro caracter).
+-- Quarter-final slots were seeded as "1o A" / "2o B". The Spanish ordinal uses
+-- the masculine ordinal indicator: 1º, not "1o" or "1°" (the degree sign).
 --
--- Se arregla con un update y no reescribiendo el bracket porque las series ya
--- estan encadenadas por next_series_id: recrearlas romperia esos vinculos.
+-- Fixed with an update rather than recreating the bracket, since series are
+-- already chained by next_series_id.
 
 update public.series
    set slot_a_label = regexp_replace(slot_a_label, '^([1-4])o ', '\1º '),
        slot_b_label = regexp_replace(slot_b_label, '^([1-4])o ', '\1º ')
  where slot_a_label ~ '^[1-4]o ' or slot_b_label ~ '^[1-4]o ';
 
--- --- 2. Universidades por equipo, en un solo lugar ---------------------------
+-- --- 2. Universities per team, defined once --------------------------------
 --
--- group_standings ya resolvia esto con una subconsulta inline. Al necesitarlo
--- tambien el fixture, se saca a una funcion: una sola definicion de la regla
--- "la lista de team_universities, y si no hay, la universidad suelta del
--- equipo". No es SECURITY DEFINER a proposito, asi que las policies de quien
--- consulta siguen valiendo.
+-- The rule "team_universities, or else the team's own university" moves to a
+-- function, used by group_standings and the fixture. Not SECURITY DEFINER on
+-- purpose, so the caller's policies still apply.
 
 create or replace function public.team_university_tags(p_team_id uuid)
 returns text[]
@@ -49,15 +44,11 @@ $$;
 comment on function public.team_university_tags(uuid) is
   'Siglas de las universidades de un equipo, la principal primero.';
 
--- --- 3. Universidades en fixture_results -------------------------------------
+-- --- 3. Universities in fixture_results ------------------------------------
 --
--- El fixture mostraba solo el nombre del equipo ("Equipo 15"), que no dice nada
--- de quien es. Se agregan las universidades de cada lado, la principal primero,
--- con el mismo criterio que ya usa group_standings: la lista de
--- team_universities si esta cargada, y si no la universidad suelta del equipo.
---
--- La vista se re-declara entera porque create or replace view solo admite sumar
--- columnas al final: todo lo anterior queda igual, palabra por palabra.
+-- Adds each side's universities, main one first, using the same rule.
+-- Redeclared in full because create or replace view only allows appending
+-- columns.
 
 create or replace view public.fixture_results with (security_invoker = on) as
 select
@@ -99,7 +90,7 @@ select
     else 'jugado'
   end as status,
 
-  -- Nuevas.
+  -- New.
   public.team_university_tags(f.team_a_id) as team_a_universities,
   public.team_university_tags(f.team_b_id) as team_b_universities
 from public.fixtures f
@@ -109,11 +100,10 @@ left join public.matches m on m.id = f.match_id
 left join public.team_match_results ra on ra.match_id = f.match_id and ra.team_id = f.team_a_id
 left join public.team_match_results rb on rb.match_id = f.match_id and rb.team_id = f.team_b_id;
 
--- --- 4. group_standings usa la misma funcion ---------------------------------
+-- --- 4. group_standings uses the same function -----------------------------
 --
--- Mismo resultado que antes; lo que cambia es que la regla deja de estar escrita
--- dos veces. Se re-declara entera porque create or replace view exige repetir
--- todas las columnas en el mismo orden.
+-- Same result; the rule is no longer written twice. Redeclared in full because
+-- create or replace view requires every column in the same order.
 
 create or replace view public.group_standings with (security_invoker = on) as
 select

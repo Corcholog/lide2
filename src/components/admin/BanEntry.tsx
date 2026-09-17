@@ -5,24 +5,16 @@ import { saveBansAction } from '@/app/(app)/admin/actions'
 import type { SaveBansResult } from '@/lib/bans/service'
 
 /**
- * A match's ten bans.
+ * The ten bans of a match; the only way to fill `match_bans`, since the .rofl
+ * has no draft.
  *
- * The .rofl stores the final scoreboard, not the draft, so this is the only
- * thing that can fill `match_bans`. Without it the champion table shows pick
- * rate and win rate but the ban rate and presence columns stay blank.
- *
- * THEY ARE TEXT FIELDS WITH A `<datalist>` AND NOT DROPDOWNS. There are 170
- * champions: a `<select>` per slot would be 1700 nodes per match, and picking
- * from a list of 170 with the mouse is slower than typing three letters. The
- * datalist is a single one for all ten fields - the page draws it, not this
- * component - it filters as you type and it works on a phone.
- *
- * The price is that anything at all can be typed, and the server action catches
- * that: it does not resolve the name, it saves nothing and it says which one it
- * was.
+ * Text fields with a shared `<datalist>` (rendered by the page) instead of
+ * selects: 170 champions per select would be heavy, and typing a few letters is
+ * faster. Anything can be typed, so the server action rejects unknown names and
+ * saves nothing.
  */
 
-/* Tailwind cannot see a class built at runtime: both tones go in whole. */
+/* Full class names: Tailwind cannot see classes built at runtime. */
 const SIDE_TONE = {
   100: 'text-side-blue',
   200: 'text-side-red',
@@ -61,9 +53,8 @@ export function BanEntry({
 
               return (
                 <input
-                  /* The `key` is what is stored: without it, after saving, the
-                     field spends an instant holding the old value (same trick
-                     as AssignRole). */
+                  /* Keyed by the stored value so the field does not briefly show
+                     the old value after saving (as in AssignRole). */
                   key={`${slot}-${stored}`}
                   type="text"
                   name={`ban-${side}-${slot}`}

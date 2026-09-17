@@ -3,11 +3,8 @@ import { matchRosterLines } from '@/lib/roster/import'
 import { parseRiotId } from '@/lib/format'
 
 /**
- * Pasting the list of Riot IDs.
- *
- * The names are Team 15's real ones, which is the ugly case: five people from
- * three universities, with accents and with the sheet written in three
- * different formats.
+ * Pasting a list of Riot IDs, using a mixed team with accented names written in
+ * three different formats.
  */
 const TEAM_15 = [
   { rosterId: 'r1', fullName: 'Dario Ferro', teamName: 'Equipo 15' },

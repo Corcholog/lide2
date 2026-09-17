@@ -4,12 +4,9 @@ import { createTestDb } from './helpers/db'
 import { playScoreboard } from './helpers/matches'
 
 /**
- * Deleting a match uploaded by mistake.
- *
- * What has to be verified is not that the row goes away - that is a delete -
- * but that it takes exactly what existed because of it and nothing more: the
- * accounts that appeared in that replay and in no other, without touching the
- * fixture matchup or anything a person confirmed.
+ * Deleting a match uploaded by mistake: it must remove exactly what existed
+ * because of it (accounts seen only in that replay), without touching the
+ * fixture matchup or anything an admin confirmed.
  */
 
 interface DeleteResult {
@@ -22,13 +19,13 @@ interface DeleteResult {
 const A = ['a1', 'a2', 'a3', 'a4', 'a5']
 const B = ['b1', 'b2', 'b3', 'b4', 'b5']
 
-const alineacion = (puuids: string[]) => puuids.map((puuid) => ({ puuid }))
+const lineup = (puuids: string[]) => puuids.map((puuid) => ({ puuid }))
 
 describe('deleting a match', () => {
   let db: PGlite
 
-  // The full migrations per test: Postgres in WASM is slow, and vitest's
-  // default for a hook is 10 seconds.
+  // Full migrations per test: PGlite is slow, and vitest's default hook timeout
+  // is 10 seconds.
   beforeEach(async () => {
     db = await createTestDb()
   }, 60_000)
@@ -45,16 +42,16 @@ describe('deleting a match', () => {
     return rows[0].delete_match
   }
 
-  async function contar(tabla: string): Promise<number> {
-    const { rows } = await db.query<{ n: string }>(`select count(*) as n from public.${tabla}`)
+  async function count(table: string): Promise<number> {
+    const { rows } = await db.query<{ n: string }>(`select count(*) as n from public.${table}`)
     return Number(rows[0].n)
   }
 
   it('takes the match, its file and the accounts that only existed for it', async () => {
     const matchId = await playScoreboard(db, {
       winner: 'blue',
-      blue: alineacion(A),
-      red: alineacion(B),
+      blue: lineup(A),
+      red: lineup(B),
     })
 
     await db.query(
@@ -69,33 +66,33 @@ describe('deleting a match', () => {
     expect(result.files).toBe(1)
     expect(result.players).toHaveLength(10)
 
-    expect(await contar('matches')).toBe(0)
-    expect(await contar('match_players')).toBe(0)
-    expect(await contar('match_files')).toBe(0)
-    expect(await contar('players')).toBe(0)
+    expect(await count('matches')).toBe(0)
+    expect(await count('match_players')).toBe(0)
+    expect(await count('match_files')).toBe(0)
+    expect(await count('players')).toBe(0)
   })
 
   it('does not touch anyone who played another one', async () => {
-    await playScoreboard(db, { winner: 'blue', blue: alineacion(A), red: alineacion(B) })
-    const segunda = await playScoreboard(db, {
+    await playScoreboard(db, { winner: 'blue', blue: lineup(A), red: lineup(B) })
+    const second = await playScoreboard(db, {
       winner: 'red',
-      blue: alineacion(A),
-      red: alineacion(['c1', 'c2', 'c3', 'c4', 'c5']),
+      blue: lineup(A),
+      red: lineup(['c1', 'c2', 'c3', 'c4', 'c5']),
       playedAt: '2026-09-12T17:00:00Z',
     })
 
-    const result = await remove(segunda)
+    const result = await remove(second)
 
-    // A's five still play the first one; C's played nothing else.
+    // A's five still have the first match; C's five played nothing else.
     expect(result.players).toEqual(['c1', 'c2', 'c3', 'c4', 'c5'])
-    expect(await contar('players')).toBe(10)
+    expect(await count('players')).toBe(10)
   })
 
   it('does not delete anyone on a roster or matched with a signup', async () => {
     const matchId = await playScoreboard(db, {
       winner: 'blue',
-      blue: alineacion(A),
-      red: alineacion(B),
+      blue: lineup(A),
+      red: lineup(B),
     })
 
     const team = await db.query<{ id: string }>(
@@ -117,11 +114,10 @@ describe('deleting a match', () => {
     const result = await remove(matchId)
 
     expect(result.players).toHaveLength(8)
-    // The two that remain are accounts with no matches: a person put the
-    // roster and the match together, and the deleted match does not undo
-    // that.
-    expect(await contar('players')).toBe(2)
-    expect(await contar('team_members')).toBe(1)
+    // The two remaining accounts have no matches, but an admin linked them to the
+    // roster, so deleting the match does not remove them.
+    expect(await count('players')).toBe(2)
+    expect(await count('team_members')).toBe(1)
 
     const signup = await db.query<{ player_id: string | null }>(
       'select player_id from public.team_roster',
@@ -141,8 +137,8 @@ describe('deleting a match', () => {
 
     const matchId = await playScoreboard(db, {
       winner: 'blue',
-      blue: alineacion(A),
-      red: alineacion(B),
+      blue: lineup(A),
+      red: lineup(B),
     })
 
     const fixture = await db.query<{ id: string }>(

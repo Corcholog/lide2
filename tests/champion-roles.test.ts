@@ -4,18 +4,11 @@ import { createTestDb } from './helpers/db'
 import { playScoreboard } from './helpers/matches'
 
 /**
- * A champion gets played in more than one role, and the views have to say all
- * of them.
+ * Champions played in several roles.
  *
- * `position` is a `mode()`: the lane the champion was played in MOST. With it
- * alone, a Camille picked twice top and once support reads as a top laner and
- * nothing else - and since that same column is what the role filter compares
- * against, asking for supports hid a champion that had been played there.
- *
- * The shape here is deliberately lopsided. Camille goes top twice and support
- * once, so `position` and `positions` cannot come out equal by accident: the
- * mode has one value and the list has two, and a view that got this wrong in
- * either direction fails.
+ * `position` is the most played lane; `positions` lists them all, and the role
+ * filter must use the latter. Camille plays top twice and support once, so
+ * `position` and `positions` cannot match by accident.
  */
 
 interface RolesRow {
@@ -44,7 +37,7 @@ describe('the roles a champion was played in', () => {
   let db: PGlite
   let tournamentId: string
 
-  /** Camille goes wherever the match says; the other four hold their lane. */
+  /** Camille plays the given lane; the other four players cover the rest. */
   async function play(camilleAt: string, matchday: number): Promise<void> {
     const blue = ['Camille', 'Ahri', 'Lux', 'Jinx', 'Thresh']
     const lanes = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'SUPPORT']
@@ -57,8 +50,8 @@ describe('the roles a champion was played in', () => {
       blue: blue.map((champion, i) => ({
         puuid: `azul-${i}`,
         champion,
-        // Camille takes the lane under test and the one she displaces steps
-        // into hers, so the five lanes are always covered exactly once.
+        // Camille takes the tested lane and the player she displaces takes top,
+        // so each lane is covered exactly once.
         position: i === 0 ? camilleAt : camilleAt === lanes[i] ? 'TOP' : lanes[i],
         kills: 3,
       })),
@@ -114,7 +107,7 @@ describe('the roles a champion was played in', () => {
     await play('SUPPORT', 3)
   }, 60_000)
 
-  /** The champion whole, in the accumulated scope of each view. */
+  /** The whole-champion row, in each view's total scope. */
   async function row(view: 'champion_meta' | 'champion_stats', champion: string) {
     const total =
       view === 'champion_meta'
@@ -130,7 +123,7 @@ describe('the roles a champion was played in', () => {
     return rows[0]
   }
 
-  /** The champion in ONE role, which is what a filtered table draws. */
+  /** The champion in one role, as a filtered table shows it. */
   async function inRole(champion: string, role: string) {
     const { rows } = await db.query<RolesRow & ScopedRow>(
       `select champion, position, positions, picks, wins, win_pct, kda, avg_kda,
@@ -167,7 +160,7 @@ describe('the roles a champion was played in', () => {
       })
 
       it('does not repeat a role played many times', async () => {
-        // Thresh held support in the two matches Camille did not take it.
+        // Thresh played support in the two matches where Camille did not.
         const thresh = await row(view, 'Thresh')
 
         expect(thresh.picks).toBe(3)
@@ -178,12 +171,9 @@ describe('the roles a champion was played in', () => {
 
   describe('the stats of one role', () => {
     /*
-     * This is the half that 0029 was missing. Showing "Top, Soporte" beside a
-     * champion and then handing over the numbers of all three picks means the
-     * filter promises a role and delivers the whole champion.
-     *
-     * Camille's support pick is one game; her top picks are two. Any column
-     * that comes back with three behind it has not been split.
+     * Per-role rows must count only that role's picks: Camille's support row
+     * covers one game, her top row two. Any column reflecting three games has not
+     * been split.
      */
     it('counts only the picks of that role', async () => {
       const whole = await row('champion_meta', 'Camille')
@@ -203,9 +193,8 @@ describe('the roles a champion was played in', () => {
     })
 
     it('splits the averages too, which is what could not be done afterwards', async () => {
-      // An average cannot be taken apart once it is taken: there is no way to
-      // get the support row out of the champion's row, which is why the role
-      // had to become a dimension of the view.
+      // Averages cannot be split after the fact, which is why the role is a
+      // dimension of the view.
       const support = await inRole('Camille', 'SUPPORT')
 
       expect(Number(support.win_pct)).toBe(1)
@@ -216,13 +205,13 @@ describe('the roles a champion was played in', () => {
     it('keeps the scope size, so a rate still has a denominator', async () => {
       const support = await inRole('Camille', 'SUPPORT')
 
-      // Three matches were played; Camille went support in one of them.
+      // Three matches in the scope; Camille played support in one.
       expect(Number(support.matches)).toBe(3)
       expect(Number(support.pick_rate)).toBeCloseTo(1 / 3, 2)
     })
 
     it('leaves the bans empty, because a ban has no role', async () => {
-      // Not zero: nobody banned "Camille support", the question does not exist.
+      // Null, not zero: bans have no role.
       const support = await inRole('Camille', 'SUPPORT')
 
       expect(support.bans).toBeNull()

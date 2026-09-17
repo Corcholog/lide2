@@ -1,41 +1,35 @@
--- LIDE 2: planteles inscriptos
+-- LIDE 2: signup rosters
 --
--- Los 113 nombres de las planillas de inscripcion. NO van en `players`: esa
--- tabla son cuentas de Riot detectadas de los replays, con su puuid, y un
--- inscripto no tiene cuenta asociada hasta que alguien las empareje a mano desde
--- el panel. Son dos listas distintas de la misma gente y se cruzan por player_id
--- cuando se puede.
+-- The names from the signup sheets. They do NOT go in `players`, which holds Riot
+-- accounts detected from replays. A signup has no account until an admin links
+-- them; the two lists are joined through player_id.
 --
 --   +---------------+                 +----------+
 --   | team_roster   |  player_id -->  | players  |
---   | nombre y      |                 | cuenta   |
---   | universidad   |                 | de Riot  |
---   | de la planilla|                 | del rofl |
+--   | name and      |                 | Riot     |
+--   | university    |                 | account  |
+--   | from the sheet|                 | from rofl|
 --   +---------------+                 +----------+
 --
--- PRIVACIDAD: son nombres legales de personas reales, sacados de un formulario
--- de inscripcion, no apodos elegidos. La policy de abajo es `to authenticated` a
--- proposito y tiene que quedarse asi: cuando el sitio se abra al publico y las
--- demas tablas sumen `anon`, ESTA NO. Lo que se muestra sin sesion es el equipo,
--- la universidad y las cuentas de Riot que ya aparecen en las partidas.
+-- PRIVACY: these are real people's legal names from a signup form. The policy
+-- below is `to authenticated` on purpose and must stay that way, even when
+-- other tables are opened to `anon`.
 
 create table public.team_roster (
   id            uuid primary key default gen_random_uuid(),
   team_id       uuid not null references public.teams(id) on delete cascade,
 
-  -- Tal cual figura en la planilla, sin corregir. La planilla mezcla formatos
-  -- ("Apellido, Nombre", "Apellido Nombre", mayusculas) y darlos vuelta a ojo es
-  -- una forma barata de escribirle mal el nombre a alguien.
+  -- As written on the sheet, uncorrected: formats are mixed ("Surname, Name",
+  -- all caps), and reordering them by guess risks misspelling someone's name.
   full_name     text not null,
-  -- Como mostrarlo, si alguien lo dejo prolijo desde el panel. Null = usar
-  -- full_name.
+  -- Display form, if tidied up from the panel. Null means use full_name.
   display_name  text,
 
   university_id uuid references public.universities(id) on delete set null,
-  -- Orden en que figura en la planilla.
+  -- Order on the sheet.
   order_index   smallint not null default 0,
 
-  -- La cuenta de Riot de esta persona, cuando se la empareje.
+  -- This person's Riot account, once linked.
   player_id     uuid references public.players(id) on delete set null,
 
   created_at    timestamptz not null default now(),
@@ -46,7 +40,7 @@ create table public.team_roster (
 create index team_roster_team_idx       on public.team_roster (team_id);
 create index team_roster_university_idx on public.team_roster (university_id);
 
--- Una cuenta de Riot no puede ser dos inscriptos distintos.
+-- A Riot account cannot belong to two signups.
 create unique index team_roster_player_key
   on public.team_roster (player_id)
   where player_id is not null;
@@ -56,6 +50,6 @@ comment on table public.team_roster is
 
 alter table public.team_roster enable row level security;
 
--- Ver el comentario de privacidad arriba antes de tocar esto.
+-- Read the privacy note above before changing this.
 create policy "lectura autenticada" on public.team_roster
   for select to authenticated using (true);

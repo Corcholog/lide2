@@ -1,23 +1,15 @@
 -- ===========================================================================
--- El #TAG de cada cuenta, tambien para el que mira sin sesion.
+-- Each account's #TAG, visible without a session.
 --
--- Hasta aca el Riot ID entero se veia solo en el panel: `team_lineup` devolvia
--- un `name` y nada mas, y la ficha del equipo dibujaba ese nombre pelado.
+-- `team_lineup` returned only a `name`, and nicks repeat: two players with the
+-- same nick looked identical. Two columns are appended, `game_name` and
+-- `tag_line`, rather than one assembled Riot ID, because `name` may be an alias
+-- (`players.display_name`) and the page needs both parts to decide what to
+-- show. Nothing new is exposed: `player_profiles` already exposes the same pair
+-- (0013_publico.sql).
 --
--- El nick suelto se repite. Dos "Bruno" en el mismo plantel son dos casilleros
--- identicos, y no hay forma de saber cual es cual sin entrar al panel. Con el
--- tag a la vista alcanza con mirar la pagina, que es donde estan los que no
--- tienen usuario: los propios jugadores.
---
--- Se agregan dos columnas al final —`game_name` y `tag_line`— en vez de una
--- sola con el Riot ID armado. `name` puede ser un alias cargado a mano
--- (`players.display_name`), y en ese caso el tag no va pegado a lo que se
--- muestra sino al nick de Riot: la pagina necesita las dos partes para decidir
--- que dibuja. Nada que no fuera publico antes: `player_profiles` ya expone el
--- mismo par desde 0013_publico.sql.
---
--- Van al final a proposito: `create or replace view` solo deja agregar
--- columnas despues de las que ya estaban.
+-- Appended at the end because `create or replace view` only allows adding
+-- columns after the existing ones.
 -- ===========================================================================
 
 create or replace view public.team_lineup with (security_invoker = off) as
@@ -96,7 +88,7 @@ select
   coalesce(ti.player_id, su.player_id)            as player_id,
   coalesce(p.display_name, p.riot_game_name)      as name,
   coalesce(ti.games, su.games, 0)                 as games,
-  -- LO NUEVO: el Riot ID en sus dos partes. Ver el comentario de arriba.
+  -- New: the Riot ID in two parts. See the note at the top.
   p.riot_game_name                                as game_name,
   p.riot_tag_line                                 as tag_line
 from lugares l

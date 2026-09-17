@@ -1,20 +1,13 @@
 /**
- * The two blocks that do not come out of the stats registry.
- *
- * "Los números" is not a ranking - it is five different figures, not five
- * places in the same thing - and a group's table is not one either: it is
- * ordered by position, which the database already resolved along with its
- * tiebreaks. Both still end up as a `StatBlock`, so they are drawn by the same
- * component as everything else.
+ * The two card blocks that are not rankings: the matchday's numbers and the
+ * group tables. Both are returned as `StatBlock` so the same component draws
+ * them.
  */
 
 import { formatDuration, formatGold, formatNumber } from '@/lib/format'
+import { versus } from '@/lib/stats/records'
 import type { StatBlock, StatRow, StatsData } from '@/lib/stats/types'
 import type { GroupStandingRow, MatchRecordRow } from '@/types/db'
-
-function versus(row: MatchRecordRow): string {
-  return `${row.blue_team_name ?? 'Azul'} vs ${row.red_team_name ?? 'Rojo'}`
-}
 
 /** The one with the highest (or lowest) value, or null when there are no matches. */
 function pick(
@@ -30,11 +23,8 @@ function pick(
 }
 
 /**
- * The matchday's numbers: what gets published without having to pick anybody.
- *
- * It goes first in the batch because it is the piece that can go up the moment
- * everything finishes, without waiting for somebody to check whether the MVP is
- * fair.
+ * The matchday's numbers. First in the batch because it needs no editorial
+ * review and can be published right away.
  */
 export function matchdayNumbers(data: StatsData): StatBlock | null {
   const records = data.records
@@ -43,9 +33,7 @@ export function matchdayNumbers(data: StatsData): StatBlock | null {
   const kills = records.reduce((total, row) => total + row.total_kills, 0)
   const longest = pick(records, (row) => row.game_length_ms)
   const shortest = pick(records, (row) => row.game_length_ms, 'asc')
-  // The closest one is measured by gold: you can win 20-5 and have been level
-  // until the end, and the other way round. Same criterion as
-  // records.closestGame.
+  // Closest game by gold, same criterion as `closestGame` in records.ts.
   const closest = pick(
     records.filter((row) => row.blue_gold > 0 && row.red_gold > 0),
     (row) => row.gold_gap,
@@ -58,11 +46,7 @@ export function matchdayNumbers(data: StatsData): StatBlock | null {
       name: 'Partidas jugadas',
       value: records.length,
       display: formatNumber(records.length),
-      // No line under it. It used to add up every game's length - "434:31 de
-      // juego" - and seven hours of League is not a fact about the matchday:
-      // it is the same count of matches again, multiplied by how long a game
-      // lasts. The rows below already say what the long and the short ones
-      // were, which is the part of the duration anybody reads.
+      // No detail line: total playing time just restates the match count.
     },
     {
       id: 'kills',
@@ -102,9 +86,7 @@ export function matchdayNumbers(data: StatsData): StatBlock | null {
       subtitle: versus(closest),
       value: closest.gold_gap,
       display: `${formatNumber(Math.round(closest.gold_gap / 100) / 10)}k de oro`,
-      // Gold and not kills, which is what it was picked for. With the
-      // scoreline in there the piece contradicts itself: the closest game of
-      // matchday 1 ended 44-25, and the gold gap there was 1.4k.
+      // Gold, not the kill score, which can look lopsided in a close game.
       detail: `${formatGold(closest.blue_gold)} vs ${formatGold(closest.red_gold)}`,
     })
   }
@@ -112,7 +94,7 @@ export function matchdayNumbers(data: StatsData): StatBlock | null {
   return {
     id: 'numeros',
     title: 'Los números',
-    // The accumulated total is not a matchday: it is all three together.
+    // With no matchday selected this covers the whole phase.
     subtitle: data.scope.matchday === null ? 'Lo que va de la fase' : 'Lo que dejó la jornada',
     rows,
     note: null,
@@ -120,12 +102,9 @@ export function matchdayNumbers(data: StatsData): StatBlock | null {
 }
 
 /**
- * One table per group.
- *
- * The order comes from the view, which already applied the rulebook's
- * tiebreaks; here it is only grouped and written out. The top two are the ones
- * that qualify, and the note says so because there is no colour in the piece to
- * explain it.
+ * One table per group, in the order the view returns (tiebreaks already
+ * applied). The note explains that the top two qualify, since the exported
+ * image has no color cue for it.
  */
 export function groupTables(standings: GroupStandingRow[]): StatBlock[] {
   const groups = new Map<string, GroupStandingRow[]>()

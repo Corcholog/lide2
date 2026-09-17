@@ -1,22 +1,21 @@
 -- ===========================================================================
--- Tabla de posiciones.
+-- Standings.
 --
--- El torneo todavia no tiene filas en stages/series: la etapa y la jornada
--- viajan como texto en matches.stage_label ("Bloque B") y matches.round_label
--- ("Fecha 3"), derivadas del nombre del archivo al subirlo (src/lib/ingest/
--- labels.ts). Estas vistas agrupan por esas etiquetas, asi que valen igual si
--- el formato es por bloques, suizo o una sola fase corrida.
+-- Stage and round travel as text in matches.stage_label ("Bloque B") and
+-- matches.round_label ("Fecha 3"), derived from the file name on upload
+-- (src/lib/ingest/labels.ts). These views group by those labels, so they work
+-- for any tournament format.
 --
--- Solo cuentan las partidas con los dos equipos vinculados y con ganador: hasta
--- que el roster este cargado, blue_team_id y red_team_id son null y la partida
--- no le suma a nadie.
+-- Only matches with both teams linked and a winner count: until rosters are
+-- loaded, blue_team_id and red_team_id are null and the match counts for no
+-- one.
 -- ===========================================================================
 
--- --- Una fila por equipo y partida -----------------------------------------
+-- --- One row per team and match --------------------------------------------
 --
--- Da vuelta la partida (azul/rojo) a "equipo vs rival", que es como la miran la
--- tabla de posiciones y la ficha de un equipo. La verdad de quien jugo esta en
--- matches.blue_team_id / red_team_id, que es lo que escribe relink_all_matches().
+-- Turns a match (blue/red) into "team vs opponent", as standings and team
+-- pages read it. matches.blue_team_id / red_team_id, written by
+-- relink_all_matches(), are the source of truth for who played.
 
 create view public.team_match_results with (security_invoker = on) as
 with sides as (
@@ -58,14 +57,12 @@ left join public.teams o on o.id = s.opponent_team_id
 left join public.match_team_stats own   on own.match_id   = s.match_id and own.side   = s.side
 left join public.match_team_stats rival on rival.match_id = s.match_id and rival.side = s.opponent_side;
 
--- --- Tabla de posiciones por etapa -----------------------------------------
+-- --- Standings per stage ---------------------------------------------------
 --
--- Desempate: mas victorias, menos derrotas (los equipos pueden llevar distinta
--- cantidad de partidas si una fecha quedo pendiente), diferencia de kills y por
--- ultimo el nombre, para que el orden sea estable entre consultas.
+-- Tiebreak: more wins, fewer losses (teams may have played different numbers
+-- of matches), kill difference, and finally the name for a stable order.
 --
--- `form` son los ultimos 5 resultados del mas nuevo al mas viejo, para pintar
--- la rachita de la tabla.
+-- `form` holds the last five results, newest first.
 
 create view public.team_standings with (security_invoker = on) as
 select
@@ -93,8 +90,7 @@ select
                  r.team_name asc
   )                                                            as position
 from public.team_match_results r
--- Con un solo lado vinculado la fila existe igual (sirve para el historial del
--- equipo), pero en la tabla no entra: adentro de una etapa el total de
--- victorias tiene que dar igual al de derrotas.
+-- With only one side linked the row still exists (for the team's history), but
+-- it is excluded here: within a stage, total wins must equal total losses.
 where r.win is not null and r.opponent_team_id is not null
 group by r.stage_label, r.team_id, r.team_name, r.team_tag;

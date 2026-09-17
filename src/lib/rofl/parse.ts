@@ -1,10 +1,7 @@
 import { RoflParseError, type RoflFormat, type RoflMetadata, type RoflPlayerStats } from './types'
 import { bufferSource, type RoflSource } from './source'
 
-/*
- * The thrown messages stay in Spanish on purpose: they travel out through
- * `IngestResult.message` and are read as-is in the upload panel.
- */
+// Thrown messages are in Spanish: they are shown as-is in the upload panel.
 
 /**
  * Fixed-size header in both formats: 6 signature bytes + 256 of cryptographic
@@ -29,9 +26,7 @@ const EMPTY_STATS_MESSAGE =
   '13.20 y 14.10; los replays grabados en ese rango no tienen datos recuperables.'
 
 /**
- * Trims the padding off a text field read from the binary: they are fixed
- * length and come padded with NUL (0x00). charCodeAt <= 32 covers NUL, spaces,
- * tabs and newlines, with no need for control escapes in the source.
+ * Trims the NUL padding (and whitespace) around a fixed-length text field.
  */
 function trimPadding(value: string): string {
   let last = value.length

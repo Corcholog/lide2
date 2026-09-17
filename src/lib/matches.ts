@@ -1,26 +1,18 @@
 /**
- * What a listing row needs, loaded once for the two pages that draw one.
- *
- * /partidas and a team's page show the same row - the one that expands into
- * both scoreboards - so what feeds it lives here instead of being written twice:
- * the scoreboard columns it reads, the detail of a set of matches already
- * grouped by match, and the lane order the two columns get compared in.
+ * Data for match listing rows, shared by /partidas, team pages and player
+ * pages: the scoreboard columns, each match's detail and lane ordering.
  */
 
-import type { createClient } from '@/lib/supabase/server'
+import type { Supabase } from '@/lib/supabase/server'
 import { ROLES } from '@/lib/format'
 import { rows } from '@/lib/supabase/query'
 import type { MatchPlayerScoreRow, MatchTeamStatsRow } from '@/types/db'
 
-type Supabase = Awaited<ReturnType<typeof createClient>>
-
 /**
- * The scoreboard columns the detail uses. No items, no spells.
+ * The scoreboard columns the detail uses (no items or spells).
  *
- * It goes on a single line and is not split with `+`: supabase-js looks at this
- * string's TYPE to know what the query returns, and a concatenation stops being
- * a literal and becomes `string`, which makes the result unusable
- * (`GenericStringError`).
+ * Keep it a single string literal: supabase-js infers the result type from
+ * it, and a concatenation widens it to `string` (`GenericStringError`).
  */
 const DETAIL_COLUMNS =
   'match_player_id,match_id,side,player_id,champion,position,riot_game_name,riot_tag_line,kills,deaths,assists,cs,csm,gold_earned,damage_to_champions,vision_score,kill_participation,match_rank'
@@ -47,7 +39,7 @@ type DetailScore = Pick<
   | 'match_rank'
 >
 
-/** The minimum of a player for the detail. No items or spells, on purpose. */
+/** A player as the match detail needs it. */
 export interface DetailPlayer {
   matchPlayerId: string
   side: 100 | 200
@@ -77,11 +69,9 @@ export interface MatchDetails {
 /**
  * The detail of a set of matches, in two queries.
  *
- * It is preloaded and not fetched when a row opens: sixty matches are six
- * hundred `match_player_scores` rows, and asking for them in one go costs less
- * than an endpoint of its own with its own loading state. If a listing ever went
- * past some 150 visible at once, a handler returning one match's detail on
- * demand would be the better trade.
+ * Preloaded instead of fetched when a row opens: a full tournament is a few
+ * hundred scoreboard rows. If listings grow past ~150 matches, a per-match
+ * endpoint would be the better trade-off.
  */
 export async function loadMatchDetails(
   supabase: Supabase,
@@ -138,19 +128,11 @@ export async function loadMatchDetails(
 }
 
 /**
- * Each team, in lane order: top, jungle, mid, ADC, support.
- *
- * `match_player_scores` returns them in the order the .rofl wrote them, which
- * is the lobby's slot order and means nothing. A scoreboard is read by lane -
- * who won mid, how the bot lane went - and for that the two columns have to be
- * in the same order; otherwise comparing opponents means your eyes going back
- * and forth.
- *
- * It is sorted here and not in each component because both use it: the closed
- * row, for the champion icons, and the expanded detail.
+ * Sort key for lane order (top, jungle, mid, ADC, support). Replays list
+ * players in lobby order; scoreboards compare opponents lane by lane.
  */
 function laneOrder(position: string | null): number {
   const index = ROLES.indexOf((position ?? '') as (typeof ROLES)[number])
-  // No position goes last: the .rofl does not always carry it.
+  // Players without a position go last.
   return index === -1 ? ROLES.length : index
 }

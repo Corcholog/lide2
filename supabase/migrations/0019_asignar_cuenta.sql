@@ -1,37 +1,19 @@
 -- ===========================================================================
--- Decir a mano de quien es una cuenta.
+-- Linking a signup to an account by hand.
 --
--- El emparejado inscripto <-> cuenta lo cierra solo `link_roster_accounts()`
--- (0012_planteles.sql) cuando el Riot ID declarado en la planilla coincide con
--- el de la cuenta. Eso alcanza para los equipos que mandaron la planilla
--- completa y bien escrita; los otros no se emparejan nunca, porque la regla
--- automatica no adivina: ante la duda no hace nada, y esta bien que sea asi.
+-- `link_roster_accounts()` (0012_planteles.sql) links automatically only when
+-- the declared Riot ID matches, and does nothing when in doubt. This is the
+-- manual path, used from the team page where nicks are entered. It checks:
 --
--- Lo que faltaba es la puerta manual del otro lado. El alta de nicks (0017)
--- pasa en la ficha del equipo, y ahi es donde quien la carga sabe de quien es
--- cada uno: los escribio el mismo. Pero decir "este nick es de esta persona"
--- solo se podia en /admin/planteles, en otra pantalla y con el formulario del
--- plantel entero.
+--   1. The account is on THAT team's roster. Otherwise a stale form could link a
+--      stranger's account and credit matches to the wrong university.
+--   2. An account belongs to one person. A unique index
+--      (`team_roster_player_key`, 0008_rosters.sql) enforces it, but here the
+--      error names who already has it.
+--   3. Unlinking is possible: a null `p_player_id` clears the link.
 --
--- Esta funcion es un inscripto y una cuenta, y las tres cosas que hay que
--- mirar antes de escribir:
---
---   1. La cuenta tiene que estar en el plantel de ESE equipo. Sin eso, un
---      formulario viejo —o una pestana abierta de otro equipo— le pega a un
---      inscripto la cuenta de un desconocido, y de ahi salen partidas
---      atribuidas a la universidad equivocada sin que nadie lo note.
---   2. Una cuenta es de una sola persona. Hay un indice unico que lo garantiza
---      (`team_roster_player_key`, 0008_rosters.sql), pero chocar contra el
---      devuelve un error de constraint que no le dice nada a quien lo lee.
---      Aca se devuelve el nombre del que ya la tiene, que es el dato que hace
---      falta para resolverlo.
---   3. Desasignar tiene que ser posible: `p_player_id` en null limpia el
---      vinculo. Emparejar mal y no poder deshacerlo es peor que no emparejar.
---
--- No toca `riot_game_name` ni `riot_tag_line` del inscripto: eso es lo que
--- DECLARO la planilla y sigue siendo cierto aunque haya terminado jugando con
--- otra cuenta. La diferencia entre lo declarado y lo emparejado es justamente
--- lo que muestra `roster_status`.
+-- The signup's `riot_game_name` and `riot_tag_line` are not changed: they are
+-- what the sheet declared, and `roster_status` shows declared vs linked.
 -- ===========================================================================
 
 create or replace function public.assign_roster_account(
@@ -68,9 +50,8 @@ begin
     return jsonb_build_object('ok', false, 'error', 'Esa cuenta no existe.');
   end if;
 
-  -- Ver la regla 1. Se pregunta por el plantel y no por las partidas: una
-  -- cuenta cargada a mano todavia no jugo ninguna, y es justo la que se quiere
-  -- emparejar antes de la fecha 1.
+  -- Rule 1. Checked against the roster, not matches: a hand-entered account has
+  -- no matches yet and is exactly the one to link before matchday 1.
   if not exists (
     select 1
       from public.team_members tm

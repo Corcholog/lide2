@@ -7,19 +7,11 @@ import type { AssignAccountResult } from '@/lib/teams/service'
 import type { TeamAccountRow } from '@/types/db'
 
 /**
- * Whose each nick is, right beside the signup.
+ * Links a signup to one of the team's accounts, next to the signup.
  *
- * A team's accounts come in through its page (`AddAccount`), so this is where
- * whoever enters them knows whose each one is. The automatic matching -
- * `link_roster_accounts()` - only resolves it when the Riot ID declared on the
- * sheet equals the account's; when the sheet arrived with no Riot ID, with the
- * old nick or misspelled, there is no way for it to guess and until now you had
- * to go to /admin/planteles to say so.
- *
- * One dropdown per signup and not a form with the whole roster: the one on
- * /admin/planteles saves all five rows together because names, universities and
- * removals are edited there at once. Here one single thing is touched, one at a
- * time.
+ * `link_roster_accounts()` only links automatically when the declared Riot ID
+ * matches exactly; this covers the rest (no Riot ID, an old nick, a typo). One
+ * dropdown per signup; /admin/planteles saves whole rosters instead.
  */
 export function AssignAccount({
   teamId,
@@ -43,11 +35,9 @@ export function AssignAccount({
       <input type="hidden" name="rosterId" value={rosterId} />
 
       {/*
-        The `key` is the account it holds in the database today. React resets
-        the fields of a `<form action>` when the action finishes, leaving them
-        at their `defaultValue`, which in an uncontrolled field is the one from
-        the first render: without this the dropdown would flick back to the
-        previous account for an instant, right after saving the new one.
+        Keyed by the stored account: React resets the form's fields after the
+        action, and without the key the dropdown would briefly show the previous
+        account.
       */}
       <select
         key={playerId ?? 'sin'}

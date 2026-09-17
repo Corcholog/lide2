@@ -3,14 +3,9 @@ import { ROLE_OPTIONS, type RoleOption } from '@/lib/stats/tables'
 import { withQuery } from '@/lib/url'
 
 /**
- * The role picker on the Tables tab.
- *
- * Third of the three that stack there, and like the other two it carries the
- * others' filters along so "Grupo B, fecha 2, junglas" can be reached by
- * picking them in any order.
- *
- * It only recuts the two tables that have a Rol column. The teams one keeps
- * every row - a team does not have a role - and says so underneath.
+ * The role picker on the Tables tab. Like the other pickers, it keeps the other
+ * filters. It filters the champion and player tables; the team table has no
+ * role and says so.
  */
 export function RoleNav({
   base,
@@ -18,7 +13,7 @@ export function RoleNav({
   query = {},
 }: {
   base: string
-  /** The selected role, or null when it is every one of them. */
+  /** The selected role, or null for all roles. */
   role: RoleOption | null
   query?: Record<string, string | number | null | undefined>
 }) {

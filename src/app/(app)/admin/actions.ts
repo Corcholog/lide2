@@ -9,19 +9,15 @@ import { getStorage } from '@/lib/storage'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
- * Hooking an uploaded match up with its fixture matchup.
+ * Links an uploaded match to its fixture matchup.
  *
- * All the logic lives in `assign_match_to_fixture()` and not here: it validates
- * the matchup, resolves the orientation, updates the match and registers the
- * new players, all in one call. Doing that with five updates from here would
- * mean an error halfway leaves the match attached to the matchup but without
- * teams.
+ * The logic lives in `assign_match_to_fixture()`, which validates the matchup,
+ * resolves which side is which, updates the match and registers new players in
+ * one call, so a failure cannot leave it half-applied.
  *
- * The signature with `prevState` in front is what `useActionState` requires,
- * which is what allows showing the server's error next to the form instead of
- * throwing an exception.
- *
- * The messages returned stay in Spanish: they are read as-is in the panel.
+ * The `prevState` parameter is required by `useActionState`, which lets the
+ * form show the server's error. Returned messages are Spanish because the
+ * panel shows them as-is.
  */
 
 function refresh() {
@@ -40,7 +36,7 @@ export interface AssignResult {
   error?: string
   /** Players registered in a team for the first time. */
   learned?: number
-  /** The ones already playing for another team: they are not moved on their own. */
+  /** Players already on another team; they are not moved automatically. */
   conflicts?: string[]
 }
 
@@ -76,26 +72,21 @@ export interface WalkoverResult {
   error?: string
   /** The team the matchup was awarded to. */
   winner?: string
-  /** The one that did not turn up. */
+  /** The team that did not turn up. */
   absent?: string
   matchday?: number
-  /** The entry was undone rather than made. */
+  /** The walkover was cleared rather than set. */
   cleared?: boolean
 }
 
 /**
- * Awarding a matchup because one side never turned up.
+ * Awards a matchup because a team did not turn up within the 15 minutes the
+ * rules allow.
  *
- * The rules give 15 minutes. Past that there is a result and no game, which is
- * the one case the whole pipeline cannot express: everything here hangs off a
- * .rofl. It is recorded on the fixture instead of as a fake match, so nothing
- * downstream of a scoreboard - the match list, the records, the champion meta -
- * learns about a game that was never played. See
- * `supabase/migrations/0024_no_presentado.sql`.
- *
- * The empty value clears it, which is how a wrong entry is undone: a walkover
- * takes a point off somebody in the standings, so it had better be reversible
- * from the panel and not only from the SQL editor.
+ * Stored on the fixture instead of as a fake match, so the match list, records
+ * and champion stats never see a game that was not played. See
+ * `supabase/migrations/0024_no_presentado.sql`. An empty value clears it, so a
+ * mistake can be undone from the panel.
  */
 export async function setWalkoverAction(
   _prev: WalkoverResult | null,
@@ -126,27 +117,23 @@ export interface RulingResult {
   error?: string
   /** The team the organizers gave the matchup to. */
   winner?: string
-  /** The one sanctioned. */
+  /** The sanctioned team. */
   sanctioned?: string
   ruling?: string
   /** Whether a played match got annulled with it. */
   annulled_match?: boolean
-  /** The ruling was undone rather than made. */
+  /** The ruling was cleared rather than set. */
   cleared?: boolean
 }
 
 /**
- * Overturning a played result by the rulebook - an ineligible lineup.
+ * Overturns a played result by ruling (ineligible lineup).
  *
- * Not a walkover, and not done through it: that tool needs the match unhooked,
- * and an unhooked match falls back to its file labels and gets counted a second
- * time. This keeps the match where it is, annuls it for every statistic and
- * gives the matchup to the other side. See
- * `supabase/migrations/0031_alineacion_indebida.sql`.
- *
- * The empty value clears it and the played result counts again: a ruling takes
- * a win off somebody and a whole match off the statistics, so it had better be
- * reversible from the panel.
+ * Not a walkover: that requires unlinking the match, which would then be
+ * counted again from its file labels. This keeps the match, annuls it for all
+ * statistics and awards the matchup. See
+ * `supabase/migrations/0031_alineacion_indebida.sql`. An empty value clears it
+ * and the played result counts again.
  */
 export async function setRulingAction(
   _prev: RulingResult | null,
@@ -191,16 +178,12 @@ export async function unassignMatchAction(
 }
 
 /**
- * Entering a match's draft by hand.
+ * Saves a match's draft entered by hand.
  *
- * The ten fields arrive as `ban-<side>-<slot>`; empty ones are skipped, which
- * is how a match where a team passed on a ban gets entered.
- *
- * THE TRANSLATION HAPPENS HERE. The form takes the display name ("Wukong"), and
- * what gets stored is the key the .rofl uses ("MonkeyKing"), because that is
- * what `champion_meta` joins the picks against. A champion that cannot be
- * resolved aborts the save naming the text: storing it as typed would leave a
- * ghost row in the meta that nobody will be able to explain later.
+ * Fields arrive as `ban-<side>-<slot>`; empty ones are skipped (a skipped ban).
+ * The form uses display names ("Wukong") and the .rofl key ("MonkeyKing") is
+ * stored, since `champion_meta` joins picks on it. An unresolvable champion
+ * aborts the save with the typed text in the error.
  */
 export async function saveBansAction(
   _prev: SaveBansResult | null,
@@ -241,21 +224,17 @@ export interface DeleteResult {
   error?: string
   /** .rofl files the match had. */
   files?: number
-  /** Accounts that went with it: they only existed because of this match. */
+  /** Accounts deleted with it, which only existed because of this match. */
   players?: string[]
 }
 
 /**
- * Deleting a match uploaded by mistake.
+ * Deletes a match uploaded by mistake.
  *
- * The order is deliberate: the bucket's .rofl files first and the database
- * after. If the bucket fails, the database is untouched and it can be retried;
- * the other way round would leave 15 MB files with no row naming them,
- * invisible until somebody looks at the storage.
- *
- * `delete_match()` decides everything else: what goes by cascade and which
- * accounts existed only for this match. See
- * `supabase/migrations/0016_borrar_partida.sql`.
+ * Storage files are deleted first: if that fails the database is untouched and
+ * it can be retried, whereas the reverse order could leave orphaned files.
+ * `delete_match()` removes the rest, including accounts that only existed for
+ * this match. See `supabase/migrations/0016_borrar_partida.sql`.
  */
 export async function deleteMatchAction(
   _prev: DeleteResult | null,

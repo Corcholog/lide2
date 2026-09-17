@@ -54,8 +54,8 @@ describe('tournament structure', () => {
       teams.set(name, rows[0].id)
     }
 
-    // Bracket: two quarter-finals feeding the same semi. The semi is created
-    // first because the quarters reference it.
+    // Bracket: two quarter-finals feeding one semi, created first because the
+    // quarters reference it.
     const stage = await db.query<{ id: string }>(
       `insert into public.stages (tournament_id, name, kind, order_index)
        values ($1, 'Playoffs', 'bracket', 1) returning id`,
@@ -100,7 +100,7 @@ describe('tournament structure', () => {
     expect(rows.map((r) => r.team_name)).toEqual(['Alfa', 'Bravo', 'Charlie', 'Delta', 'Eco'])
     expect(rows.every((r) => r.games === 0 && r.wins === 0 && r.losses === 0)).toBe(true)
     expect(rows[0].form).toEqual([])
-    // The university name travels with the row: the table draws with no extra joins.
+    // The university tag comes with the row, so the table needs no extra joins.
     expect(rows[0].university_tag).toBe('UDP')
   })
 
@@ -135,9 +135,9 @@ describe('tournament structure', () => {
       ['Alfa', 1, 0],
       ['Charlie', 1, 0],
       ['Eco', 0, 0],
-      // Both lost one and they never played each other, so the head to head
-      // has nothing to say and the name is the last resort. That is a printing
-      // order and not a ruling: the rulebook hands this case to the organizers.
+      // Both lost one and never played each other, so the head to head cannot
+      // separate them and the name orders them. That is only a display order; the
+      // rulebook leaves this case to the organizers.
       ['Bravo', 0, 1],
       ['Delta', 0, 1],
     ])
@@ -145,10 +145,10 @@ describe('tournament structure', () => {
   })
 
   it('a series winner appears on its own in the next round', async () => {
-    const cuartos = await db.query<{ id: string }>(
+    const quarterFinals = await db.query<{ id: string }>(
       `select id from public.series where round = 'Cuartos de final' order by order_index`,
     )
-    const [q1, q2] = cuartos.rows
+    const [q1, q2] = quarterFinals.rows
 
     // Alfa takes the first quarter 2-0: the series closes without a third game.
     for (const game of [1, 2]) {
@@ -191,11 +191,11 @@ describe('tournament structure', () => {
     )
 
     const semi = rows.find((row) => row.round === 'Semifinales')
-    const cuartosRows = rows.filter((row) => row.round === 'Cuartos de final')
+    const quarterFinalRows = rows.filter((row) => row.round === 'Cuartos de final')
 
-    expect([cuartosRows[0].wins_a, cuartosRows[0].wins_b, cuartosRows[0].games_played]).toEqual([2, 0, 2])
-    expect(cuartosRows[0].status).toBe('finished')
-    expect([cuartosRows[1].wins_a, cuartosRows[1].wins_b]).toEqual([2, 1])
+    expect([quarterFinalRows[0].wins_a, quarterFinalRows[0].wins_b, quarterFinalRows[0].games_played]).toEqual([2, 0, 2])
+    expect(quarterFinalRows[0].status).toBe('finished')
+    expect([quarterFinalRows[1].wins_a, quarterFinalRows[1].wins_b]).toEqual([2, 1])
 
     // Nobody entered the semi by hand: advance_series filled both sides.
     expect(semi?.team_a_name).toBe('Alfa')
@@ -209,7 +209,7 @@ describe('tournament structure', () => {
       `select team_name, games from public.group_standings
         where group_label = 'Grupo A' and team_name = 'Alfa'`,
     )
-    // They played one group game and two quarters; in the group table only one counts.
+    // One group game and two quarter-final games; only the group game counts here.
     expect(rows[0].games).toBe(1)
   })
 
@@ -218,7 +218,7 @@ describe('tournament structure', () => {
       `select id from public.series where round = 'Cuartos de final' order by order_index limit 1`,
     )
 
-    // Both games are redone: now Bravo wins the series.
+    // Both games are changed: now Bravo wins the series.
     await db.query('update public.matches set winning_side = 200 where series_id = $1', [
       q1.rows[0].id,
     ])

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Archivo_Black, Geist, Geist_Mono } from "next/font/google";
 import { InlineScript } from "@/components/theme/InlineScript";
 import { siteUrl } from "@/lib/env";
-import { TOURNAMENT } from "@/lib/lide2/tournament";
+import { TOURNAMENT, tournamentStartDate } from "@/lib/lide2/tournament";
 import { DEFAULT_THEME, THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
@@ -17,15 +17,9 @@ const geistMono = Geist_Mono({
 });
 
 /*
- * Headlines and large numbers.
- *
- * It is a single-weight grotesque, the heaviest there is: solid blocks of text,
- * no gradations. That lack of nuance is exactly what gives the brutalist air,
- * and against the body set in Geist the contrast is strong. Being wide, it
- * wants tighter tracking at large sizes.
- *
- * A single weight means font-bold and font-black do nothing to this family: the
- * weight is already fixed.
+ * Display font for headings and large numbers. It has a single weight, so
+ * font-bold and font-black do not change it; wide letterforms want tighter
+ * tracking at large sizes.
  */
 const archivoBlack = Archivo_Black({
   variable: "--font-archivo-black",
@@ -35,17 +29,10 @@ const archivoBlack = Archivo_Black({
 });
 
 /*
- * The card WhatsApp, Discord, Twitter and Instagram build when somebody pastes
- * the link. A tournament site spreads exactly that way, by pasted link, and
- * without this it comes out bare.
- *
- * The image is src/app/opengraph-image.jpg, which Next picks up by naming
- * convention; `npm run og` generates it once. `metadataBase` is what turns it
- * into an absolute URL, which is the only way the platforms can go and fetch
- * it.
- *
- * The template lets each page put its own part in front ("Estadísticas · LIDE
- * 2") without repeating the tournament's name in every file.
+ * Metadata and link previews. The image is src/app/opengraph-image.jpg (picked
+ * up by file convention, generated with `npm run og`); `metadataBase` makes its
+ * URL absolute, which link previews require. The title template prefixes each
+ * page's own title.
  */
 export const metadata: Metadata = {
   metadataBase: siteUrl(),
@@ -60,7 +47,7 @@ export const metadata: Metadata = {
     locale: "es_AR",
     siteName: TOURNAMENT.name,
     title: `${TOURNAMENT.name} · ${TOURNAMENT.fullName}`,
-    description: `${TOURNAMENT.slogan} ${TOURNAMENT.teams} equipos, ${TOURNAMENT.universities} universidades. Arranca el 5 de septiembre de 2026.`,
+    description: `${TOURNAMENT.slogan} ${TOURNAMENT.teams} equipos, ${TOURNAMENT.universities} universidades. Arranca el ${tournamentStartDate({ year: true })}.`,
   },
   twitter: { card: "summary_large_image" },
 };
@@ -74,23 +61,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="es"
       data-theme={DEFAULT_THEME}
       suppressHydrationWarning
-      // overflow-x-clip: the tournament's hero breaks out of the centred
-      // container to take the window's width, and 100vw includes the
-      // scrollbar's width. Without this a few pixels spill over and horizontal
-      // scroll appears.
+      // overflow-x-clip: the full-width hero uses 100vw, which includes the
+      // scrollbar, and would otherwise cause horizontal scrolling.
       className={`${geistSans.variable} ${geistMono.variable} ${archivoBlack.variable} h-full overflow-x-clip antialiased motion-safe:scroll-smooth`}
     >
       <head>
         <InlineScript html={THEME_INIT_SCRIPT} />
         {/*
-          Lo que hay que mostrar cuando no hay JavaScript. Ver `.sin-js` en
-          globals.css: el navegador solo parsea esto como marcado con el
-          scripting apagado, asi que con JS la regla nunca llega.
-
-          Va como `dangerouslySetInnerHTML` y no como hijos: con JS prendido el
-          contenido de un <noscript> es texto crudo y no DOM, y React no puede
-          hidratar un <style> contra un nodo de texto. Comparando el innerHTML
-          coincide.
+          Shows `.sin-js` elements when JavaScript is off (see globals.css).
+          Rendered with `dangerouslySetInnerHTML`: with scripting on, <noscript>
+          content is raw text, and React could not hydrate a <style> child
+          against it.
         */}
         <noscript
           dangerouslySetInnerHTML={{ __html: "<style>.sin-js{display:revert}</style>" }}

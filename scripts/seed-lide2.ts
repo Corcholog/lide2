@@ -1,17 +1,13 @@
 /**
  * Loads LIDE 2's structure into the database: tournament, universities, the 20
- * teams with their group, the complete group-phase fixture and the chained
- * playoff bracket.
- *
- * Everything comes from src/lib/lide2/tournament.ts, which transcribes the
- * organizers' sheets. Nothing is invented any more: the teams are the real ones
- * and the matchups are the published ones.
+ * teams and their groups, the group-phase fixture and the playoff bracket. The
+ * data comes from src/lib/lide2/tournament.ts.
  *
  *   npm run seed:lide2                  structure and fixture
- *   npm run seed:lide2 -- --qualified   puts the top two of each group into the
+ *   npm run seed:lide2 -- --qualified   puts each group's top two into the
  *                                       quarter-finals (run when the group
- *                                       phase finishes)
- *   npm run seed:lide2 -- --clean       leaves the database as it was
+ *                                       phase ends)
+ *   npm run seed:lide2 -- --clean       removes what the seed created
  */
 import { ROSTERS } from '../src/lib/lide2/rosters'
 import {
@@ -23,9 +19,10 @@ import {
   UNIVERSITIES,
   teamByNumber,
 } from '../src/lib/lide2/tournament'
+import { FINAL_ROUND } from '../src/lib/lide2/winner'
 import { createAdminClient } from '../src/lib/supabase/admin'
 
-const SLUG = 'lide-2'
+const SLUG = TOURNAMENT.slug
 
 function milestone(id: string): string | null {
   return CALENDAR.find((entry) => entry.id === id)?.date ?? null
@@ -58,9 +55,8 @@ async function createStructure(): Promise<string> {
   if (error) throw new Error(`tournament: ${error.message}`)
   const tournamentId = tournament.id as string
 
-  // The unique index is on lower(tag), an expression, and upsert cannot target
-  // it: on conflict only matches indexes by column. It is solved by reading
-  // first, same as with the teams.
+  // The unique index is on lower(tag), an expression, which upsert cannot
+  // target; read first instead, as with teams.
   const { data: existing } = await supabase.from('universities').select('id,tag')
   const universityId = new Map(
     (existing ?? []).map((row) => [String(row.tag).toLowerCase(), row.id as string]),
@@ -82,8 +78,7 @@ async function createStructure(): Promise<string> {
     }
   }
 
-  // Stages: one per group (for the calendar and the panel) and one per playoff
-  // round (the series hang off these).
+  // Stages: one per group and one per playoff round (series belong to these).
   const stages = [
     ...GROUPS.map((name, index) => ({
       tournament_id: tournamentId,
@@ -96,9 +91,8 @@ async function createStructure(): Promise<string> {
     { tournament_id: tournamentId, name: 'Gran final', kind: 'bracket', order_index: 7 },
   ]
 
-  // The stages are not recreated when they already exist: deleting them
-  // cascades to the series, and that would unlink the playoff matches already
-  // uploaded.
+  // Existing stages are kept: deleting them would cascade to the series and
+  // unlink playoff matches already uploaded.
   const { data: alreadyThere } = await supabase
     .from('stages')
     .select('id,name')
@@ -123,19 +117,17 @@ async function createStructure(): Promise<string> {
 }
 
 /**
- * The bracket is created back to front: the final first, because the semis
- * reference it, and the quarters reference the semis. Every series knows which
- * series and which side it sends its winner to, and that is what lets
- * advance_series() move them on its own when the last .rofl is uploaded.
- *
- * Matchups: two teams from the same group cannot meet before the final.
+ * Creates the bracket from the final backwards, since each series references
+ * the one (and side) its winner advances to. That is what lets
+ * advance_series() move winners along when the last .rofl is uploaded. Teams
+ * from the same group cannot meet before the final.
  */
 async function createBracket(stageId: Map<string, string>): Promise<void> {
   const { data: final, error: finalError } = await supabase
     .from('series')
     .insert({
       stage_id: stageId.get('Gran final'),
-      round: 'Gran final',
+      round: FINAL_ROUND,
       best_of: 5,
       order_index: 1,
       slot_a_label: 'Ganador semifinal 1',
@@ -192,15 +184,12 @@ async function createBracket(stageId: Map<string, string>): Promise<void> {
 }
 
 /**
- * Creates or updates the 20 teams and their universities.
+ * Creates or updates the 20 teams and their universities, and returns each
+ * team's id by number (for the fixture).
  *
- * `seed` stores the official number (1 to 20), which is how the organizers name
- * them in the fixture, and `tag` the signup code where they have one. The four
- * teams built from individual signups represent more than one university:
- * university_id keeps the most represented one, so attribution in the stats is
- * possible, and the full list goes to team_universities.
- *
- * It returns each team's id by number, which is what the fixture needs.
+ * `seed` stores the official number and `tag` the signup code, if any. Mixed
+ * teams keep their main university in `university_id` and the full list in
+ * `team_universities`.
  */
 async function createTeams(
   tournamentId: string,
@@ -218,9 +207,8 @@ async function createTeams(
       university_id: universityId.get(UNIVERSITIES[team.universities[0]].tag.toLowerCase()) ?? null,
     }
 
-    // The unique index is (tournament_id, lower(name)), an expression, so
-    // upsert cannot target it: it is read first. Along the way, re-running this
-    // does not trample a logo somebody uploaded from the panel.
+    // The unique index is (tournament_id, lower(name)), an expression upsert
+    // cannot target, so read first. This also preserves logos set from the panel.
     const { data: existing } = await supabase
       .from('teams')
       .select('id')
@@ -241,8 +229,7 @@ async function createTeams(
 
     byNumber.set(team.number, id)
 
-    // It is replaced whole: if a team changes composition, the old list has no
-    // business surviving.
+    // Replaced whole, so a changed composition leaves no stale rows.
     await supabase.from('team_universities').delete().eq('team_id', id)
 
     const links = team.universities
@@ -255,7 +242,7 @@ async function createTeams(
 
     if (links.length > 0) {
       const { error } = await supabase.from('team_universities').insert(links)
-      if (error) throw new Error(`universidades de ${team.name}: ${error.message}`)
+      if (error) throw new Error(`universities of ${team.name}: ${error.message}`)
     }
 
     await upsertRoster(id, team.number, universityId)
@@ -265,12 +252,8 @@ async function createTeams(
 }
 
 /**
- * Writes a team's signed-up roster.
- *
- * It goes by upsert against (team_id, order_index) and not by delete-and-insert:
- * if an admin already matched somebody with their Riot account, that player_id
- * is not in the payload and survives. Same with display_name, if they tidied up
- * the name.
+ * Writes a team's signups with an upsert on (team_id, order_index), so
+ * `player_id` and `display_name` set by an admin are preserved.
  */
 async function upsertRoster(
   teamId: string,
@@ -295,12 +278,9 @@ async function upsertRoster(
 }
 
 /**
- * Writes the group phase's 40 matchups.
- *
- * A matchup exists from the moment the organizers publish the calendar, long
- * before there is any .rofl, so it goes in `fixtures` and not in `matches`. When
- * somebody uploads the replay the match is hooked to it and the fixture_results
- * view starts showing the result.
+ * Writes the group phase's 40 matchups into `fixtures` (they exist before any
+ * replay). Uploaded matches are linked to them later, and `fixture_results`
+ * shows the result.
  */
 async function createFixtures(
   tournamentId: string,
@@ -334,9 +314,9 @@ async function createFixtures(
     throw new Error(`fixture: there are ${incomplete.length} matchups with no team`)
   }
 
-  // upsert against the unique on (tournament_id, matchday, slot, team_a_id,
-  // team_b_id): re-running the seed neither duplicates matchups nor unhooks the
-  // matches already linked, because match_id is not in the update.
+  // Upsert on (tournament_id, matchday, slot, team_a_id, team_b_id): re-running
+  // neither duplicates matchups nor unlinks matches, since match_id is not
+  // updated.
   const { error } = await supabase
     .from('fixtures')
     .upsert(rows, { onConflict: 'tournament_id,matchday,slot,team_a_id,team_b_id' })
@@ -345,13 +325,9 @@ async function createFixtures(
 }
 
 /**
- * Puts the top two of each group into the quarter-finals, according to today's
- * table.
- *
- * It goes separately and not inside the seed because it depends on results:
- * while the group phase has not finished, the table can change and the quarters
- * would be wrong. It is run once, when the last matchday closes. It is
- * idempotent: running it again simply reads the table afresh.
+ * Puts each group's top two into the quarter-finals, from the current table.
+ * Separate from the seed because the table changes until the group phase ends.
+ * Idempotent.
  */
 async function seedQuarters(tournamentId: string): Promise<void> {
   const { data: standings } = await supabase
@@ -371,9 +347,7 @@ async function seedQuarters(tournamentId: string): Promise<void> {
     .eq('round', 'Cuartos de final')
 
   for (const quarter of quarters ?? []) {
-    // "1º A" -> "1A", which is how `qualified`'s keys are built. By position
-    // and letter and not by exact text, so it survives somebody rewriting the
-    // label.
+    // "1º A" -> "1A", matching `qualified`'s keys, by position and letter.
     const key = (label: string | null) => {
       const match = label?.match(/^(\d)\D*([A-D])$/)
       return match ? `${match[1]}${match[2]}` : ''
@@ -389,13 +363,11 @@ async function seedQuarters(tournamentId: string): Promise<void> {
 }
 
 /**
- * Leaves the database as it was: deletes everything the seed created and
- * returns the LEIF matches to being loose.
+ * Removes what the seed created and releases the tournament's matches.
  *
- * The order matters. Deleting the tournament before unlinking the teams the
- * seed did not create means the cascade takes them along with their rosters.
- * And the matches are released before anything else, because afterwards
- * relink_all_matches() deduces their teams again from whoever played.
+ * Order matters: matches are released first so relink_all_matches() can deduce
+ * their teams again, and teams the seed did not create are unlinked before the
+ * tournament is deleted, so the cascade does not take their rosters.
  */
 async function clean(tournamentId: string): Promise<void> {
   const { error: matchError } = await supabase
@@ -411,10 +383,8 @@ async function clean(tournamentId: string): Promise<void> {
     console.log('  The matches are left loose; it is fixed from /equipos/detectar.')
   }
 
-  // Whether the seed created a team is not decided by its name: an earlier run
-  // may have used others, and in fact that happened back when the teams were
-  // invented placeholders. What separates them is the roster: the ones that
-  // came out of the replays have team_members and the seed's do not.
+  // Seed teams are told apart by roster, not name: teams detected from replays
+  // have team_members, the seed's do not.
   const { data: ofTournament } = await supabase
     .from('teams')
     .select('id,name,team_members(count)')
@@ -429,8 +399,8 @@ async function clean(tournamentId: string): Promise<void> {
     else withoutRoster.push(team.id as string)
   }
 
-  // The ones with a roster are unlinked instead of deleted: they are teams
-  // detected from real matches and the cascade would take their rosters.
+  // Teams with a roster were detected from real matches: unlink instead of
+  // deleting them.
   if (withRoster.length > 0) {
     await supabase
       .from('teams')
@@ -438,17 +408,16 @@ async function clean(tournamentId: string): Promise<void> {
       .in('id', withRoster)
   }
 
-  // team_universities and fixtures go by cascade with the teams and the
-  // tournament, same as stages and series.
+  // team_universities and fixtures cascade with teams and the tournament, like
+  // stages and series.
   if (withoutRoster.length > 0) {
     await supabase.from('teams').delete().in('id', withoutRoster)
   }
 
   await supabase.from('tournaments').delete().eq('id', tournamentId)
 
-  // The universities left with no team at all. It is checked this way and not
-  // against the UNIVERSITIES list because an old run may have loaded others
-  // (the seed's first version invented thirteen that were not these).
+  // Universities left without teams, checked this way because earlier runs may
+  // have loaded others.
   const { data: universities } = await supabase.from('universities').select('id,tag')
   const { data: inUse } = await supabase.from('teams').select('university_id')
 
@@ -481,8 +450,8 @@ async function main() {
 
     console.log('')
     for (const q of quarters ?? []) {
-      const a = (q.team_a_name as string | null) ?? `${q.slot_a_label} (sin definir)`
-      const b = (q.team_b_name as string | null) ?? `${q.slot_b_label} (sin definir)`
+      const a = (q.team_a_name as string | null) ?? `${q.slot_a_label} (undecided)`
+      const b = (q.team_b_name as string | null) ?? `${q.slot_b_label} (undecided)`
       console.log(`  ${a} vs ${b}`)
     }
     console.log('')

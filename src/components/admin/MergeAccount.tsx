@@ -5,18 +5,11 @@ import { mergeAccountAction } from '@/app/(app)/equipos/actions'
 import type { MergeAccountResult } from '@/lib/teams/service'
 
 /**
- * The click that says "this is the same person, they changed their nick".
+ * Confirms that two accounts are the same person after a nick change.
  *
- * The panel works out the pairing and shows it; this only confirms it. It is
- * never done automatically because the evidence has a second reading that looks
- * identical: a nick that stopped appearing and a nick that started appearing is
- * either one person who renamed, or a starter who was benched for a substitute.
- * Only somebody who knows the team can tell, and getting it wrong hands that
- * person's matches to another university where nobody will spot it.
- *
- * Absorbing is not reversible - the typed-in row disappears, and with it the
- * only record of what the sheet said - so the button spells out what it will do
- * rather than saying "confirm".
+ * The panel suggests the pairing; this confirms it. Never automatic: the same
+ * evidence could mean a substitute played instead. Merging is irreversible, so
+ * the button says exactly what it will do.
  */
 export function MergeAccount({
   teamId,
@@ -26,7 +19,7 @@ export function MergeAccount({
 }: {
   teamId: string
   placeholderId: string
-  /** The account that played: the one that stays. */
+  /** The account that played, which is kept. */
   realId: string
   realName: string
 }) {

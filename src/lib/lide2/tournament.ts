@@ -1,29 +1,14 @@
 /**
- * The structure of LIDE 2 exactly as the organizers announced it.
+ * The structure of LIDE 2 as announced by the organizers: teams, groups,
+ * calendar, fixture and venue.
  *
- * Everything here is settled fact: 113 players, 20 teams, 13 universities, 4
- * groups of 5, the full group-phase fixture and the playoffs through to the
- * in-person final. Nothing is invented any more: the teams, the groups and the
- * matchups come from the organizers' sheets.
- *
- * This file is the source for the seed (`scripts/seed-lide2.ts`), which writes
- * it into the database. The pages read from the database, not from here.
- *
- * The values are content - names, labels, the slogan - so they stay in Spanish.
+ * This is the source for the seed (`scripts/seed-lide2.ts`); pages read from
+ * the database, not from here. Values are content, so they are in Spanish.
  */
 
 /**
- * The slogan, split into article and noun.
- *
- * The home page paints the noun red and the article light: the weight of the
- * slogan sits on país / red / campeón, and the colour says so without
- * underlining it.
- *
- * It is stored accented and in lower case; the page puts it in small caps with
- * CSS. The organizers write it in capitals and without accents, which is what
- * people usually type, but accents are not lost by being capitalised. Storing
- * it this way allows showing it in small caps here and in roman elsewhere
- * without rewriting it.
+ * The slogan split into article and noun, so the home page can color the noun.
+ * Stored lower case with accents; the page applies small caps with CSS.
  */
 export const SLOGAN_PARTS = [
   { article: 'Un', noun: 'país' },
@@ -55,17 +40,11 @@ export const TOURNAMENT = {
 } as const
 
 /**
- * Venue of the final. It is the tournament's only in-person date.
+ * Venue of the final, the only in-person date.
  *
- * Mind the coordinates: the iframe Google hands out carries a `!2d`/`!3d` that
- * is the centre of the map's viewport, not the marked place. In this case they
- * landed inside the zoo, half a kilometre south. What does identify the place
- * unambiguously is the CID that comes in the same iframe, and `placeUrl` is
- * built from it.
- *
- * `lat`/`lng` are those of the Facultad de Informática complex on OpenStreetMap
- * (way 52869224), which is where the CITT is. They centre the map and feed the
- * "how to get there" link.
+ * `placeUrl` uses the listing's CID, which identifies the place exactly. The
+ * coordinates come from OpenStreetMap (way 52869224, Facultad de Informática),
+ * not from Google's embed, whose `!2d`/`!3d` values are the viewport center.
  */
 export const VENUE = {
   name: 'CITT',
@@ -77,24 +56,15 @@ export const VENUE = {
   placeUrl: 'https://maps.google.com/?cid=3810993439754564045',
 } as const
 
-/** Directions there, from wherever whoever opens it happens to be. */
+/** Directions to the venue from the visitor's location. */
 export const VENUE_DIRECTIONS = `https://www.google.com/maps/dir/?api=1&destination=${VENUE.lat},${VENUE.lng}`
 
 /**
- * The venue's embedded map, the one Google hands out when sharing the CITT
- * listing.
+ * The venue's embedded map, from Google's share dialog.
  *
- * With one correction: the `pb` Google generates carries TWO different
- * locations and it is easy to miss. The `!3m3!1m2!1s0x...:0x34e35e5789ea31cd`
- * block is the place - the CITT, the same id as `placeUrl` - and that is what
- * drops the pin. But `!2d`/`!3d` is the centre of the viewport you happened to
- * be looking at when you copied the iframe, and in the original it landed on
- * Diagonal 113, Barrio El Mondongo, 1.3 km from the faculty (verified against
- * OpenStreetMap). With a 1636 m tall viewport, the pin sat above the top edge.
- *
- * That is why the centre is built from `VENUE.lat`/`VENUE.lng` instead of being
- * written by hand: the map points at the same place as the "Cómo llegar"
- * button, and if the venue ever changes, one line changes.
+ * The center (`!2d`/`!3d`) is built from `VENUE` instead of the copied value,
+ * which pointed at the viewport the map was copied from and left the pin off
+ * screen. The `!1s...:0x34e35e5789ea31cd` block is the place itself.
  */
 export const VENUE_EMBED = [
   'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d1635.858751751946',
@@ -108,8 +78,8 @@ export const VENUE_EMBED = [
 export interface Milestone {
   id: string
   /**
-   * Midday UTC on purpose: given the bare date ("2026-09-05") the browser reads
-   * it as midnight UTC and shows it one day earlier in Argentina.
+   * 15:00 UTC (noon in Argentina). A bare date ("2026-09-05") would be read as
+   * midnight UTC and shown a day earlier in Argentina.
    */
   date: string
   label: string
@@ -119,7 +89,7 @@ export interface Milestone {
   detail: string | null
 }
 
-/** The tournament's six dates. They all fall on a Saturday. */
+/** The tournament's six dates, all on Saturdays. */
 export const CALENDAR: Milestone[] = [
   {
     id: 'fecha-1',
@@ -183,11 +153,8 @@ export interface University {
 }
 
 /**
- * The tournament's 13 universities, taken from the rosters.
- *
- * The groups sheet writes "UER" for the Universidad Nacional de Entre Ríos, but
- * the rosters of teams 13 and 15 write "UNER", which is the official tag. UNER
- * is what gets used.
+ * The 13 universities, taken from the rosters. Entre Ríos uses the official
+ * tag "UNER" (the groups sheet wrote "UER").
  */
 export const UNIVERSITIES: Record<string, University> = {
   UNLP: { tag: 'UNLP', name: 'Universidad Nacional de La Plata' },
@@ -211,25 +178,21 @@ export const GROUPS = ['A', 'B', 'C', 'D'] as const
 export type GroupName = (typeof GROUPS)[number]
 
 export interface TeamSeed {
-  /** Official number, 1 to 20. It is the key the organizers name them by. */
+  /** Official number, 1 to 20. */
   number: number
-  /** "Equipo 01". The organizers gave them no names of their own. */
+  /** "Equipo 01". Teams have no names of their own. */
   name: string
-  /**
-   * Signup code ("UNLP1", "UAI2"). Only the ones that entered as a ready-made
-   * team have it; the ones that came out of individual signups do not.
-   */
+  /** Signup code ("UNLP1", "UAI2"), or null for teams formed without one. */
   code: string | null
   /** How they signed up: as a ready-made team, or one by one. */
   entry: 'equipo' | 'individual'
   group: GroupName
   /**
-   * The roster's universities, most represented first. Nearly all are from one
-   * alone, but the individual signups built four mixed teams (13, 15, 16 and
-   * 17).
+   * The roster's universities, most represented first. Four teams formed from
+   * individual signups are mixed (13, 15, 16 and 17).
    */
   universities: UniversityTag[]
-  /** Registered players. Several signed up substitutes. */
+  /** Registered players, substitutes included. */
   roster: number
 }
 
@@ -283,20 +246,14 @@ export interface ScheduleRound {
   slot: 1 | 2
   /** With an explicit time zone so it does not depend on where this runs. */
   kickoff: string
-  /** Matchups by team number, in the order the organizers published them. */
+  /** Matchups by team number, in the published order. */
   matches: [number, number][]
 }
 
 /**
- * The full group-phase fixture.
- *
- * Five slots: two on 5 September, two on the 12th and one on the 19th. Each
- * slot holds 8 games (two per group) and leaves one team per group idle, so
- * every team plays 4 games and rests once. 40 games in total: the complete
- * round robin of the four groups.
- *
- * The teams on a bye in each slot are not written down: they come from
- * subtracting the ones that play, and `byesFor` works them out.
+ * The full group-phase fixture: five slots (two on each of the first two
+ * matchdays, one on the third), eight games each. Every team plays four games
+ * and rests once. Teams resting in a slot are derived by `byesFor`.
  */
 export const SCHEDULE: ScheduleRound[] = [
   {
@@ -384,15 +341,10 @@ export function teamByNumber(number: number): TeamSeed {
   return found
 }
 
-/** The ones resting in that slot: one per group. */
+/** The teams resting in a slot: one per group. */
 export function byesFor(round: ScheduleRound): TeamSeed[] {
   const playing = new Set(round.matches.flat())
   return TEAMS.filter((entry) => !playing.has(entry.number))
-}
-
-/** Round label stored in the database alongside each match. */
-export function roundLabel(round: ScheduleRound): string {
-  return `Fecha ${round.matchday} · Turno ${round.slot}`
 }
 
 /** Every team in a group, in number order. */
@@ -404,16 +356,14 @@ export function teamsOfGroup(group: GroupName): TeamSeed[] {
 export const AR_TIME_ZONE = 'America/Argentina/Buenos_Aires'
 
 /**
- * "5 de septiembre": when it all starts.
- *
- * Used by the "nothing here yet" notices a visitor sees. It comes out of
- * CALENDAR rather than being written by hand so there are never two different
- * dates going around if the tournament shifts.
+ * The first matchday's date, "5 de septiembre" (optionally with the year),
+ * derived from `CALENDAR` so it is never written by hand.
  */
-export function tournamentStartDate(): string {
+export function tournamentStartDate({ year = false }: { year?: boolean } = {}): string {
   return new Date(CALENDAR[0].date).toLocaleDateString('es-AR', {
     day: 'numeric',
     month: 'long',
+    ...(year ? { year: 'numeric' } : {}),
     timeZone: AR_TIME_ZONE,
   })
 }

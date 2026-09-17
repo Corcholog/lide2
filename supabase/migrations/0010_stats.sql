@@ -1,66 +1,41 @@
 -- ===========================================================================
--- LIDE 2: motor de estadisticas
+-- LIDE 2: stats engine
 --
--- Tres cosas cambiaron respecto de como estaba pensado esto antes de que la
--- organizacion publicara los datos oficiales, y las tres estan resueltas aca:
+--   1. Matchday comes from the fixture, not the file name. A match inherits
+--      group, matchday and slot from the matchup it is linked to; the file's
+--      labels are the last resort. This lives in `match_context`, and everything
+--      else builds on it.
 --
---   1. LA FECHA YA NO SALE DEL NOMBRE DEL ARCHIVO.
---      Hasta ahora la jornada era texto en matches.round_label, derivado de la
---      carpeta donde el equipo guardo el .rofl (src/lib/ingest/labels.ts). Eso
---      alcanzaba cuando no habia calendario. Ahora el fixture completo esta
---      publicado y cargado en `fixtures`: el cruce sabe su grupo, su fecha y su
---      turno desde antes de jugarse. La partida hereda el contexto del cruce al
---      que se engancha, y el nombre del archivo pasa a ser el ultimo recurso.
---      Eso vive en `match_context`, y todo lo demas cuelga de ahi.
+--   2. University is attributed per player, not per team. Mixed teams (13, 15,
+--      16 and 17) span up to three universities, so each player counts for the
+--      university on their signup once their account is linked, and for the
+--      team's main university until then.
 --
---   2. LA UNIVERSIDAD SE ATRIBUYE POR JUGADOR, NO POR EQUIPO.
---      Cuatro equipos (13, 15, 16 y 17) salieron de inscripciones individuales
---      y mezclan hasta tres universidades. Sumarle a UNER todo lo que hace el
---      Equipo 15 seria contarle partidas a gente de UADE y de UNLP. La
---      atribucion va por persona, cruzando team_roster con players, y cae en la
---      universidad principal del equipo mientras ese cruce no exista: la tabla
---      arranca aproximada y se vuelve exacta sola a medida que alguien empareje
---      inscriptos con cuentas de Riot, sin rehacer nada.
+--   3. Three matchdays over five slots: each team plays 4 games and rests once,
+--      and matchdays 1 and 2 have two slots each, so "per matchday" and "per
+--      match" differ, and the MVP minimum depends on the scope.
 --
---   3. SON 3 FECHAS EN 5 TURNOS, NO 3 PARTIDOS.
---      Cada equipo juega 4 partidos repartidos en 5 turnos (descansa uno) y las
---      fechas 1 y 2 tienen dos turnos cada una. Asi que "por fecha" y "por
---      partido" no son lo mismo, y el minimo de partidas para entrar al MVP
---      depende de que se este mirando.
---
--- Todas las vistas de acumulados traen la fila por fecha Y la fila acumulada en
--- la misma consulta, con `grouping sets`. `is_total` distingue una de otra: sin
--- esa bandera, el acumulado (matchday null) se confundiria con una partida a la
--- que todavia no se le pudo resolver la fecha.
+-- Aggregate views return each matchday's rows and the whole-phase rows in one
+-- query using `grouping sets`. `is_total` tells them apart: otherwise the total
+-- (matchday null) would be confused with a match whose matchday is unresolved.
 -- ===========================================================================
 
--- --- 1. El MVP se recalibra: aporte, no farmeo ------------------------------
+-- --- 1. MVP score: contribution, not farm ----------------------------------
 --
--- El score viejo pesaba dano, oro y CS, asi que el MVP era casi siempre el ADC
--- o el mid: un soporte no puede competir en esas tres. La formula nueva pesa
--- sobre todo cuanto del juego de tu equipo paso por vos, que es algo que puede
--- ganar cualquier rol.
+-- The score weighs how much of the team's play went through the player, which
+-- any role can win, rather than damage, gold and CS, which favour carries.
 --
--- Sobre el techo del KDA, que es el numero delicado de todo esto: el KDA divide
--- por `greatest(deaths, 1)`, asi que un partido sin muertes vale el doble que
--- uno con una sola. Sin techo bajo, el MVP se lo lleva el que menos se jugo.
--- Probado contra el unico replay real que hay cargado (fixtures/), con techo 15
--- ganaba un top 6/0/8 con 23k de dano por encima de un mid 17/4/9 con 45k y el
--- 81% de participacion. Con techo 7 el orden queda Yasuo (17/4/9), Fiddlesticks
--- (7/2/15) y recien despues el soporte y el top, que es lo que diria cualquiera
--- que haya visto la partida. La idea del techo es castigar el feed, no premiar
--- al que no aparecio.
+-- The KDA divides by `greatest(deaths, 1)`, so a deathless game is worth double
+-- a game with one death; without a low cap, the least involved player wins. A
+-- cap of 7 produced the expected order when checked against a real replay.
 --
--- El dano entra, pero como porcentaje del de su equipo y con peso chico: es un
--- desempate entre dos partidos parecidos, no un motor. Un soporte con el 6% del
--- dano pierde 0,7 puntos contra un ADC con el 40%, sobre un maximo de 21.
+-- Damage counts as a share of the team's damage with a small weight: a
+-- tiebreaker between similar games, not the main driver.
 --
--- Los pesos siguen juntos y en un solo lugar a proposito: esta vista es el
--- unico sitio donde se toca el MVP, y al ser vista el cambio arrastra solo a
--- match_summaries.mvp_*, a player_totals.avg_score y mvp_count, a la card de
--- partida y al MVP de fase.
---
--- Efecto colateral esperado: cambia el MVP de partidas ya cargadas.
+-- All weights are here on purpose: this view is the only place to tune the MVP,
+-- and changes flow to match_summaries.mvp_*, player_totals.avg_score and
+-- mvp_count, the match card and the phase MVP. Changing it changes the MVP of
+-- matches already loaded.
 
 create or replace view public.match_player_scores with (security_invoker = on) as
 with team_agg as (
@@ -92,8 +67,8 @@ scored as (
     round((base.cs / base.minutes)::numeric, 1)                            as csm,
     (
         1.0  * least(base.kda, 7.0)                     -- MVP_KDA_WEIGHT / MVP_KDA_CAP
-      + 10.0 * coalesce(base.kill_participation, 0)     -- MVP_KP_WEIGHT (viene 0..1)
-      + 2.0  * coalesce(base.damage_share, 0)           -- MVP_DAMAGE_WEIGHT (viene 0..1)
+      + 10.0 * coalesce(base.kill_participation, 0)     -- MVP_KP_WEIGHT (0..1)
+      + 2.0  * coalesce(base.damage_share, 0)           -- MVP_DAMAGE_WEIGHT (0..1)
       + case when base.win then 2.0 else 0.0 end        -- MVP_WIN_BONUS
     )::numeric(10, 2)                                                      as score
   from base
@@ -126,12 +101,9 @@ select
   scored.score,
   round(scored.score / nullif(max(scored.score) over (partition by scored.match_id), 0), 3)
                                                                            as score_pct,
-  -- La formula nueva es mucho mas chata que la vieja (tres terminos en vez de
-  -- diez), asi que los empates dejan de ser raros: dos jugadores del equipo
-  -- ganador con el mismo KDA y la misma participacion empatan clavado. Sin
-  -- desempate, `rank() = 1` devolveria dos MVP y la card mostraria cualquiera
-  -- de los dos segun el plan de ejecucion. El puuid al final garantiza que el
-  -- orden sea total: dentro de una partida es unico.
+  -- With few terms, ties are common (same KDA and participation). Without a
+  -- tiebreak, `rank() = 1` would return two MVPs. The puuid makes the order
+  -- total, since it is unique within a match.
   rank() over (
     partition by scored.match_id
         order by scored.score desc,
@@ -141,10 +113,10 @@ select
   )                                                                        as match_rank
 from scored;
 
--- match_summaries elegia el MVP con `order by score desc limit 1`, que con
--- empates devuelve cualquiera. Ahora se apoya en match_rank, que ya viene
--- desempatado. Se re-declara entera porque create or replace view exige repetir
--- todas las columnas en el mismo orden; lo unico que cambia es el lateral.
+-- match_summaries picked the MVP with `order by score desc limit 1`, which is
+-- arbitrary on ties; it now uses match_rank. Redeclared in full because create
+-- or replace view requires every column in the same order; only the lateral
+-- join changes.
 
 create or replace view public.match_summaries with (security_invoker = on) as
 select
@@ -187,19 +159,15 @@ left join lateral (
   where s.match_id = m.id and s.match_rank = 1
 ) mvp on true;
 
--- --- 2. Universidad de una persona -------------------------------------------
+-- --- 2. A player's university ----------------------------------------------
 --
--- Devuelve la universidad de un jugador: la que declaro al inscribirse si su
--- cuenta de Riot ya esta emparejada con el inscripto, y si no la principal de su
--- equipo. Para los 16 equipos de una sola universidad las dos ramas dan lo
--- mismo; para los cuatro mezclados, la primera es la unica correcta.
+-- The university declared on the signup if the player's Riot account is linked
+-- to it, otherwise the team's main university. For single-university teams both
+-- give the same result.
 --
--- SECURITY DEFINER a proposito, y es seguro: lee team_roster (que es privada
--- porque son nombres legales de personas reales) pero devuelve un uuid de
--- universidad y nada mas. La universidad de un jugador es justamente lo que el
--- sitio muestra en publico; el nombre y apellido nunca sale de aca. Sin esto,
--- cuando la fase 4 abra el sitio sin sesion la atribucion se caeria en silencio
--- a la universidad del equipo y nadie se enteraria.
+-- SECURITY DEFINER on purpose, and safe: it reads team_roster (private, legal
+-- names) but only returns a university id, which the site shows publicly.
+-- Without it, anonymous visitors would silently get the team's university.
 
 create or replace function public.player_university_id(p_player_id uuid, p_team_id uuid)
 returns uuid
@@ -223,19 +191,17 @@ $$;
 comment on function public.player_university_id(uuid, uuid) is
   'Universidad de un jugador: la de su inscripcion si esta emparejada, si no la principal de su equipo. Devuelve solo el id, nunca datos del inscripto.';
 
--- --- 3. Contexto de una partida ---------------------------------------------
+-- --- 3. Match context ------------------------------------------------------
 --
--- Donde cae cada partida dentro del torneo, resuelto en un solo lugar y con una
--- prioridad clara:
+-- Where each match falls in the tournament, resolved in one place with a clear
+-- priority:
 --
---   1. El cruce del fixture al que esta enganchada. Es lo que publico la
---      organizacion, asi que le gana a todo.
---   2. La serie de playoffs, si tiene una.
---   3. Las etiquetas de texto que dejo la subida (stage_label / round_label).
+--   1. The fixture matchup it is linked to (published by the organizers).
+--   2. Its playoff series, if any.
+--   3. The text labels from the upload (stage_label / round_label).
 --
--- Sin esto habria dos nociones de "fecha" conviviendo: la del calendario y la
--- del nombre del archivo. Con un .rofl mal nombrado, las estadisticas dirian
--- una cosa y la tabla de posiciones otra.
+-- This keeps a single notion of "matchday", so a misnamed .rofl cannot make
+-- stats and standings disagree.
 
 create view public.match_context with (security_invoker = on) as
 select
@@ -246,8 +212,8 @@ select
     when m.series_id is not null                                   then 'playoffs'
     when m.stage_label is not null or m.round_label is not null    then 'grupos'
   end                                               as phase,
-  -- Sin fixture se conserva la regla vieja (stage_label es el grupo), que es de
-  -- lo que depende group_standings desde antes.
+  -- Without a fixture, the previous rule applies (stage_label is the group),
+  -- which group_standings already relied on.
   coalesce(f.group_label, case when m.series_id is null then m.stage_label end)
                                                     as group_label,
   coalesce(
@@ -257,8 +223,8 @@ select
   f.slot,
   m.series_id,
   coalesce(f.stage_id, s.stage_id)                  as stage_id,
-  -- Etiqueta para mostrar: "Fecha 2" en grupos, el nombre de la ronda en
-  -- playoffs, y lo que haya quedado del nombre del archivo como ultimo recurso.
+  -- Display label: "Fecha 2" in groups, the round name in playoffs, and the file
+  -- label as a last resort.
   coalesce(
     case when f.matchday is not null then 'Fecha ' || f.matchday end,
     s.round,
@@ -274,11 +240,10 @@ left join public.stages   st on st.id = coalesce(f.stage_id, s.stage_id);
 comment on view public.match_context is
   'Grupo, fecha y turno de cada partida. El fixture manda; las etiquetas del archivo son el ultimo recurso.';
 
--- La tabla de grupos pasa a usar el mismo criterio: hasta ahora una partida
--- sumaba solo si su stage_label coincidia con el grupo del equipo, o sea que
--- dependia de como se llamaba el archivo. Ahora tambien suma si esta enganchada
--- al cruce del fixture, que es lo que la organizacion publico. Se re-declara
--- entera porque create or replace view exige repetir todas las columnas.
+-- The group standings use the same criterion: a match also counts when it is
+-- linked to the fixture matchup, not only when its stage_label matches the
+-- team's group. Redeclared in full because create or replace view requires
+-- every column.
 
 create or replace view public.group_standings with (security_invoker = on) as
 select
@@ -328,20 +293,17 @@ where t.group_label is not null
 group by t.tournament_id, t.group_label, t.id, t.name, t.tag, t.logo_url,
          u.id, u.name, u.tag, u.logo_url;
 
--- --- 4. Una fila por jugador y partida ---------------------------------------
+-- --- 4. One row per player and match ---------------------------------------
 --
--- La base de todo lo que sigue: el scoreboard de cada partida con el contexto
--- del torneo pegado al lado y los nombres ya resueltos, para que ninguna vista
--- de arriba tenga que volver a joinear equipos ni universidades.
+-- The base for everything below: each scoreboard line with the tournament
+-- context and names already resolved, so aggregate views need no further joins.
 --
--- Lleva puuid porque es la identidad estable de un jugador entre partidas (el
--- Riot ID cambia, el puuid no) y es por lo que agrupan las vistas de acumulados.
--- NINGUNA vista agregada de este archivo lo expone y la capa de TypeScript
--- nunca lo selecciona. Cuando la fase 4 abra el sitio sin sesion, esta vista es
--- una de las que hay que revisar.
+-- It includes puuid, the stable player identity across matches that aggregates
+-- group by. No aggregate view in this file exposes it, and the TypeScript code
+-- never selects it (see 0013 for public access).
 --
--- El nombre para mostrar es el alias que haya cargado el panel o el Riot game
--- name; el tag (#ARG) no entra, y el nombre legal del inscripto tampoco.
+-- The display name is the panel alias or the Riot game name; neither the tag
+-- nor the signup's legal name is included.
 
 create view public.player_match_stats with (security_invoker = on) as
 select
@@ -395,8 +357,7 @@ select
   mp.baron_kills,
   mp.herald_kills,
   mp.objectives_stolen,
-  -- Reemplaza a los first bloods, que el .rofl no guarda: la racha mas larga sin
-  -- morir si esta, y cuenta la misma historia.
+  -- Stands in for first bloods, which the .rofl does not record.
   mp.largest_killing_spree,
   mp.largest_multi_kill,
   mp.double_kills,
@@ -423,11 +384,10 @@ left join public.players p on p.id = mp.player_id
 left join public.teams t on t.id = mp.team_id
 left join public.universities u on u.id = public.player_university_id(mp.player_id, mp.team_id);
 
--- --- 5. Acumulados por jugador ----------------------------------------------
+-- --- 5. Per-player totals --------------------------------------------------
 --
--- Dos filas por jugador y fecha: la de esa fecha y la de toda la fase. Se
--- distinguen por is_total y no por matchday, porque una partida sin fecha
--- resuelta tambien tiene matchday null y si no habria forma de separarlas.
+-- One row per player and matchday plus one for the whole phase, told apart by
+-- is_total rather than matchday (unresolved matches also have matchday null).
 
 create view public.player_phase_totals with (security_invoker = on) as
 select
@@ -444,7 +404,7 @@ select
   max(s.team_tag)                                    as team_tag,
   max(s.university_id::text)::uuid                   as university_id,
   max(s.university_tag)                              as university_tag,
-  -- El rol en el que mas jugo: sirve para el quinteto de la fecha.
+  -- The role played most, for the matchday's starting five.
   mode() within group (order by s.position)          as position,
 
   count(*)                                           as games,
@@ -488,7 +448,7 @@ group by grouping sets (
   (s.tournament_id, s.phase, s.puuid)
 );
 
--- --- 6. Acumulados por equipo ------------------------------------------------
+-- --- 6. Per-team totals ----------------------------------------------------
 
 create view public.team_phase_totals with (security_invoker = on) as
 select
@@ -528,17 +488,15 @@ group by grouping sets (
   (c.tournament_id, c.phase, r.team_id)
 );
 
--- --- 7. Acumulados por universidad -------------------------------------------
+-- --- 7. Per-university totals ----------------------------------------------
 --
--- Se cuenta por APARICION (jugador-partida), no por partido, y es a proposito:
--- con equipos mezclados un mismo partido le puede sumar a tres universidades a
--- la vez, cada una por los jugadores que puso. Contar partidos obligaria a
--- decidir de quien es un partido que jugaron tres universidades juntas, y no
--- hay respuesta correcta a eso.
+-- Counted by appearance (player-match), not by match: with mixed teams one
+-- match can add to three universities, each for its own players, and there is
+-- no correct way to assign the match to one of them.
 --
--- Consecuencia practica: `wins` son victorias de sus jugadores. Un equipo de una
--- sola universidad que gana suma 5, no 1. Como todas las universidades se miden
--- igual el ranking no se distorsiona, pero la UI tiene que aclarar la unidad.
+-- As a result `wins` are wins of its players: a single-university team winning
+-- adds 5, not 1. Every university is measured the same way, but the UI must
+-- state the unit.
 
 create view public.university_totals with (security_invoker = on) as
 select
@@ -576,16 +534,14 @@ group by grouping sets (
   (s.tournament_id, s.phase, s.university_id)
 );
 
--- --- 8. Campeones ------------------------------------------------------------
+-- --- 8. Champions ----------------------------------------------------------
 --
--- Los picks salen del scoreboard. Los bans hay que cargarlos a mano (el .rofl no
--- guarda el draft) y pueden no estar nunca, asi que:
+-- Picks come from the scoreboard. Bans are entered by hand (the .rofl has no
+-- draft) and may never be, so:
 --
---   * `bans` y `presence` se calculan SOLO sobre las partidas que tienen bans
---     cargados, y `matches_with_bans` dice sobre cuantas. Con la mitad de las
---     partidas cargadas, una presencia del 60% es del 60% de esa mitad, y la UI
---     tiene que decirlo.
---   * `matches` es el total de partidas del recorte, para poder comparar.
+--   * `bans` and `presence` only use matches with bans entered, and
+--     `matches_with_bans` says how many; the UI must state it.
+--   * `matches` is the scope's total number of matches.
 
 create view public.champion_stats with (security_invoker = on) as
 with picked as (
@@ -645,9 +601,8 @@ scope as (
     (c.tournament_id, c.phase)
   )
 ),
--- La union de los dos lados, y no los picks solos: un campeon que se banea
--- siempre y por eso nunca se juega no aparece en `picked`, y es justamente el
--- que tiene que encabezar el ranking de bans.
+-- The union of both sides, not just picks: a champion always banned and never
+-- played would otherwise be missing from the bans ranking it should top.
 keys as (
   select tournament_id, phase, matchday, round_label, is_total, champion from picked
   union
@@ -680,8 +635,8 @@ select
       (coalesce(p.picks_with_bans, 0) + coalesce(b.bans, 0))::numeric / sc.matches_with_bans, 3)
   end                                                as presence
 from keys k
--- is not distinct from y no =: las columnas del recorte son null en las filas
--- acumuladas, y con = ninguna fila acumulada encontraria su par.
+-- is not distinct from rather than =: scope columns are null in total rows, and
+-- = would never match them.
 left join picked p
        on p.tournament_id is not distinct from k.tournament_id
       and p.phase         is not distinct from k.phase
@@ -703,12 +658,10 @@ left join scope sc
       and sc.round_label   is not distinct from k.round_label
       and sc.is_total      = k.is_total;
 
--- --- 9. Records de partida ---------------------------------------------------
+-- --- 9. Match records ------------------------------------------------------
 --
--- Una fila por partida con lo que hace falta para "la mas larga", "la mas
--- corta", "la mas pareja" y "la paliza". Se consulta con el mismo recorte que
--- todo lo demas, asi que sirve igual para una fecha o para la fase entera: no
--- hacen falta vistas separadas.
+-- One row per match with what "longest", "shortest", "closest" and "biggest
+-- win" need. Queried with the same scope as everything else.
 
 create view public.match_records with (security_invoker = on) as
 select
@@ -751,15 +704,11 @@ left join public.teams rt on rt.id = m.red_team_id
 left join public.match_team_stats blue on blue.match_id = m.id and blue.side = 100
 left join public.match_team_stats red  on red.match_id  = m.id and red.side  = 200;
 
--- --- 10. MVP de fase ---------------------------------------------------------
+-- --- 10. Phase MVP ---------------------------------------------------------
 --
--- Promedio del score con un minimo de partidas, para que uno que jugo una sola y
--- la rompio no se lleve el premio de la fase. El minimo depende del recorte y
--- por eso es una funcion: dentro de una fecha un equipo juega uno o dos partidos
--- (asi que alcanza con haber jugado), pero la fase entera son cuatro y pedir
--- tres deja afuera al que aparecio una vez.
---
--- Es el unico lugar donde se toca ese umbral.
+-- Average score with a minimum of games, so a single great game does not win
+-- the phase. The minimum depends on the scope, hence a function. This is the
+-- only place that threshold is set.
 
 create or replace function public.mvp_min_games(p_is_total boolean)
 returns integer

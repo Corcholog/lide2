@@ -4,16 +4,9 @@ import { useActionState } from 'react'
 import { importRosterAction, type RosterActionResult } from '@/app/(app)/admin/roster-actions'
 
 /**
- * Pasting the whole list of Riot IDs at once.
- *
- * It asks for no format because there is no telling which one it will arrive
- * in: `matchRosterLines` pulls the Riot ID out of each line and looks the
- * signup up by the words that are left, so it survives extra columns, different
- * separators and a reversed "Surname, Name".
- *
- * Whatever could not be placed is shown: an import that says "saved 87" and
- * says nothing about the 26 it could not find is worse than one that fails,
- * because nobody is going to go looking for which ones are missing.
+ * Pastes a whole list of Riot IDs at once, in any format (see
+ * `matchRosterLines`). Lines that could not be matched are listed, so nothing
+ * is silently skipped.
  */
 export function RosterImport() {
   const [state, formAction, pending] = useActionState<RosterActionResult | null, FormData>(

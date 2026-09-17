@@ -1,12 +1,9 @@
 /**
- * Individual rankings.
- *
- * One function per stat, all with the same signature, all pure: they take what
- * `loadStats` already fetched and return the finished block. Adding one means
- * writing a function and listing it in the registry.
+ * Player rankings. Each stat is a pure function over the data `loadStats`
+ * already fetched, and is listed in the registry.
  */
 
-import { formatKda, formatKdaAverage, formatNumber, formatPosition, ROLES } from '@/lib/format'
+import { formatKda, formatKdaAverage, formatNumber, formatPercent, formatPosition, ROLES } from '@/lib/format'
 import { playerPath } from '@/lib/routes'
 import { block, minGamesForAverages, rankRows } from './rank'
 import type { StatBlock, StatsData } from './types'
@@ -22,37 +19,34 @@ function key(row: PlayerPhaseTotalsRow): string {
 }
 
 /**
- * "Mínimo 2 partidas", or nothing at all.
- *
- * A minimum of one is not a minimum - it is every player who took the field -
- * and writing it out reads as a filter that is leaving somebody out. The cards
- * that name it get the line back the day the threshold goes up again.
+ * "Mínimo 2 partidas", or null when the minimum is one: a minimum of one game
+ * excludes nobody, so it is not worth printing.
  */
 function minimumNote(min: number): string | null {
   return min > 1 ? `Mínimo ${min} partidas` : null
 }
 
-/** How many games it took, which every line below ends with. */
+/** "1 partida" / "3 partidas": the ending of every detail line. */
 function played(games: number): string {
   return `${games} ${games === 1 ? 'partida' : 'partidas'}`
 }
 
-/** The K/D/A of the whole cut. Only for the ranking that sorts by it. */
+/** Total K/D/A for the scope. Only used by the ranking built on totals. */
 function record(row: PlayerPhaseTotalsRow): string {
   return `${formatKda(row.kills, row.deaths, row.assists)} · ${played(row.games)}`
 }
 
-/** The same, per game: the unit nearly every one of these cards ranks by. */
+/** K/D/A per game, the unit most player rankings use. */
 function average(row: PlayerPhaseTotalsRow): string {
   return `${formatKdaAverage(row.avg_kills, row.avg_deaths, row.avg_assists)} · ${played(row.games)}`
 }
 
-/** A total brought down to one game. The view has no average for it. */
+/** A total divided by games played, for stats the view does not average. */
 function perGame(total: number, games: number): number {
   return games > 0 ? total / games : 0
 }
 
-/** The shared base of nearly all of them: who, from where, and their KDA line. */
+/** Shared setup for most player rankings: name, team and university, K/D/A line. */
 function playerRanking(
   data: StatsData,
   options: {
@@ -67,17 +61,15 @@ function playerRanking(
     id: key,
     name: (row) => row.player_name ?? 'Desconocido',
     subtitle: who,
-    // Only the ones with a page: an account with no `player_id` is one the
-    // ingest could not resolve, and there is nowhere to send the reader.
+    // Accounts the ingest could not resolve have no `player_id` and no page.
     href: (row) => (row.player_id ? playerPath(row.player_id) : null),
     detail: options.detail ?? average,
     value: options.value,
     display: options.display,
     order: options.order,
     eligible: options.eligible,
-    // With few games played, ties are everyday: without a tiebreak, two
-    // players on the same number would keep the order Postgres returned them
-    // in, which can change between queries.
+    // Ties are common with few games played; without a tiebreak the order
+    // would depend on what Postgres returned.
     tiebreak: (a, b) => b.avg_score - a.avg_score || (a.player_name ?? '').localeCompare(b.player_name ?? ''),
   })
 }
@@ -91,14 +83,14 @@ export function mvp(data: StatsData): StatBlock | null {
       name: (row) => row.player_name ?? 'Desconocido',
       href: (row) => (row.player_id ? playerPath(row.player_id) : null),
       subtitle: (row) => [row.team_name, row.university_tag].filter(Boolean).join(' · ') || null,
-      // Per game, like the score above it: this view carries no averages of
-      // its own, so the three come down by the games they took.
+      // Per game, like the score. The view has no averages, so they are
+      // computed from the totals.
       detail: (row) =>
         `${formatKdaAverage(
           perGame(row.kills, row.games),
           perGame(row.deaths, row.games),
           perGame(row.assists, row.games),
-        )} · ${Math.round(row.kill_participation * 100)}% de participación`,
+        )} · ${formatPercent(row.kill_participation)} de participación`,
       value: (row) => row.avg_score,
       display: (value) => value.toFixed(2),
       // The view already returns it sorted; mvp_rank is what makes it stable.
@@ -107,19 +99,15 @@ export function mvp(data: StatsData): StatBlock | null {
   )
 
   return block('mvp', 'MVP', rows, {
-    // "KDA con techo" was the honest description - the score caps it so a game
-    // without deaths does not run away with the ranking - and it was also the
-    // half of the line nobody could act on: a cap is an implementation detail
-    // of the formula, not something a reader can look up on the card.
+    // The score caps the KDA so a deathless game does not dominate; the
+    // subtitle leaves that detail out.
     subtitle: 'Promedio del score: KDA, participación en kills y un extra por ganar',
   })
 }
 
 /**
- * The starting five: the best of each role.
- *
- * The role comes from `position`, which is the one played most within the
- * scope. A player who rotated lanes shows up in the one they repeated most.
+ * The best player of each role, by `position` (the lane played most in the
+ * scope).
  */
 export function bestFive(data: StatsData): StatBlock | null {
   const rows = ROLES.flatMap((role) => {
@@ -149,35 +137,15 @@ export function bestFive(data: StatsData): StatBlock | null {
 }
 
 /*
-  WHAT ACCUMULATES GOES PER GAME, here for the same reason as in `teams.ts`.
+  Volume stats (kills, assists, damage, wards destroyed) rank per game, like in
+  `teams.ts`: teams play a different number of games per matchday, so totals
+  would favour whoever played more. The detail line is per game too, so both
+  numbers on a card share a unit. Totals remain in /estadisticas/tablas and on
+  each player's page.
 
-  Kills, assists, damage and wards destroyed were totals, and a total only
-  ranks anything when everybody has played the same amount. Nobody has: the
-  fixture gives some teams two games in a matchday and others one, substitutes
-  come in, and somebody who played four games headed "Carnicero" over somebody
-  who played two and killed more in each. That is a ranking of the calendar.
-
-  AND THE LINE UNDER THE NAME WENT WITH IT, which for a while it did not. It
-  stayed the total K/D/A and how many games it took - "8/2/27 · 2 partidas" -
-  underneath a number that was per game, and on a card called "Mayor KDA
-  promedio" reading 17.50 the line below looked like the average being ranked
-  and was not. It is the same K/D/A per game now - "4.0/1.0/13.5 · 2 partidas"
-  - so both numbers on the card are in the same unit, and the ranked one is
-  usually right there in the line: the 4.0 of "Carnicero" is the first of the
-  three.
-
-  The totals are not lost. They are the players' table one click away in
-  /estadisticas/tablas, and each player's own page. What was lost was being
-  able to tell which of the two numbers on a card you were reading.
-
-  ONE RANKING KEEPS THEM, "Mejor KDA", because its number IS the totals: every
-  kill and assist of the cut divided by every death. There the line is what the
-  ratio is made of, and the subtitle says which of the two KDAs it is.
-
-  What is NOT divided: `best_killing_spree` is a maximum, and the average of a
-  record is not a record; the multikills are a count of rare events, and "0.25
-  pentas a game" is not a number anybody has ever scored. Both are read as
-  achievements, and an achievement is not diluted by playing more.
+  Exceptions: "Mejor KDA" ranks the ratio of totals, so its line shows totals.
+  `best_killing_spree` is a maximum and multikills are counts of rare events;
+  neither is averaged.
 */
 
 export function topKills(data: StatsData): StatBlock | null {
@@ -202,7 +170,7 @@ export function bestKda(data: StatsData): StatBlock | null {
     value: (row) => row.kda,
     display: (value) => value.toFixed(2),
     eligible: (row) => row.games >= min,
-    // The one line that stays a total, because this ratio is made of it.
+    // Totals, because this ratio is computed from them.
     detail: record,
   })
   return block('kda', 'Mejor KDA', rows, {
@@ -211,36 +179,21 @@ export function bestKda(data: StatsData): StatBlock | null {
 }
 
 /**
- * The other KDA: each game's, averaged, and every player in the tournament in
- * the same ranking.
+ * The average of each game's KDA, next to `bestKda` (the ratio of totals).
  *
- * It sits next to `bestKda` and does not replace it because they answer
- * different questions. "Mejor KDA" divides every kill and assist by every
- * death, so four steady games beat three quiet ones and one disaster. This one
- * averages the per-game figures, and since a game without deaths divides by
- * one, the 10/0/10 counts whole instead of dissolving into the totals: it is
- * the ranking of whoever had the best nights, not of whoever held up best.
- *
- * That is why both subtitles spell out which of the two they are: two
- * different numbers under the same word are the way to make neither readable.
- *
- * The minimum is the shared one and not a number of its own: it is an average
- * like the rest, and two rankings of averages asking for different amounts of
- * games are two rankings nobody can compare.
+ * They answer different questions: the ratio of totals rewards consistency,
+ * while the per-game average lets a single deathless game count in full. Both
+ * subtitles say which one they show. Uses the shared minimum of games like the
+ * other averages.
  */
 export function bestAverageKda(data: StatsData): StatBlock | null {
   const min = minGamesForAverages()
   const rows = playerRanking(data, {
     value: (row) => row.avg_kda,
     display: (value) => value.toFixed(2),
-    // The `typeof` is not paranoia: the migrations of this project are applied
-    // by hand from Supabase's SQL editor (`npm run db:sql`), so the deploy can
-    // perfectly well reach production before 0025 does. Without this the
-    // column arrives undefined, `toFixed` throws and it takes down all of
-    // /estadisticas - every other ranking included - over one card. With it
-    // the card is simply not there, which is what already happens to any stat
-    // with nothing to show, and it appears on its own once the view is
-    // replaced.
+    // The `typeof` guard keeps the page working if the code is deployed before
+    // migration 0025 adds `avg_kda`: the card is hidden instead of `toFixed`
+    // throwing and taking down every ranking.
     eligible: (row) => row.games >= min && typeof row.avg_kda === 'number',
   })
   return block('kda-promedio', 'Mayor KDA promedio', rows, {
@@ -265,24 +218,16 @@ export function longestKillingSpree(data: StatsData): StatBlock | null {
     display: (value) => `${value} kills`,
     eligible: (row) => row.best_killing_spree > 0,
   })
-  // This replaces first bloods: the .rofl does not record who drew first
-  // blood, but it does record each player's longest streak without dying.
-  //
-  // The bare number ("16 in a row") does not say of what: in a row could be
-  // games won, kills or anything else. It ships with its unit attached and the
-  // subtitle finishes explaining it.
+  // Stands in for first bloods, which the .rofl does not record. The value
+  // carries its unit ("16 kills") and the subtitle explains the streak.
   return block('racha', 'Imparable', rows, {
     subtitle: 'La racha de kills más larga sin morir',
   })
 }
 
 /**
- * Damage per game, which is not the same as the damage per minute below.
- *
- * This one asks how much a player does in a game and the other how fast they
- * do it: somebody who wins in twenty minutes can lead the per-minute ranking
- * and be well below in this one, and both facts are true. `avg_damage` comes
- * from the view already averaged.
+ * Damage per game. Not the same as damage per minute: a player who wins fast
+ * can lead one and trail in the other. `avg_damage` is averaged by the view.
  */
 export function topDamage(data: StatsData): StatBlock | null {
   const rows = playerRanking(data, {
@@ -333,8 +278,7 @@ export function topVision(data: StatsData): StatBlock | null {
 }
 
 export function topWardsKilled(data: StatsData): StatBlock | null {
-  // The only one of the four with no averaged column in the view: it is
-  // divided here.
+  // The view has no per-game column for wards destroyed, so it is divided here.
   const rows = playerRanking(data, {
     value: (row) => (row.games > 0 ? row.wards_killed / row.games : 0),
     display: (value) => `${value.toFixed(1)} por partida`,

@@ -14,12 +14,9 @@ import type {
 } from '@/types/db'
 
 /**
- * The presentation layer, with no database.
- *
- * The SQL views are tested against Postgres in tests/stats.test.ts; what gets
- * verified here is the other half: that the rankings pick correctly, that the
- * ones who do not qualify stay out and that a stat with no data disappears
- * instead of drawing an empty card.
+ * The presentation layer, without a database: rankings pick the right rows,
+ * ineligible rows stay out, and stats without data return null. The SQL views
+ * are tested in tests/stats.test.ts.
  */
 
 const SCOPE: StatScope = { tournamentId: 't1', phase: 'grupos', matchday: null }
@@ -205,8 +202,7 @@ describe('stats presentation', () => {
     const players = [
       // Steady: never a great game, never a bad one.
       player({ player_name: 'Sostenido', games: 4, kda: 6, avg_kda: 6 }),
-      // One perfect game and one disaster: over the totals it drags, game by
-      // game the deathless one counts whole.
+      // One perfect game and one bad one: lower on totals, higher game by game.
       player({ player_name: 'Picos', games: 4, kda: 4, avg_kda: 9 }),
     ]
 
@@ -227,10 +223,7 @@ describe('stats presentation', () => {
       player({ player_name: 'Cuatro', games: 4, kda: 5, avg_kda: 5 }),
     ]
 
-    // At three - the minimum there used to be - nobody in the group phase
-    // qualified until the third matchday, so both rankings came out empty and
-    // neither card got drawn at all. There are teams that play a single game
-    // in the first matchday, so two left their whole five out.
+    // With a minimum of one game, players qualify from the first matchday.
     expect(bestKda(data({ players }))!.rows.map((row) => row.name)).toEqual([
       'Una sola',
       'Dos',
@@ -256,12 +249,11 @@ describe('stats presentation', () => {
     const teams = [
       // Four games and +40: ten a game.
       team({ team_name: 'Jugó cuatro', games: 4, kill_diff: 40, gold_diff: 40_000, objectives: 20 }),
-      // Two games and +30: fifteen a game. It won by more every time it played.
+      // Two games and +30: fifteen a game.
       team({ team_name: 'Jugó dos', games: 2, kill_diff: 30, gold_diff: 30_000, objectives: 14 }),
     ]
 
-    // On totals the first one led all three, which was a ranking of the
-    // fixture: some teams get two games in a matchday and others one.
+    // Ranked per game: on totals the team with more games would lead.
     for (const block of [killDiff(data({ teams })), goldDiff(data({ teams })), topObjectives(data({ teams }))]) {
       expect(block!.rows.map((row) => row.name)).toEqual(['Jugó dos', 'Jugó cuatro'])
     }
@@ -273,7 +265,7 @@ describe('stats presentation', () => {
     expect(killDiff(data({ teams }))!.rows[0].display).toBe('+15.0 por partida')
     expect(goldDiff(data({ teams }))!.rows[0].display).toBe('+15.0k por partida')
     expect(topObjectives(data({ teams }))!.rows[0].display).toBe('7.0 por partida')
-    // The breakdown stays a count: half a herald is not a thing anybody took.
+    // The breakdown stays as counts: half a herald per game is meaningless.
     expect(topObjectives(data({ teams }))!.rows[0].detail).toBe('1-1 · 4D · 1B · 1H')
   })
 
@@ -312,7 +304,7 @@ describe('stats presentation', () => {
       }),
     )
 
-    // Four picks and not one win is not the same reading as a bare 4.
+    // Four picks and no wins reads differently from a bare 4.
     expect(block!.rows.map((row) => row.display)).toEqual(['4 (0% wr)', '3 (67% wr)'])
   })
 
@@ -334,9 +326,9 @@ describe('stats presentation', () => {
   it("the ranking shows ddragon's name and not the .rofl key", () => {
     const rows = [
       champion({ champion: 'MonkeyKing', picks: 5 }),
-      // The .rofl writes the capital S and ddragon does not: the lookup does not care.
+      // The .rofl spells it with a capital S; the lookup ignores case.
       champion({ champion: 'FiddleSticks', picks: 4 }),
-      // A champion ddragon does not know yet is shown exactly as it came.
+      // A champion ddragon does not know yet is shown as stored.
       champion({ champion: 'Recien', picks: 3 }),
     ]
 
@@ -348,7 +340,7 @@ describe('stats presentation', () => {
     )
 
     expect(block!.rows.map((row) => row.name)).toEqual(['Wukong', 'Fiddlesticks', 'Recien'])
-    // The id is still the key: it is what the icon is drawn from.
+    // The id is still the internal key, used for the icon.
     expect(block!.rows.map((row) => row.id)).toEqual(['MonkeyKing', 'FiddleSticks', 'Recien'])
   })
 
@@ -367,9 +359,8 @@ describe('stats presentation', () => {
       }),
     )
 
-    // A minimum of 15 appearances in the total (3 matches x 5 players): the
-    // one that won its only game with a single player does not head the
-    // table.
+    // A minimum of 15 appearances (3 matches x 5 players), so a single-player,
+    // single-game university cannot top the table.
     expect(block!.rows.map((row) => row.name)).toEqual(['UNLP'])
   })
 })

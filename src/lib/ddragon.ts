@@ -1,37 +1,26 @@
 import { cache } from 'react'
 
 /**
- * Riot assets and names (Data Dragon).
+ * Riot's Data Dragon: champion, item and spell images and names.
  *
- * The assets are served through /api/ddragon/... and not straight from the CDN:
- * same-origin avoids CORS trouble and lets the Instagram card be exported to
- * PNG with html-to-image without tainting the canvas. The data (versions,
- * spells, champion names) is fetched directly, since no canvas is involved
- * there.
- *
- * The `es_AR` locale in the URLs is deliberate: the names shown on the site are
- * the Spanish ones.
+ * Images go through the same-origin proxy at /api/ddragon/... so cards can be
+ * exported to PNG with html-to-image without tainting the canvas. JSON data is
+ * fetched directly. Names use the `es_AR` locale.
  */
 
 const DDRAGON = 'https://ddragon.leagueoflegends.com'
 const DAY = 60 * 60 * 24
 
 /**
- * Which patch the assets hang off when ddragon does not answer.
- *
- * Worth keeping roughly up to date: on an old version, champions released after
- * it have no icon. It is still the worst case of the worst case - the version
- * listing itself has to go down - and being one patch behind does not show.
+ * Version used when ddragon's version list cannot be loaded. Bump it now and
+ * then: champions released after this version have no icon.
  */
 const FALLBACK_VERSION = '16.17.1'
 
 /**
- * The .rofl writes the champion's internal name, which nearly always matches
- * the ddragon key. The exceptions go here.
- *
- * It is only needed to build the icon URL, which is a CDN path and is
- * case-sensitive. Display names are looked up case-insensitively (see
- * `championNames`), so that side does not need the list.
+ * Champions whose .rofl name differs from the ddragon key in case. Only icon
+ * URLs need this (CDN paths are case-sensitive); name lookups are
+ * case-insensitive.
  */
 const CHAMPION_ALIASES: Record<string, string> = {
   FiddleSticks: 'Fiddlesticks',
@@ -42,16 +31,10 @@ export function championKey(champion: string): string {
 }
 
 /**
- * The way back: from the ddragon key to the spelling the .rofl writes.
+ * The reverse of `championKey`: ddragon key to .rofl spelling.
  *
- * It is needed when bans are entered by hand. The champion is picked from a
- * list that comes from ddragon, but what gets stored has to be the .rofl
- * spelling: `champion_meta` joins picks and bans on exact text equality, so a
- * banned "Fiddlesticks" and a played "FiddleSticks" would be two different
- * champions, each with half the numbers.
- *
- * It derives from the same object as `championKey` so the list of exceptions
- * keeps living in one place.
+ * Needed for bans entered by hand: `champion_meta` joins picks and bans by
+ * exact text, so bans must be stored with the .rofl spelling.
  */
 export function roflKey(ddragonId: string): string {
   const entry = Object.entries(CHAMPION_ALIASES).find(([, alias]) => alias === ddragonId)
@@ -59,17 +42,11 @@ export function roflKey(ddragonId: string): string {
 }
 
 /**
- * A GET to ddragon that degrades instead of throwing.
+ * GET from ddragon that returns null instead of throwing. Nothing fetched here
+ * is essential, so a Riot outage should not break a page.
  *
- * Nothing requested here is essential: with no version there is a fallback,
- * with no names the internal key is shown, and with no icon the grey gap of
- * `GameIcon` is left. Having a Riot outage take down a whole page would be a
- * good deal worse than that.
- *
- * The retry is about the cache and not about the network: Next also stores the
- * failed response for the whole revalidation window, so a two-second blip would
- * leave the site degraded for 24 hours. A retry with no cache only costs one
- * request while ddragon is down, and makes it recover on its own.
+ * The second attempt skips the cache: Next caches failed responses for the
+ * whole revalidation window, which would keep the site degraded for a day.
  */
 async function get<T>(path: string, what: string): Promise<T | null> {
   for (const init of [{ next: { revalidate: DAY } }, { cache: 'no-store' as const }]) {
@@ -78,7 +55,7 @@ async function get<T>(path: string, what: string): Promise<T | null> {
       if (!res.ok) continue
       return (await res.json()) as T
     } catch {
-      // Network error or broken JSON: handled the same way.
+      // Network error or invalid JSON.
     }
   }
 
@@ -92,9 +69,8 @@ const versions = cache(async (): Promise<string[]> => {
 })
 
 /**
- * Asset version for a given patch ("16.12" -> "16.12.1"). When the patch does
- * not exist in ddragon (or is unknown), the latest available one is used: icons
- * change little and showing something beats showing a gap.
+ * The ddragon version for a patch ("16.12" -> "16.12.1"). Falls back to the
+ * latest version when the patch is unknown or missing.
  */
 export const assetVersion = cache(async (patch: string | null): Promise<string> => {
   const all = await versions()
@@ -103,7 +79,7 @@ export const assetVersion = cache(async (patch: string | null): Promise<string> 
   return all.find((v) => v.startsWith(`${patch}.`)) ?? all[0]
 })
 
-/** Spells arrive as a numeric id ("4"); ddragon names them ("SummonerFlash"). */
+/** Spell ids ("4") mapped to ddragon names ("SummonerFlash"). */
 export const summonerSpellNames = cache(async (version: string): Promise<Record<string, string>> => {
   const json = await get<{ data: Record<string, { key: string; id: string }> }>(
     `cdn/${version}/data/es_AR/summoner.json`,
@@ -116,17 +92,11 @@ export const summonerSpellNames = cache(async (version: string): Promise<Record<
 })
 
 /**
- * What each champion is called, indexed by its internal key in lower case.
+ * Champion display names in Spanish, keyed by lower-case internal name.
  *
- * The .rofl does not store the champion's name but the internal one, which is a
- * different thing: "MonkeyKing" is Wukong, "Kaisa" is Kai'Sa, "XinZhao" is Xin
- * Zhao and "Nunu" is Nunu y Willump. It works as a key - it is what the
- * database stores - but showing it to somebody is showing them a variable name.
- * The real name, in Spanish on top of that, only lives here.
- *
- * The key is lower-cased so that casing differences between the .rofl and
- * ddragon ("FiddleSticks" against "Fiddlesticks") cannot leave a champion
- * nameless.
+ * The .rofl and the database store internal names ("MonkeyKing" for Wukong,
+ * "Kaisa" for Kai'Sa). Keys are lower-cased because casing differs between
+ * the .rofl and ddragon ("FiddleSticks" vs "Fiddlesticks").
  */
 export const championNames = cache(async (version: string): Promise<Record<string, string>> => {
   const json = await get<{ data: Record<string, { id: string; name: string }> }>(
@@ -140,12 +110,8 @@ export const championNames = cache(async (version: string): Promise<Record<strin
 })
 
 /**
- * The whole catalogue, with the key exactly as ddragon writes it.
- *
- * `championNames` indexes in lower case and loses the original casing doing so,
- * which is precisely what it takes to build an icon URL and to store a ban.
- * This returns both ends - key and name - sorted by name, which is how a
- * dropdown of 170 champions gets read.
+ * Every champion with its ddragon key (original casing, needed for icon URLs
+ * and stored bans) and name, sorted by name for dropdowns.
  */
 export const championCatalog = cache(
   async (version: string): Promise<{ key: string; name: string }[]> => {
@@ -161,11 +127,8 @@ export const championCatalog = cache(
 )
 
 /**
- * A champion's display name.
- *
- * If ddragon did not answer, or the champion is so new it is not in the patch
- * that was queried yet, the internal key is left: it reads worse than "Wukong"
- * but it is understandable, which is more than can be said for an empty space.
+ * A champion's display name, or the internal key when ddragon did not respond
+ * or does not know the champion yet.
  */
 export function championName(names: Record<string, string>, champion: string): string {
   return names[champion.toLowerCase()] ?? champion
@@ -176,12 +139,8 @@ export function championIcon(version: string, champion: string): string {
 }
 
 /**
- * The champion's loading screen art: a 308 x 560 portrait.
- *
- * Unlike the icons, the path carries no version - Riot keeps a single copy of
- * each skin's art. The skin defaults to 0, the base one, and in practice it is
- * always that: the .rofl stores which champion was played (`SKIN` is the
- * champion's name, despite the key) but not which skin it was played with.
+ * The champion's loading screen art (308 x 560). The path has no version.
+ * Always the base skin: the .rofl does not record which skin was used.
  */
 export function championLoading(champion: string, skin = 0): string {
   return `/api/ddragon/cdn/img/champion/loading/${championKey(champion)}_${skin}.jpg`

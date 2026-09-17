@@ -1,53 +1,35 @@
 -- ===========================================================================
--- El sitio se abre al publico.
+-- Opening the site to the public.
 --
--- Hasta ahora todo estaba detras del login, asi que alcanzaba con darle lectura
--- a `authenticated` y listo. Con visitantes sin sesion cambian dos cosas de
--- fondo, y la segunda obliga a revisar una decision vieja.
+-- 1. The publishable key is sent to the browser, so anyone can query PostgREST
+--    directly. What must stay hidden has to be closed in the database, not in
+--    the frontend.
 --
--- 1. LA CLAVE PUBLICABLE VIAJA AL BROWSER.
---    No alcanza con que las paginas no muestren algo: cualquiera puede pegarle
---    directo a PostgREST con esa clave y pedir lo que quiera. Lo que no tiene
---    que verse no se puede esconder en el frontend, tiene que estar cerrado en
---    la base.
+-- 2. Views become the public API. They were created with
+--    `security_invoker = on`, which would require giving `anon` access to the
+--    raw tables, and those hold columns that must not be exposed
+--    (`match_players.puuid`, `match_players.raw` with the PUUID inside,
+--    `matches.raw_metadata`, `players.puuid`). So raw tables stay closed to
+--    `anon` and public views run with their owner's permissions. A view's
+--    column list is the contract: what it lists is public.
 --
--- 2. LAS VISTAS PASAN A SER LA API PUBLICA.
---    Todas las vistas se crearon con `security_invoker = on`, que hace que
---    respeten el RLS de quien consulta. Eso era lo correcto cuando todos los
---    que consultaban tenian sesion: costaba nada y era mas seguro.
+-- Never exposed, by view or table:
 --
---    Con `anon` se da vuelta. Una vista invoker obliga a que el visitante tenga
---    acceso a las tablas crudas de abajo, y esas tablas tienen columnas que no
---    pueden salir: `match_players.puuid`, `match_players.raw` (el JSON original
---    con los 365 campos, PUUID incluido), `matches.raw_metadata`,
---    `players.puuid`. Abrirle las tablas al visitante para que funcionen las
---    vistas seria abrirle exactamente lo que queremos tapar.
---
---    Asi que se invierte: las tablas crudas quedan cerradas para `anon` y las
---    vistas publicas pasan a correr con los permisos de su dueno. La vista es
---    el contrato: lo que esta en su lista de columnas es publico, lo que no
---    esta no existe para el visitante.
---
--- Lo que NUNCA sale, ni por vista ni por tabla:
---
---   puuid              identifica la cuenta de Riot contra la API de Riot
---   raw / raw_metadata el JSON crudo, que trae el puuid adentro
---   team_roster        nombres legales de personas reales
---   match_files        rutas del storage de los .rofl
---   ingest_failures    nombres de archivo y errores internos
+--   puuid              identifies the account against Riot's API
+--   raw / raw_metadata the raw JSON, which contains the puuid
+--   team_roster        real people's legal names
+--   match_files        storage paths of the .rofl files
+--   ingest_failures    file names and internal errors
 -- ===========================================================================
 
--- --- 1. Fuera el PUUID de las vistas -----------------------------------------
+-- --- 1. Remove the PUUID from the views ------------------------------------
 --
--- `create or replace view` no puede sacar una columna, asi que hay que tirar la
--- pila abajo y volver a levantarla. El cascade se lleva match_summaries,
--- player_totals, player_match_stats y todo lo que cuelga de ellas.
+-- `create or replace view` cannot drop a column, so the view stack is dropped
+-- and recreated; the cascade takes match_summaries, player_totals,
+-- player_match_stats and their dependents.
 --
--- La identidad de un jugador pasa a ser `players.id`. Se agrupaba por puuid
--- porque es lo estable entre partidas (el Riot ID cambia, el puuid no), pero
--- `players.id` es igual de estable: hay una fila por puuid y la crea la propia
--- ingesta para los diez participantes antes de tocar match_players. La unica
--- diferencia es que este no sirve para preguntarle nada a Riot.
+-- A player's identity becomes `players.id`, just as stable (one row per puuid,
+-- created by ingestion before match_players), but useless for querying Riot.
 
 drop view if exists public.match_player_scores cascade;
 drop view if exists public.player_champion_totals cascade;
@@ -82,8 +64,8 @@ scored as (
     round((base.cs / base.minutes)::numeric, 1)                            as csm,
     (
         1.0  * least(base.kda, 7.0)                     -- MVP_KDA_WEIGHT / MVP_KDA_CAP
-      + 10.0 * coalesce(base.kill_participation, 0)     -- MVP_KP_WEIGHT (viene 0..1)
-      + 2.0  * coalesce(base.damage_share, 0)           -- MVP_DAMAGE_WEIGHT (viene 0..1)
+      + 10.0 * coalesce(base.kill_participation, 0)     -- MVP_KP_WEIGHT (0..1)
+      + 2.0  * coalesce(base.damage_share, 0)           -- MVP_DAMAGE_WEIGHT (0..1)
       + case when base.win then 2.0 else 0.0 end        -- MVP_WIN_BONUS
     )::numeric(10, 2)                                                      as score
   from base
@@ -106,9 +88,8 @@ select
   scored.gold_earned,
   scored.damage_to_champions,
   scored.vision_score,
-  -- Items y hechizos, que antes se pedian aparte a match_players. Ahora la
-  -- tabla no es publica y este es el scoreboard: van aca, y de paso la pagina
-  -- de partida hace una consulta menos.
+  -- Items and spells, previously read from match_players, which is no longer
+  -- public. They belong to the scoreboard anyway.
   scored.items,
   scored.summoner_spell_1,
   scored.summoner_spell_2,
@@ -121,9 +102,8 @@ select
   scored.score,
   round(scored.score / nullif(max(scored.score) over (partition by scored.match_id), 0), 3)
                                                                            as score_pct,
-  -- El desempate era por puuid, que ya no esta. `id` es la fila de
-  -- match_players: unica en la partida, que es lo unico que hace falta para
-  -- que el orden sea total y el MVP no baile entre consultas.
+  -- The tiebreak used puuid, now gone. `id` (the match_players row) is unique
+  -- within the match, which keeps the order total.
   rank() over (
     partition by scored.match_id
         order by scored.score desc,
@@ -174,10 +154,9 @@ left join lateral (
   where s.match_id = m.id and s.match_rank = 1
 ) mvp on true;
 
--- Los acumulados pasan a agrupar por player_id. Se descartan las filas sin
--- jugador: no deberia haber ninguna (la ingesta crea la fila de `players` para
--- los diez antes de escribir match_players), y si aparece una, sumarla a un
--- grupo "sin jugador" seria peor que dejarla afuera.
+-- Aggregates now group by player_id. Rows without a player are dropped: there
+-- should be none (ingestion creates `players` rows first), and grouping them as
+-- "no player" would be worse.
 
 create view public.player_totals with (security_invoker = off) as
 select
@@ -228,16 +207,11 @@ join public.matches m on m.id = mp.match_id
 where mp.player_id is not null
 group by mp.player_id, mp.champion, m.tournament_id;
 
--- OJO CON LAS VISTAS ANIDADAS. `security_invoker` quiere decir "chequear contra
--- el usuario que consulta", y ese usuario sigue siendo el visitante aunque la
--- vista se este leyendo desde adentro de otra que corre con permisos de dueno.
--- No se hereda. O sea que una cadena mixta no funciona: si player_phase_totals
--- (dueno) lee player_match_stats (invoker), el visitante ve cero filas y la
--- estadistica sale vacia sin ningun error.
---
--- Asi que toda la cadena que tiene que ser publica va con permisos de dueno,
--- incluidas las vistas intermedias que nadie consulta de afuera. Se puede
--- porque ninguna expone puuid ni JSON crudo.
+-- NESTED VIEWS. `security_invoker` checks against the querying user, and that is
+-- still the visitor even when the view is read from inside an owner-permission
+-- view; it is not inherited. A mixed chain returns zero rows to visitors without
+-- any error. So every view in a public chain runs with owner permissions,
+-- intermediate ones included; none exposes puuid or raw JSON.
 
 create view public.player_match_stats with (security_invoker = off) as
 select
@@ -553,10 +527,10 @@ select
 from public.player_phase_totals t
 where t.games >= public.mvp_min_games(t.is_total);
 
--- --- 2. La ficha de un jugador, sin puuid ------------------------------------
+-- --- 2. Player profile without puuid ---------------------------------------
 --
--- `players` deja de ser legible sin sesion porque su clave es el puuid. Esto es
--- lo que queda publico de una cuenta: como se llama y cuando se la vio.
+-- `players` is no longer readable without a session because its key is the
+-- puuid. This is the public part of an account: its name and when it was seen.
 
 create view public.player_profiles with (security_invoker = off) as
 select
@@ -571,10 +545,9 @@ from public.players p;
 comment on view public.player_profiles is
   'Lo publico de una cuenta de Riot. Sin puuid: eso no sale de la base.';
 
--- --- 3. Las demas vistas publicas --------------------------------------------
+-- --- 3. The other public views ---------------------------------------------
 --
--- Cambiar la opcion alcanza, no hace falta recrearlas. Ninguna de estas expone
--- puuid ni JSON crudo: lo unico que hacian falta eran los permisos.
+-- Changing the option is enough; none of these exposes puuid or raw JSON.
 
 alter view public.match_team_stats     set (security_invoker = false);
 alter view public.team_totals          set (security_invoker = false);
@@ -586,27 +559,24 @@ alter view public.team_phase_totals    set (security_invoker = false);
 alter view public.match_records        set (security_invoker = false);
 alter view public.team_accounts        set (security_invoker = false);
 
--- Las intermedias tambien, por lo que dice el comentario de mas arriba: no las
--- consulta nadie de afuera, pero si quedan en invoker, todas las que cuelgan de
--- ellas devuelven cero filas a un visitante.
+-- Intermediate views too (see the note on nested views above): if they stayed
+-- invoker, every view built on them would return zero rows to visitors.
 alter view public.match_context        set (security_invoker = false);
 alter view public.team_match_results   set (security_invoker = false);
 alter view public.team_standings       set (security_invoker = false);
 
--- Estas dos se quedan en invoker, y es a proposito: leen tablas que no tienen
--- policy para `anon`, asi que un visitante ve cero filas y con sesion se ven
--- enteras. Es justo lo que se busca.
+-- These two stay invoker on purpose: they read tables with no `anon` policy, so
+-- visitors see zero rows and signed-in users see everything.
 --
---   roster_status        nombres legales de los inscriptos.
---   unassigned_matches   la cola del panel.
+--   roster_status        signups' legal names.
+--   unassigned_matches   the panel's queue.
 
--- --- 4. Lectura sin sesion ---------------------------------------------------
+-- --- 4. Anonymous read access ----------------------------------------------
 --
--- Solo las tablas que no tienen nada que esconder. Las que faltan en esta lista
--- faltan a proposito: matches, match_players y players tienen puuid o JSON
--- crudo; match_files tiene las rutas del storage; team_roster, nombres legales;
--- ingest_failures, errores internos. A todo eso se llega por las vistas de
--- arriba, que muestran solo las columnas que corresponden.
+-- Only tables with nothing to hide. The missing ones are left out on purpose:
+-- matches, match_players and players (puuid or raw JSON), match_files (storage
+-- paths), team_roster (legal names), ingest_failures (internal errors). Those
+-- are reached through the views above.
 
 create policy "lectura publica" on public.tournaments       for select to anon using (true);
 create policy "lectura publica" on public.teams             for select to anon using (true);

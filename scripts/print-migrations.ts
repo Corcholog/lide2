@@ -1,6 +1,6 @@
 /**
- * Concatenates the migrations into a single file so they can be pasted in one
- * go into Supabase's SQL editor.
+ * Concatenates the migrations into one file to paste into Supabase's SQL
+ * editor.
  *
  *   npm run db:sql
  */

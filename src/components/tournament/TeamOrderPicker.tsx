@@ -2,12 +2,8 @@ import Link from 'next/link'
 import type { TeamOrder } from '@/lib/teams/order'
 
 /**
- * How the team list is ordered.
- *
- * Two links and not a `<select>` with state: the order travels in the URL, so
- * the page stays a server component, the order can be shared by pasting the
- * link and it works without JavaScript. Same mechanism as the matchday picker
- * on /estadisticas (`ScopeNav`).
+ * Team list order links. Links rather than a stateful select: the order lives
+ * in the URL, so it can be shared and works without JavaScript, like `ScopeNav`.
  */
 export function TeamOrderPicker({ order }: { order: TeamOrder }) {
   return (

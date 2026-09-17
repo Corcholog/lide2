@@ -1,10 +1,9 @@
 /**
- * Generates small, anonymized fixtures out of a real .rofl so they can be
- * committed and used by the tests (real replays weigh 10-30 MB and carry the
- * PUUIDs and Riot IDs of real people).
+ * Generates small, anonymized fixtures from a real .rofl for the tests (real
+ * replays are 12-17 MB and contain real players' PUUIDs and Riot IDs).
  *
  *   npm run fixture -- fixtures/LA2-1234567890.rofl
- *   npm run fixture -- --demo     (builds a synthetic one, no replay needed)
+ *   npm run fixture -- --demo     (a synthetic one, no replay needed)
  */
 import { writeFileSync } from 'node:fs'
 import { basename } from 'node:path'
@@ -34,7 +33,7 @@ function anonymize(players: RoflPlayerStats[]): RoflPlayerStats[] {
   })
 }
 
-/** A summary without the 365 raw fields per player, so the snapshot stays readable. */
+/** A summary without the raw per-player fields, so the snapshot stays readable. */
 function summarize(match: ReturnType<typeof normalizeMatch>) {
   const { rawMetadata: _rawMetadata, players, ...rest } = match
   return {

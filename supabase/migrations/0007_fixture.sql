@@ -1,25 +1,21 @@
--- LIDE 2: universidades por equipo y fixture publicado
+-- LIDE 2: universities per team and the published fixture
 --
--- Dos cosas que aparecieron cuando la organizacion mando las planillas:
+-- 1. Four teams (13, 15, 16 and 17) were formed from individual signups and mix
+--    up to three universities. teams.university_id keeps the most represented
+--    one (used for per-university stats) and the full list lives in
+--    team_universities.
 --
--- 1. Cuatro equipos (13, 15, 16 y 17) salieron de inscripciones individuales y
---    mezclan hasta tres universidades. teams.university_id, que es una sola,
---    no alcanza para nombrarlos: la planilla los lista como "UAP/UNER" o
---    "UNLu/UNAM/UNCUYO". La columna se queda como la universidad mas
---    representada (sirve para atribuir en las estadisticas por universidad) y
---    la lista completa vive en team_universities.
---
--- 2. El fixture completo de la fase de grupos ya esta publicado: 40 partidos en
---    5 turnos. Un cruce existe desde que se publica el calendario, mucho antes
---    de que haya un .rofl, asi que no puede vivir en `matches`, que sale de los
---    replays. Va en su propia tabla y se le engancha la partida cuando aparece.
+-- 2. The full group-phase fixture: 40 matchups in 5 slots. A matchup exists as
+--    soon as the calendar is published, long before any .rofl, so it cannot
+--    live in `matches`. It gets its own table, and the match is linked when it
+--    is uploaded.
 
--- --- Universidades por equipo -----------------------------------------------
+-- --- Universities per team -------------------------------------------------
 
 create table public.team_universities (
   team_id       uuid     not null references public.teams(id)        on delete cascade,
   university_id uuid     not null references public.universities(id) on delete cascade,
-  -- La mas representada primero, que es como las lista la organizacion.
+  -- Most represented first, as the organizers list them.
   order_index   smallint not null default 0,
   primary key (team_id, university_id)
 );
@@ -29,33 +25,32 @@ create index team_universities_university_idx on public.team_universities (unive
 comment on table public.team_universities is
   'Universidades que representa cada equipo. La mayoria tiene una sola; los equipos armados con inscripciones individuales tienen varias.';
 
--- --- Fixture ----------------------------------------------------------------
+-- --- Fixture ---------------------------------------------------------------
 
 create table public.fixtures (
   id            uuid primary key default gen_random_uuid(),
   tournament_id uuid not null references public.tournaments(id) on delete cascade,
   stage_id      uuid references public.stages(id) on delete set null,
-  -- "Grupo A". Redundante con el grupo de los equipos, pero deja consultar el
-  -- fixture sin joinear teams y sobrevive si un equipo cambia de grupo.
+  -- "Grupo A". Redundant with the teams' group, but allows querying the fixture
+  -- without joining teams and survives a team changing group.
   group_label   text not null,
-  -- Fecha del torneo (1 a 3) y turno dentro de la fecha (1 o 2).
+  -- Tournament matchday (1 to 3) and slot within it (1 or 2).
   matchday      smallint not null check (matchday > 0),
   slot          smallint not null check (slot > 0),
   kickoff       timestamptz not null,
   team_a_id     uuid not null references public.teams(id) on delete cascade,
   team_b_id     uuid not null references public.teams(id) on delete cascade,
-  -- La partida que termino jugandose este cruce. Null mientras no se subio el
-  -- replay. on delete set null: borrar una partida mal cargada no tiene por que
-  -- borrar el cruce, que lo publico la organizacion.
+  -- The match played for this matchup; null until the replay is uploaded.
+  -- on delete set null: deleting a wrongly uploaded match keeps the matchup.
   match_id      uuid references public.matches(id) on delete set null,
   created_at    timestamptz not null default now(),
 
   constraint fixtures_distinct_teams check (team_a_id <> team_b_id),
-  -- Volver a correr el seed no duplica cruces.
+  -- Re-running the seed does not duplicate matchups.
   unique (tournament_id, matchday, slot, team_a_id, team_b_id)
 );
 
--- Una partida no puede ser dos cruces distintos.
+-- A match cannot belong to two matchups.
 create unique index fixtures_match_key
   on public.fixtures (match_id)
   where match_id is not null;
@@ -67,12 +62,10 @@ create index fixtures_team_b_idx     on public.fixtures (team_b_id);
 comment on table public.fixtures is
   'Cruces publicados por la organizacion. Existen antes de jugarse; match_id se completa cuando se sube el replay.';
 
--- --- Vista del fixture ------------------------------------------------------
+-- --- Fixture view ----------------------------------------------------------
 --
--- Devuelve el cruce con los nombres de los dos equipos y, si ya se jugo, el
--- resultado de cada lado. Se apoya en team_match_results, que ya da vuelta la
--- partida a "equipo vs rival", asi que no hay que volver a resolver que lado
--- era cada uno.
+-- The matchup with both team names and, once played, each side's result. Built
+-- on team_match_results, which already turns a match into "team vs opponent".
 
 create view public.fixture_results with (security_invoker = on) as
 select
@@ -120,10 +113,10 @@ left join public.matches m on m.id = f.match_id
 left join public.team_match_results ra on ra.match_id = f.match_id and ra.team_id = f.team_a_id
 left join public.team_match_results rb on rb.match_id = f.match_id and rb.team_id = f.team_b_id;
 
--- --- Los equipos que descansan ----------------------------------------------
+-- --- Teams resting ---------------------------------------------------------
 --
--- En cada turno juegan 4 de los 5 equipos de cada grupo. El que queda libre no
--- esta escrito en ningun lado: sale de restar los que juegan.
+-- In each slot 4 of the 5 teams in each group play. The resting team is derived
+-- by subtracting the ones that play.
 
 create view public.fixture_byes with (security_invoker = on) as
 select
@@ -150,11 +143,10 @@ where not exists (
      and (x.team_a_id = t.id or x.team_b_id = t.id)
 );
 
--- --- La tabla de grupos suma la lista de universidades -----------------------
+-- --- Group standings add the university list -------------------------------
 --
--- Se re-declara entera porque create or replace view solo admite sumar columnas
--- al final: el resto queda igual, palabra por palabra, y university_tags va
--- ultima. Para los equipos de una sola universidad es un arreglo de un elemento.
+-- Redeclared in full because create or replace view only allows appending
+-- columns; everything else is unchanged and university_tags goes last.
 
 create or replace view public.group_standings with (security_invoker = on) as
 select
@@ -186,7 +178,7 @@ select
                  coalesce(sum(r.kills) - sum(r.kills_against), 0) desc,
                  t.name asc
   )                                                        as position,
-  -- Nueva: todas las universidades del plantel, la principal primero.
+  -- New: every university on the roster, main one first.
   coalesce(
     (
       select array_agg(un.tag order by tu.order_index, un.tag)
@@ -200,8 +192,8 @@ from public.teams t
 left join public.universities u on u.id = t.university_id
 left join public.team_match_results r
        on r.team_id = t.id
-      -- Solo fase de grupos: la etiqueta de la partida tiene que ser el grupo
-      -- del equipo, asi los playoffs no suman en la tabla.
+      -- Group phase only: the match label must be the team's group, so playoff
+      -- matches do not count.
       and r.stage_label = t.group_label
       and r.win is not null
       and r.opponent_team_id is not null
@@ -209,7 +201,7 @@ where t.group_label is not null
 group by t.tournament_id, t.group_label, t.id, t.name, t.tag, t.logo_url,
          u.id, u.name, u.tag, u.logo_url;
 
--- --- RLS --------------------------------------------------------------------
+-- --- RLS -------------------------------------------------------------------
 
 alter table public.team_universities enable row level security;
 alter table public.fixtures          enable row level security;

@@ -7,11 +7,9 @@ import { findFileBySha256 } from '@/lib/ingest/duplicates'
 export const runtime = 'nodejs'
 
 /**
- * Reserves a path and returns a signed upload URL.
- *
- * The file does NOT pass through here: Vercel caps request bodies at 4.5 MB and
- * a .rofl weighs 12-17 MB. The browser uploads straight to storage with this
- * URL.
+ * Reserves a storage path and returns a signed upload URL. The file itself is
+ * uploaded directly from the browser: Vercel limits request bodies to 4.5 MB
+ * and replays are 12-17 MB.
  */
 export async function POST(request: Request) {
   const user = await requireApiUser()
@@ -43,9 +41,7 @@ export async function POST(request: Request) {
     )
   }
 
-  // If these exact bytes are already stored, there is no sense uploading them
-  // again: it would be 15 MB of quota and bandwidth only to end up discarding
-  // the row for a repeated sha256.
+  // Skip the upload when the same bytes (same sha256) are already stored.
   if (body?.sha256) {
     const existing = await findFileBySha256(body.sha256)
     if (existing) {

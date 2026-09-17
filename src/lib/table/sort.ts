@@ -1,12 +1,12 @@
 /**
- * The sort order of a table that can be sorted by column.
+ * Sort order for tables sortable by column.
  *
- * It lives here and not inside the component for two reasons: it is the part
- * that can be tested without mounting anything, and the order travels in the
- * URL — so the link to "champions sorted by ban rate" can be pasted into the
- * WhatsApp group and opens the same thing — which means it has to be parsed on
- * the server and applied on the client with the very same code.
+ * Kept outside the component so it can be tested on its own, and because the
+ * order travels in the URL: it is parsed on the server and applied on the
+ * client with the same code.
  */
+
+import { firstParam } from '@/lib/url'
 
 export type SortDirection = 'asc' | 'desc'
 
@@ -17,12 +17,9 @@ export interface SortOrder {
 }
 
 /**
- * The order the URL asked for, or the default.
- *
- * It falls back to the default on anything odd: a column that does not exist,
- * a made-up direction, a repeated parameter. A table drawn in an order other
- * than the one that was asked for is annoying; one that does not draw at all
- * is worse.
+ * The order requested in the URL, or `fallback` when the column is unknown.
+ * An unknown direction falls back to the default direction; a repeated
+ * parameter uses its first value.
  */
 export function parseSortOrder(
   order: string | string[] | undefined,
@@ -30,8 +27,8 @@ export function parseSortOrder(
   sortable: readonly string[],
   fallback: SortOrder,
 ): SortOrder {
-  const id = Array.isArray(order) ? order[0] : order
-  const direction = Array.isArray(dir) ? dir[0] : dir
+  const id = firstParam(order)
+  const direction = firstParam(dir)
 
   if (!id || !sortable.includes(id)) return fallback
 
@@ -39,19 +36,13 @@ export function parseSortOrder(
 }
 
 /**
- * Sorts without touching the original array.
+ * Sorts a copy of the rows.
  *
- * Two rules that are not obvious:
+ * Nulls always go last, in both directions: a champion nobody played has an
+ * unknown win rate, not 0%. This matches `sortTeams` (src/lib/teams/order.ts).
  *
- * NULLS ALWAYS GO LAST, in both directions. A champion nobody played has a
- * null win rate, and sorting ascending by win rate it cannot head the table:
- * it is not that they win 0% of the time, it is that nobody knows. This is the
- * same criterion `sortTeams` uses for teams that have not played yet
- * (src/lib/teams/order.ts).
- *
- * THERE IS ALWAYS A TIEBREAK. Without one, two rows holding the same value
- * keep the order Postgres returned them in, which is not guaranteed: the table
- * dances between reloads and looks broken.
+ * A tiebreak is always required; without one, equal values keep whatever order
+ * Postgres returned and the table reorders between reloads.
  */
 export function sortRows<T>(
   rows: T[],

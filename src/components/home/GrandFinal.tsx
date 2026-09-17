@@ -1,11 +1,7 @@
 import { daysUntil, shortDate } from '@/lib/lide2/dates'
 import { CALENDAR, VENUE, VENUE_DIRECTIONS, VENUE_EMBED } from '@/lib/lide2/tournament'
 
-/**
- * The final gets a block of its own because it is the tournament's only
- * in-person date, and in the calendar it sat there as one more cell, just like
- * a group-phase matchday.
- */
+/** The final's block: the tournament's only in-person date, with the venue. */
 export function GrandFinal() {
   const final = CALENDAR.find((milestone) => milestone.id === 'final')
   if (!final) return null
@@ -16,7 +12,7 @@ export function GrandFinal() {
   return (
     <section id="final">
       <div className="relative overflow-hidden border-2 border-accent bg-gradient-to-br from-accent-dim via-surface to-surface shadow-hard-accent">
-        {/* A red glow picking up the colour of the hero's artwork. */}
+        {/* Red glow matching the hero's artwork. */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
@@ -86,21 +82,9 @@ export function GrandFinal() {
           </div>
 
           {/*
-            Google's embedded map. With `loading="lazy"`: the iframe makes the
-            visitor's browser contact Google, and this way at least it does not
-            happen until the map comes on screen, which on this page is right at
-            the end.
-
-            A strong frame and not the thin border it had. The map is the only
-            thing on the page that brings its own image, bright and full of
-            detail, and set inside the final's card - which has an accent border
-            and a gradient with a glow - a one-pixel `border-line` did not
-            contain it: it looked like a cut-out pasted on top and trimmed
-            flush.
-
-            With `border-line-strong` and `shadow-hard` it matches the site's
-            other blocks (the group tables use the same), so the map's crop
-            reads as a framed picture and not as something badly cut.
+            Google Maps embed, lazy-loaded so the visitor's browser only contacts
+            Google when the map is on screen. Framed with `border-line-strong`
+            and `shadow-hard`, like the group tables.
           */}
           <div className="relative overflow-hidden border-2 border-line-strong bg-raised shadow-hard">
             <iframe

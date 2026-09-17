@@ -9,23 +9,14 @@ import { createClient } from '@/lib/supabase/server'
 import type { RosterStatusRow } from '@/types/db'
 
 /**
- * The rosters: who is signed up and which Riot account each one is.
+ * Roster editing: who is signed up, and which Riot account each signup is.
  *
- * Two different things living in the same form because they are done at the
- * same moment:
+ *   - Signups: add, remove and edit (saveTeamRosterAction).
+ *   - Accounts: paste the list sent by the organizers (importRosterAction), type
+ *     a Riot ID, or pick an account that already played for the team.
  *
- *   - WHO. Adding, removing and editing signups (saveTeamRosterAction). The
- *     signup sheet is not final: until the tournament starts people drop out,
- *     substitutes come in and names get corrected.
- *   - WHICH ACCOUNT. The matching against `players`, by three routes from the
- *     most convenient to the most manual: pasting the list the organizers send
- *     (importRosterAction), typing the Riot ID one at a time, or picking by
- *     hand one of the accounts that already played for that team (the last two
- *     share the form with the additions).
- *
- * Whoever decides which account belongs to whom is always a person. The only
- * automatic part is the exact Riot ID match, which `link_roster_accounts()`
- * does in the database.
+ * An admin always decides which account belongs to whom; the only automatic
+ * step is the exact Riot ID match in `link_roster_accounts()`.
  */
 
 function refresh() {
@@ -43,22 +34,17 @@ export interface RosterActionResult {
   added?: number
   /** Signups removed. */
   removed?: number
-  /** Signups that ended up matched with a real account. */
+  /** Signups that ended up linked to an account. */
   linked?: number
   imported?: RosterImportResult
 }
 
 /**
- * Saves a team's whole roster at once.
+ * Saves a team's whole roster in one submit.
  *
- * One button for the five or seven rows, and for all three operations at the
- * same time: saving one field at a time is five round trips to the server and
- * five revalidations to complete one roster.
- *
- * The form sends the complete roster - one row per signup, plus any added on
- * screen - and here it is compared against what is in the database.
- * `planRosterEdit` decides what gets deleted, updated and created, and rejects
- * the whole form if it does not match today's roster.
+ * The form sends every row; `planRosterEdit` compares it with the stored roster,
+ * decides what to delete, update and create, and rejects the form if the roster
+ * changed in the meantime.
  */
 export async function saveTeamRosterAction(
   _prev: RosterActionResult | null,
@@ -71,10 +57,8 @@ export async function saveTeamRosterAction(
 
   const supabase = createAdminClient()
 
-  // Today's roster is read rather than trusting what the browser sends: the
-  // form may have been drawn before another edit, and the `id` is the only
-  // thing that decides who gets written over. Without the names: what ends up
-  // stored is what the user typed, so they are not needed.
+  // Read the current roster instead of trusting the browser: the form may be
+  // stale, and the ids decide what gets overwritten.
   const { data: stored, error: readError } = await supabase
     .from('team_roster')
     .select('id,order_index')
@@ -95,9 +79,8 @@ export async function saveTeamRosterAction(
     if (error) return { ok: false, error: error.message }
   }
 
-  // The accounts are cleared before being assigned: if two rows swap accounts,
-  // writing them one at a time would collide with the unique index on player_id
-  // halfway through.
+  // Clear accounts before assigning them: two rows swapping accounts would
+  // otherwise hit the unique index on player_id.
   if (plan.update.length > 0) {
     const { error } = await supabase
       .from('team_roster')
@@ -118,8 +101,7 @@ export async function saveTeamRosterAction(
     if (error) return { ok: false, error: error.message }
   }
 
-  // And what was just written is matched against whatever accounts already
-  // exist: if that person has played, they are paired up on the spot.
+  // Link the saved rows to existing accounts where the Riot ID matches.
   const { data: linked } = await supabase.rpc('link_roster_accounts', { p_team_id: teamId })
 
   refresh()
@@ -134,11 +116,8 @@ export async function saveTeamRosterAction(
 }
 
 /**
- * Paste the whole list and let it distribute itself.
- *
- * It reads with the user's session and not with the service key: `team_roster`
- * holds legal names and this action fetches all of them, so it is better that
- * it goes through RLS like the rest of the site.
+ * Imports a pasted list of Riot IDs into the signups. Uses the user's session
+ * rather than the secret key, so reading legal names goes through RLS.
  */
 export async function importRosterAction(
   _prev: RosterActionResult | null,

@@ -2,18 +2,16 @@ import { describe, expect, it } from 'vitest'
 import { planRosterEdit, readRosterForm, type RosterCurrentRow } from '@/lib/roster/edit'
 
 /**
- * The panel's roster edits.
- *
- * The model case is the real Team 15: five people from three universities.
- * Before the tournament starts one drops out, another comes in and there is a
- * name the sheet got wrong.
+ * Roster edits from the admin panel, modelled on a mixed team: five people from
+ * three universities, where one drops out, another joins and a name needs
+ * correcting.
  */
 
 const TEAM = 'equipo-15'
 const UNER = 'uni-uner'
 const UADE = 'uni-uade'
 
-/** The five, with the indexes the seed left. */
+/** The five signups, with their seeded indexes. */
 const ROSTER: RosterCurrentRow[] = [
   { id: 'r1', orderIndex: 0 },
   { id: 'r2', orderIndex: 1 },
@@ -23,10 +21,8 @@ const ROSTER: RosterCurrentRow[] = [
 ]
 
 /**
- * Builds the form the browser sends, in the order it appears on screen.
- *
- * The field names stay in Spanish: they are the contract with the markup in
- * `RosterTeam.tsx`, which `readRosterForm` reads back.
+ * Builds the form the browser sends, in screen order. Field names are Spanish:
+ * they must match the markup in `RosterTeam.tsx`, which `readRosterForm` reads.
  */
 function buildForm(
   rows: {
@@ -54,7 +50,7 @@ function buildForm(
   return form
 }
 
-/** The five rows with nothing touched, which is how a freshly opened form arrives. */
+/** The five rows untouched, as a freshly opened form sends them. */
 const UNCHANGED = ROSTER.map((row) => ({ key: row.id, name: `Inscripto ${row.id}` }))
 
 describe('reading the roster form', () => {
@@ -102,7 +98,7 @@ describe('planning the roster edits', () => {
       readRosterForm(
         buildForm([
           ...UNCHANGED.slice(1),
-          // The first one, corrected: the sheet brought it with no university.
+          // The first one, corrected: the sheet had no university for it.
           { key: 'r1', name: 'Dario Ferro', university: UNER, riot: 'DarioFerro#LAN' },
         ]),
       ),
@@ -170,10 +166,8 @@ describe('planning the roster edits', () => {
   })
 
   /**
-   * `order_index` is not recompacted: it is unique per team and renumbering the
-   * remaining rows would mean moving them in two passes. What matters is that
-   * the addition does not land in the gap left by a removal in the same batch,
-   * because at that moment the old row still exists.
+   * `order_index` is not renumbered. An addition must not reuse the index of a
+   * row removed in the same save, because that row still exists at that moment.
    */
   it('a removal and an addition together: the new one does not fill the gap', () => {
     const plan = planRosterEdit(
@@ -263,9 +257,8 @@ describe('planning the roster edits', () => {
   })
 
   /**
-   * The form sends the whole roster, so if a row that exists is missing from it
-   * the form is stale: it was drawn before another tab edited the roster.
-   * Applying it would remove somebody nobody touched.
+   * The form sends the whole roster; if an existing row is missing, the form is
+   * stale (the roster was edited elsewhere) and applying it could remove someone.
    */
   it('a stale form is rejected whole instead of being half applied', () => {
     const stale = planRosterEdit(TEAM, readRosterForm(buildForm(UNCHANGED.slice(0, 4))), ROSTER)

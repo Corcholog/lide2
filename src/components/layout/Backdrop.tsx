@@ -1,23 +1,11 @@
 /**
- * The site's backdrop.
+ * The site's fixed background, visible behind content once the hero scrolls
+ * away.
  *
- * The tournament's home page is a photo filling the first screen; the moment
- * you scroll, there is nothing behind it. This is what shows up.
- *
- * It is `fixed`, so it does not move while the content passes over it: the
- * effect is of content sliding over a curtain, not of a background scrolling
- * along with you.
- *
- * No repeating patterns here. A line pattern at the same weight and nearly the
- * same colour as the cards' borders competes with the content instead of
- * holding it up: the eye cannot tell what is background and what is table. What
- * is left are large soft blooms - red and steel, the artwork's palette - and a
- * few straight, very large shapes, which at that scale read as composition and
- * not as texture. The fine grain on top draws nothing: it breaks the banding in
- * the gradients, which shows on 8-bit displays.
- *
- * Everything is built with `color-mix` over the tokens, so it follows the theme
- * without duplicating a single definition.
+ * Soft red and steel blooms (the artwork's palette) and a few very large
+ * shapes, rather than a repeating pattern that would compete with borders. A
+ * fine grain breaks up gradient banding. Built with `color-mix` over the theme
+ * tokens.
  */
 
 const GRAIN =
@@ -39,9 +27,8 @@ export function Backdrop() {
       />
 
       {/*
-        The shapes, with clip-path: they weigh nothing, clip themselves to any
-        screen and take the theme's colour. They run half a screen tall on
-        purpose, because at a small scale they would read as noise again.
+        Shapes drawn with clip-path, so they scale to any screen and follow the
+        theme. Kept large; small shapes read as noise.
       */}
       <div
         className="absolute -right-[12vw] top-[6vh] hidden h-[62vh] w-[52vw] bg-accent/[0.06] lg:block"

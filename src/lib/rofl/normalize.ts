@@ -2,9 +2,9 @@ import { matchFingerprint, riotMatchIdFromFileName } from './fingerprint'
 import type { RoflMetadata, RoflPlayerStats } from './types'
 
 /**
- * Every value in statsJson is a string, and some numbers arrive in scientific
- * notation ("1.234E+07"). Number() handles those fine, but empties and garbage
- * still have to be covered.
+ * Every value in statsJson is a string, and some numbers use scientific
+ * notation ("1.234E+07"). Number() handles those; empty and invalid values
+ * still need handling.
  */
 export function toInt(value: unknown): number {
   const n = Number(String(value ?? '').trim())
@@ -129,16 +129,12 @@ function text(value: unknown): string | null {
 }
 
 /**
- * The role, under a single name.
+ * Normalizes the position to one name per role.
  *
- * The .rofl writes `UTILITY` for support. Inside the project that role is
- * called `SUPPORT` and nothing else: having one position under two names makes
- * the views that group by `position` count it as two different roles, and lets
- * an untranslated label reach the site raw.
- *
- * `Invalid` and `NONE` are not roles: they are what Riot leaves when the match
- * has no assigned lanes (an odd custom, a remake). They leave as null so the
- * position falls through to the other field, which may hold something useful.
+ * The .rofl writes `UTILITY` for support; the project uses `SUPPORT` only, so
+ * views grouping by position do not count it as two roles. `INVALID` and
+ * `NONE` (no assigned lanes, e.g. customs or remakes) become null so the other
+ * position field can be used.
  */
 function normalizePosition(value: unknown): string | null {
   const position = text(value)?.toUpperCase() ?? null

@@ -4,19 +4,11 @@ import Link from 'next/link'
 import { useEffect } from 'react'
 
 /**
- * When a page of the site breaks.
+ * Error screen for pages inside the site.
  *
- * Before this, an exception in any query showed Next's raw error screen, stack
- * and all. On the day of the first matchday, with people watching, that is the
- * worst thing that can happen.
- *
- * The button says "reintentar" and it really does retry: `retry()` re-renders
- * the server segment, so if what failed was a load spike or a Supabase timeout,
- * it fixes itself from the same place.
- *
- * `digest` is the identifier Next attaches to the error on the server: in
- * production the real message never travels to the browser, and that code is
- * the only thing that makes it findable in the logs. Hence it is shown.
+ * "Reintentar" re-renders the server segment, which recovers from transient
+ * failures. The `digest` is shown because in production the real message does
+ * not reach the browser, and the digest is how to find it in the logs.
  */
 export default function ErrorBoundary({
   error,

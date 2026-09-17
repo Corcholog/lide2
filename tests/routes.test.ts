@@ -2,12 +2,10 @@ import { describe, expect, it } from 'vitest'
 import { matchOrigin, originFrom, teamPath } from '@/lib/routes'
 
 /**
- * The `desde` that the back arrow of a team's page reads.
- *
- * It is the only parameter of the site that comes back out as a destination,
- * so what gets checked here is mostly what it refuses: everything that is not
- * one of the keys has to land on the fallback, and never on a path somebody
- * else wrote.
+ * The `desde` parameter read by the team page's back arrow. It is the only
+ * parameter turned into a destination, so these tests focus on what it rejects:
+ * anything that is not a known key must use the fallback, never a path from the
+ * URL.
  */
 
 const MATCH = '3f0c1a5e-8b2d-4c77-9a13-6de0f4a91b22'
@@ -37,8 +35,7 @@ describe('where the back arrow goes', () => {
       'inventado',
       // A repeated parameter arrives as an array.
       ['portada', 'tablas'],
-      // The shapes that would turn `desde` into a path written by whoever
-      // wrote the link.
+      // Shapes that would turn `desde` into an arbitrary path.
       '/admin',
       'https://otro.sitio',
       '//otro.sitio',

@@ -1,20 +1,11 @@
 /**
  * Every site route, built in one place.
  *
- * Links to a player's page come from seven different spots — a team's lineup,
- * the scoreboard, a match detail, two stats tables, two rankings — and as long
- * as each one spells the URL out by hand, moving that page means finding them
- * all.
+ * Player links use `players.id`, an internal uuid, never the Riot `puuid`: the
+ * puuid does not leave the server (no public view exposes it, see
+ * 0013_publico.sql), so the page reads `player_profiles` instead of `players`.
  *
- * ABOUT THE ID THAT TRAVELS IN THE URL: it is `players.id`, an internal uuid
- * that means nothing outside. It is NOT the `puuid`, which is the Riot
- * identifier you can ask their API about that person with: that one never
- * leaves the server — no public view exposes it, see 0013_publico.sql — and
- * that is why the page is looked up through `player_profiles` and not
- * `players`.
- *
- * The URL segments stay in Spanish on purpose: they are what a visitor sees
- * and shares.
+ * URL segments stay in Spanish because visitors see and share them.
  */
 
 export function playerPath(playerId: string): string {
@@ -22,41 +13,23 @@ export function playerPath(playerId: string): string {
 }
 
 /**
- * WHERE THE BACK ARROW GOES BACK TO.
+ * Where a team page's back arrow leads.
  *
- * A team's page is not reached from one place: it is reached from the front
- * page - from the group tables and from the highlight notice -, from the list
- * at /equipos, from the tables at /estadisticas/tablas and from a player's
- * page. The arrow at the top said "← Equipos" to all of them, so whoever came
- * from the front page and pressed it ended up in a list they had never seen,
- * with the fixture they were reading four scrolls up and no way back to the
- * exact spot.
- *
- * So the link that leads to the team says where it is leading FROM, in a
- * `desde` that travels in the URL. It is a key and not a path on purpose: the
- * value is read straight off a URL that anybody can type, and a key that is
- * looked up in this table can only ever come out as one of the destinations
- * below. A path taken as given is an open door to sending the visitor
- * wherever the person who wrote the link wanted.
- *
- * The keys stay in Spanish because they end up in shared links, like `fecha`
- * and `grupo`.
+ * A team page is reached from several places, so links to it pass a `desde`
+ * key naming where they came from. It is a key looked up in this table, not a
+ * path, because the value comes from a URL anyone can edit: a path taken as-is
+ * would allow redirecting visitors anywhere. Keys stay in Spanish because they
+ * appear in shared links.
  */
 export const ORIGINS = {
   portada: { href: '/', label: 'Portada' },
-  // The group tables are four scrolls down the front page, so this one leads
-  // back to the section and not to the top of it: coming back to the header of
-  // a page you were reading the middle of is barely better than not coming
-  // back at all. The anchor is the `id` the section already carries.
+  // Back to the group tables section, not the top of the home page.
   grupos: { href: '/#grupos', label: 'Portada' },
-  // The bracket, for the same reason as the group tables: it sits below them,
-  // and every team in it - the ones already in and the ones the preview
-  // projects into a quarter-final - leads to its page.
+  // Back to the bracket section.
   playoffs: { href: '/#playoffs', label: 'Portada' },
   equipos: { href: '/equipos', label: 'Equipos' },
-  // From the match listing, where every team name leads to its page. Not to be
-  // read as the singular `partida.<uuid>` below: that one comes from ONE match
-  // and leads back to it.
+  // The match listing. Not to be confused with `partida.<uuid>`, which leads
+  // back to one match.
   partidas: { href: '/partidas', label: 'Partidas' },
   tablas: { href: '/estadisticas/tablas', label: 'Tablas' },
 } as const
@@ -64,26 +37,15 @@ export const ORIGINS = {
 export type Origin = keyof typeof ORIGINS
 
 /**
- * The one origin that cannot be a fixed entry in the table: a match.
- *
- * Every team on a scoreboard leads to its page, and "back" from there is that
- * match and not the listing of all of them - the listing is another sixty rows
- * to find again the one that was open. So this key carries which one, after
- * the dot: `desde=partida.<uuid>`.
- *
- * The uuid is checked before being used. It is the only part of a `desde` that
- * is not a closed key, so it is the only one that could turn into a path
- * written by whoever wrote the link, and the check is what keeps it to the
- * shape of an id.
+ * The only origin that is not a fixed key: a single match, written as
+ * `desde=partida.<uuid>`. The uuid is validated before use so it cannot
+ * become an arbitrary path.
  */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
- * Whether something that arrived in a URL has the shape of one of our ids.
- *
- * For whoever is about to paste it into a query built by hand - PostgREST's
- * `or()` takes a raw filter expression, and an id from the path is written by
- * whoever typed the URL.
+ * Whether a value from a URL has the shape of a uuid. Use it before putting an
+ * id into a hand-built query, such as a PostgREST `or()` filter expression.
  */
 export function isUuid(value: string): boolean {
   return UUID.test(value)
@@ -100,12 +62,8 @@ export function teamPath(teamId: string, from?: Origin | MatchOrigin): string {
 }
 
 /**
- * Resolves the `desde` of a URL, falling back when it says nothing usable.
- *
- * Anything that is not one of the keys - an old link, a typo, a repeated
- * parameter that arrives as an array, a `partida.` with something that is not
- * an id behind it - lands on the fallback, which is the page the arrow pointed
- * at before any of this existed.
+ * Resolves the `desde` parameter. Anything that is not a known key or a valid
+ * `partida.<uuid>` (old links, typos, repeated parameters) uses `fallback`.
  */
 export function originFrom(
   value: string | string[] | undefined,
@@ -115,7 +73,7 @@ export function originFrom(
     if (value in ORIGINS) return ORIGINS[value as Origin]
 
     const id = value.startsWith('partida.') ? value.slice('partida.'.length) : null
-    if (id && UUID.test(id)) return { href: matchPath(id), label: 'Partida' }
+    if (id && isUuid(id)) return { href: matchPath(id), label: 'Partida' }
   }
 
   return ORIGINS[fallback]

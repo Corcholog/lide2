@@ -3,9 +3,8 @@ import type { User } from '@supabase/supabase-js'
 import { createClient } from './supabase/server'
 
 /**
- * The session check, kept close to the data. The proxy only redirects for the
- * sake of UX; this is the verification that counts, and it goes in every page
- * and route handler.
+ * Session checks. The proxy only redirects for UX; these are the checks that
+ * protect pages and route handlers.
  */
 export async function getUser(): Promise<User | null> {
   const supabase = await createClient()

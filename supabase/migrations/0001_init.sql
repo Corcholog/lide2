@@ -1,13 +1,12 @@
 -- ===========================================================================
--- Esquema base: torneo, equipos, jugadores y partidas extraidas de los .rofl
+-- Base schema: tournament, teams, players and matches parsed from .rofl files.
 --
--- Regla de oro: matches.raw_metadata y match_players.raw guardan el JSON
--- original completo (365 campos por jugador en el parche 16.12). Las columnas
--- promovidas son solo las que se consultan seguido; cualquier stat que no este
--- como columna sale de `raw` sin tener que volver a subir nada.
+-- matches.raw_metadata and match_players.raw keep the full original JSON
+-- (hundreds of fields per player). Only frequently queried stats are promoted to
+-- columns; anything else can be read from `raw` without re-uploading.
 -- ===========================================================================
 
--- --- Torneo ----------------------------------------------------------------
+-- --- Tournament ------------------------------------------------------------
 
 create table public.tournaments (
   id          uuid primary key default gen_random_uuid(),
@@ -33,11 +32,11 @@ create unique index teams_name_key on public.teams (tournament_id, lower(name));
 
 create table public.players (
   id              uuid primary key default gen_random_uuid(),
-  -- Identidad estable entre partidas: el Riot ID cambia, el PUUID no.
+  -- Stable identity across matches: the Riot ID can change, the PUUID does not.
   puuid           text not null unique,
   riot_game_name  text,
   riot_tag_line   text,
-  -- Nombre para mostrar si el equipo prefiere otro alias.
+  -- Display name, if the team prefers an alias.
   display_name    text,
   created_at      timestamptz not null default now(),
   last_seen_at    timestamptz
@@ -53,12 +52,12 @@ create table public.team_members (
   left_at        timestamptz
 );
 
--- Un jugador no puede estar dos veces activo en el mismo equipo.
+-- A player cannot be active twice on the same team.
 create unique index team_members_active_key
   on public.team_members (team_id, player_id) where left_at is null;
 create index team_members_player_idx on public.team_members (player_id) where left_at is null;
 
--- --- Bracket (creado para la expansion; sin UI en el MVP) -------------------
+-- --- Bracket ---------------------------------------------------------------
 
 create table public.stages (
   id             uuid primary key default gen_random_uuid(),
@@ -81,7 +80,7 @@ create table public.series (
   battlefy_match_id  text
 );
 
--- --- Partidas --------------------------------------------------------------
+-- --- Matches ---------------------------------------------------------------
 
 create table public.matches (
   id             uuid primary key default gen_random_uuid(),
@@ -89,24 +88,22 @@ create table public.matches (
   series_id      uuid references public.series(id) on delete set null,
   game_number    smallint,
 
-  -- El torneo corre en formato suizo (20 equipos). Estas dos etiquetas se
-  -- capturan al subir para poder agrupar sin depender todavia de stages/series:
-  --   stage_label: "Suizo", "Playoffs"
-  --   round_label: "Ronda 3"
+  -- Free-text stage and round labels captured on upload, so matches can be
+  -- grouped without stages/series rows (e.g. "Bloque B", "Fecha 1").
   stage_label    text,
   round_label    text,
 
-  -- Solo aparece cuando el archivo conserva el nombre del cliente
-  -- ("LA2-1602356940.rofl"); los equipos suelen renombrarlos.
+  -- Only present when the file keeps the client's name
+  -- ("LA2-1602356940.rofl"); teams often rename files.
   riot_match_id  text,
-  -- Identidad real de la partida: ver src/lib/rofl/fingerprint.ts
+  -- The match's real identity: see src/lib/rofl/fingerprint.ts
   fingerprint    text not null unique,
 
   format         text not null,
   game_version   text,
   patch          text,
   game_length_ms integer not null,
-  -- El .rofl no guarda la fecha; se estima con el lastModified del archivo.
+  -- The .rofl has no date; it is estimated from the file's lastModified.
   played_at      timestamptz,
 
   winning_side              smallint check (winning_side in (100, 200)),
@@ -125,8 +122,8 @@ create index matches_patch_idx on public.matches (patch);
 create unique index matches_riot_match_id_key
   on public.matches (riot_match_id) where riot_match_id is not null;
 
--- Un mismo partido puede tener varios .rofl: cada cliente graba el suyo, asi que
--- el archivo del equipo A y el del B son bytes distintos de la misma partida.
+-- A match can have several .rofl files: each client records its own, so team
+-- A's and team B's files are different bytes of the same match.
 create table public.match_files (
   id                uuid primary key default gen_random_uuid(),
   match_id          uuid not null references public.matches(id) on delete cascade,
@@ -135,7 +132,7 @@ create table public.match_files (
   file_name         text not null,
   file_size         bigint not null,
   sha256            text unique,
-  -- PUUID del jugador cuyo cliente grabo el replay, si se puede determinar.
+  -- PUUID of the player whose client recorded the replay, when known.
   client_puuid      text,
   uploaded_by       uuid references auth.users(id) on delete set null,
   uploaded_at       timestamptz not null default now()
@@ -150,7 +147,7 @@ create table public.match_players (
   participant_index  smallint not null,
 
   puuid              text not null,
-  -- Se completan cuando el jugador y su equipo existen en el torneo.
+  -- Filled once the player and their team exist in the tournament.
   player_id          uuid references public.players(id) on delete set null,
   team_id            uuid references public.teams(id) on delete set null,
   riot_game_name     text,
@@ -171,8 +168,8 @@ create table public.match_players (
   gold_spent             integer not null default 0,
   minions_killed         integer not null default 0,
   neutral_minions_killed integer not null default 0,
-  -- Derivado en el ingest (minions + jungla). Columna real y no generada para
-  -- que ingest_match() pueda insertar la fila entera desde el JSON de una.
+  -- Derived on ingest (minions + jungle). A real column, not a generated one, so
+  -- ingest_match() can insert the whole row from the JSON.
   cs                     integer not null default 0,
 
   damage_to_champions            integer not null default 0,
@@ -215,7 +212,7 @@ create table public.match_players (
   longest_time_living   integer not null default 0,
   time_played           integer not null default 0,
 
-  -- Los items de Ornn pasan el rango de smallint (ej. 223157), van como integer.
+  -- Some item ids exceed smallint (e.g. 223157), so integer is used.
   items              integer[] not null default '{}',
   summoner_spell_1   text,
   summoner_spell_2   text,
@@ -238,8 +235,8 @@ create index match_players_player_idx on public.match_players (player_id);
 create index match_players_team_idx on public.match_players (team_id);
 create index match_players_champion_idx on public.match_players (champion);
 
--- Un .rofl que no se pudo parsear no rompe la subida del resto: queda aca para
--- reintentar, y el archivo original sigue en el storage.
+-- A .rofl that fails to parse does not break the rest of the upload: it is
+-- recorded here for a retry, and the original file stays in storage.
 create table public.ingest_failures (
   id             uuid primary key default gen_random_uuid(),
   file_name      text not null,
@@ -252,11 +249,9 @@ create table public.ingest_failures (
 );
 
 -- --- RLS -------------------------------------------------------------------
--- Por ahora todo el sitio esta detras del login, asi que alcanza con lectura
--- para usuarios autenticados. Para abrirlo al publico mas adelante: cambiar
--- `to authenticated` por `to anon, authenticated` en las tablas de lectura.
--- Las escrituras van solo por los route handlers con la service key, que se
--- saltea RLS: no hay politicas de insert/update/delete a proposito.
+-- Read access for authenticated users (public access is opened in 0013).
+-- Writes only happen through route handlers with the secret key, which bypasses
+-- RLS: there are no insert/update/delete policies on purpose.
 
 alter table public.tournaments     enable row level security;
 alter table public.teams           enable row level security;

@@ -6,6 +6,7 @@ import { assetVersion, championCatalog, championName, championNames } from '@/li
 import { formatDate } from '@/lib/format'
 import { resolveTournamentId } from '@/lib/stats/query'
 import { BanEntry } from '@/components/admin/BanEntry'
+import { Stat } from '@/components/admin/Stat'
 import type { MatchBanRow, MatchSummaryRow } from '@/types/db'
 
 export const metadata = { title: 'Bans' }
@@ -13,17 +14,10 @@ export const metadata = { title: 'Bans' }
 export const dynamic = 'force-dynamic'
 
 /**
- * Entering each match's draft.
- *
- * It is the only step in the panel that does not come out of a file: the .rofl
- * stores the final scoreboard and not the draft, so the ten bans have to be
- * read off the broadcast or the client's history and typed in. It is tedious,
- * and that is why it is worth spelling out what it buys: without this the
- * champion table has pick rate and win rate, but ban rate and presence stay
- * empty.
- *
- * By default the ones with nothing entered are listed, which is what is left to
- * do; with `?estado=todas` they all appear, to fix one that came out wrong.
+ * Draft entry for each match. The .rofl has no bans, so they are typed in from
+ * the broadcast or match history; without them the champion table has no ban
+ * rate or presence. Lists matches still missing a draft by default;
+ * `?estado=todas` lists all of them to fix mistakes.
  */
 export default async function BansPage({ searchParams }: PageProps<'/admin/bans'>) {
   await requireUser()
@@ -52,8 +46,7 @@ export default async function BansPage({ searchParams }: PageProps<'/admin/bans'
       )
     : []
 
-  // The bans only need fetching when the entered ones are being shown: the
-  // pending ones, by definition, have none.
+  // Stored bans are only needed when showing all matches: pending ones have none.
   const guardados =
     showAll && matches.length > 0
       ? rows<MatchBanRow>(
@@ -64,7 +57,7 @@ export default async function BansPage({ searchParams }: PageProps<'/admin/bans'
               'match_id',
               matches.map((m) => m.id),
             ),
-          'los bans cargados',
+          'the entered bans',
         )
       : []
 
@@ -136,9 +129,8 @@ export default async function BansPage({ searchParams }: PageProps<'/admin/bans'
       )}
 
       {/*
-        ONE datalist for every form's ten fields and for every match on the
-        page. One per field would be 170 options x 10 x 60 matches; this way it
-        is 170 nodes in total.
+        One shared datalist for every field of every match, instead of 170
+        options per field.
       */}
       <datalist id="champions">
         {catalog.map((champ) => (
@@ -194,17 +186,6 @@ export default async function BansPage({ searchParams }: PageProps<'/admin/bans'
           })}
         </ul>
       )}
-    </div>
-  )
-}
-
-function Stat({ label, value, tone }: { label: string; value: number; tone?: boolean }) {
-  return (
-    <div className="bg-surface px-4 py-3">
-      <dt className="text-xs uppercase tracking-wide text-faint">{label}</dt>
-      <dd className={`font-display text-2xl tabular-nums ${tone ? 'text-accent' : 'text-fg'}`}>
-        {value}
-      </dd>
     </div>
   )
 }

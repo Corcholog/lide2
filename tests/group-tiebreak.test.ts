@@ -4,19 +4,12 @@ import { createTestDb } from './helpers/db'
 import { playMatch } from './helpers/matches'
 
 /**
- * The group table breaks a tie on the head to head, which is what the rulebook
- * says (2.2) and not what the view used to do.
+ * The group table breaks ties by head to head, as the rulebook says (2.2).
  *
- * It matters more than a column of a table usually does: the two top places are
- * what go through to the quarter-finals, and the home page projects the bracket
- * off this same table. While the two disagreed - the table ordering on kill
- * difference and the bracket on the game between them - the same screen
- * contradicted itself the moment two teams finished level, which is exactly
- * when a tiebreak is read.
- *
- * The kill difference is deliberately stacked AGAINST the head to head in these
- * tests: the team that wins the game between them is given the worse difference,
- * so a green test cannot mean "they happen to agree".
+ * The top two places qualify and the home page projects the bracket from this
+ * table, so the table and the projection must use the same rule. Kill
+ * difference is deliberately set against the head to head in these tests, so a
+ * pass cannot come from both criteria agreeing.
  */
 
 interface Row {
@@ -56,7 +49,7 @@ describe('the group table tiebreak', () => {
     await db?.close()
   })
 
-  /** A group-phase game, with the scoreline that feeds the kill difference. */
+  /** A group-phase game, with the kill score that feeds the kill difference. */
   async function play(blue: string, red: string, kills: [number, number]): Promise<void> {
     await playMatch(db, {
       blueTeamId: team.get(blue),
@@ -95,9 +88,9 @@ describe('the group table tiebreak', () => {
   }
 
   it('puts the winner of the game between them first, against the kill difference', async () => {
-    // Alfa beats Bravo by a single kill and loses heavily to nobody else;
-    // Bravo's win over Charlie is a rout. Level at 1-1, Bravo's difference is
-    // far better, and Alfa still goes above it because it won the game.
+    // Alfa beats Bravo by one kill; Bravo beats Charlie by a lot. Level at 1-1,
+    // Bravo has the better kill difference, but Alfa ranks higher because it won
+    // their game.
     await play('Alfa', 'Bravo', [11, 10])
     await play('Bravo', 'Charlie', [30, 2])
     await play('Charlie', 'Alfa', [20, 5])
@@ -114,17 +107,13 @@ describe('the group table tiebreak', () => {
 
   it('reads three level teams as a mini league of the games among them', async () => {
     /*
-     * Alfa, Bravo and Charlie all finish 2-2. Among themselves it is two wins,
-     * one and none - Alfa beat both, Bravo beat Charlie - so that is the order.
+     * Alfa, Bravo and Charlie all finish 2-2. Among themselves: two wins, one and
+     * none (Alfa beat both, Bravo beat Charlie), so that is the order.
      *
-     * It takes five teams: with four, three level teams have played a complete
-     * round robin among themselves and their three mutual wins can only come
-     * out one each, which is a circle by construction and never a mini league
-     * that separates anybody. The room to have a 2-1-0 among them comes from
-     * the games against the other two, and that needs a fifth.
-     *
-     * The kill differences run the other way round: Alfa wins its two by a
-     * single kill and gets hammered outside the trio, Charlie the reverse.
+     * This needs five teams: with four, three level teams can only split their
+     * mutual wins one each (a cycle). The kill differences run the opposite way:
+     * Alfa wins its two narrowly and loses heavily to the others, Charlie the
+     * reverse.
      */
     await play('Alfa', 'Bravo', [11, 10])
     await play('Alfa', 'Charlie', [11, 10])
@@ -141,15 +130,14 @@ describe('the group table tiebreak', () => {
     const level = rows.filter((r) => r.wins === 2 && r.losses === 2)
 
     expect(level.map((r) => r.team_name)).toEqual(['Alfa', 'Bravo', 'Charlie'])
-    // And the kill difference, had it been the criterion, would have reversed
-    // them exactly.
+    // Kill difference alone would have ordered them exactly the other way.
     expect(level.map((r) => r.kill_diff)).toEqual([...level.map((r) => r.kill_diff)].sort((a, b) => a - b))
   })
 
   it('counts a walkover for the head to head: not turning up is losing it', async () => {
-    // Bravo did not turn up against Alfa. They finish level, and the matchup
-    // nobody played is what separates them - Alfa's kill difference is worse,
-    // because a walkover brings no kills with it.
+    // Bravo did not turn up against Alfa. They finish level, and the awarded game
+    // separates them even though Alfa's kill difference is worse (a walkover
+    // brings no kills).
     await walkover('Alfa', 'Bravo')
     await play('Bravo', 'Charlie', [30, 2])
     await play('Charlie', 'Alfa', [20, 5])
@@ -165,8 +153,8 @@ describe('the group table tiebreak', () => {
   })
 
   it('still orders on points before anything else', async () => {
-    // Charlie loses the game between them and wins two more: more points wins,
-    // and the head to head never gets a say.
+    // Charlie loses the game between them but wins two more: more points wins,
+    // and the head to head does not apply.
     await play('Bravo', 'Charlie', [20, 5])
     await play('Charlie', 'Alfa', [11, 10])
     await play('Charlie', 'Delta', [11, 10])
@@ -178,9 +166,8 @@ describe('the group table tiebreak', () => {
   })
 
   it('leaves teams that have played nothing level, and in a stable order', async () => {
-    // Nobody has played: everybody is 0-0 with no game between them to look at.
-    // The view still has to hand back rows in some order, and it has to be the
-    // same one every time or the table dances between refreshes.
+    // Nobody has played, so there is no head to head. The view must still return
+    // a stable order, or the table would reorder between refreshes.
     const first = await table()
     const again = await table()
 

@@ -87,8 +87,8 @@ describe('metaFilter', () => {
   })
 
   it('never sends group_label or matchday when the scope is the total', () => {
-    // Sending them as null would also drag in the matches with no group
-    // resolved, which is exactly what the two flags avoid.
+    // Null group and matchday would also match rows whose group is unresolved;
+    // the two flags avoid that.
     const filter = metaFilter(scope(null), null)
     expect(filter).not.toHaveProperty('group_label')
     expect(filter).not.toHaveProperty('matchday')

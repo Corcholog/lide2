@@ -5,12 +5,8 @@
  *   npm run parse:rofl -- fixtures/your-match.rofl --json > out.json
  */
 import { basename } from 'node:path'
+import { formatDuration, formatGold, formatKda } from '../src/lib/format'
 import { fileSource, normalizeMatch, parseRofl, RoflParseError, type RoflSource } from '../src/lib/rofl'
-
-function formatDuration(ms: number): string {
-  const total = Math.round(ms / 1000)
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`
-}
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -82,7 +78,7 @@ async function main() {
       const label = side === 100 ? 'BLUE' : 'RED'
       const result = team[0]?.win ? 'WIN' : 'LOSS'
 
-      console.log(`  ${label}  ${result}   ${kills} kills   ${(gold / 1000).toFixed(1)}k gold`)
+      console.log(`  ${label}  ${result}   ${kills} kills   ${formatGold(gold)} gold`)
       console.log(
         `  ${pad('Player', 24)}${pad('Champion', 14)}${pad('Pos', 8)}${pad('KDA', 10, 'right')}${pad('CS', 6, 'right')}${pad('Gold', 8, 'right')}${pad('Damage', 9, 'right')}${pad('Vision', 8, 'right')}`,
       )
@@ -91,7 +87,7 @@ async function main() {
         const name = p.riotGameName ? `${p.riotGameName}#${p.riotTagLine ?? ''}` : (p.summonerName ?? p.puuid.slice(0, 8))
         console.log(
           `  ${pad(name, 24)}${pad(p.champion, 14)}${pad(p.position ?? '-', 8)}` +
-            `${pad(`${p.kills}/${p.deaths}/${p.assists}`, 10, 'right')}` +
+            `${pad(formatKda(p.kills, p.deaths, p.assists), 10, 'right')}` +
             `${pad(p.minionsKilled + p.neutralMinionsKilled, 6, 'right')}` +
             `${pad(p.goldEarned, 8, 'right')}` +
             `${pad(p.damageToChampions, 9, 'right')}` +

@@ -1,9 +1,10 @@
 import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
-import { maybeRow, rows } from '@/lib/supabase/query'
+import { rows } from '@/lib/supabase/query'
+import { resolveTournamentId } from '@/lib/stats/query'
 import { daysUntil } from '@/lib/lide2/dates'
 import { projectBracketSlots } from '@/lib/lide2/projection'
-import { CALENDAR, TOURNAMENT } from '@/lib/lide2/tournament'
+import { CALENDAR } from '@/lib/lide2/tournament'
 import { championOf } from '@/lib/lide2/winner'
 import { TeamFocus, type FocusTeam } from '@/components/tournament/TeamFocus'
 import { Hero, UniversityStrip } from '@/components/home/Hero'
@@ -18,16 +19,10 @@ import type { FixtureResultRow, GroupStandingRow, SeriesResultRow } from '@/type
 export const dynamic = 'force-dynamic'
 
 /**
- * The tournament's front page.
- *
- * All that lives here is the fetching and the order the sections go in; each
- * one draws itself in `@/components/home/`. It used to be one 1300-line file,
- * and finding the fixture in the middle of the bracket, the calendar and the
- * hero meant scrolling past three unrelated things.
- *
- * Everything hangs off `TeamFocus`, which is what highlights a team across all
- * of its appearances: it needs the fixture and the group tables inside the same
- * subtree to reach them with its CSS rules.
+ * The tournament home page. Only data loading and section order live here;
+ * each section renders itself from `@/components/home/`. Everything is wrapped
+ * in `TeamFocus`, which needs the fixture and group tables in its subtree to
+ * highlight a team with CSS.
  */
 
 const SECTIONS = [
@@ -39,10 +34,8 @@ const SECTIONS = [
 ]
 
 /**
- * The teams that appear in the fixture, with how many matchups each one has.
- *
- * It is what the highlight needs: the list of ids to emit its CSS rules, and
- * the name and the count for the notice that appears when one is pinned.
+ * The teams in the fixture with their matchup count: ids for TeamFocus's CSS
+ * rules, plus name and count for its notice.
  */
 function focusTeams(fixture: FixtureResultRow[]): FocusTeam[] {
   const teams = new Map<string, FocusTeam>()
@@ -63,12 +56,7 @@ function focusTeams(fixture: FixtureResultRow[]): FocusTeam[] {
 
 export default async function Lide2Page() {
   const supabase = await createClient()
-  const tournament = maybeRow<{ id: string; name: string }>(
-    await supabase.from('tournaments').select('id,name').eq('slug', TOURNAMENT.slug).maybeSingle(),
-    'the tournament',
-  )
-
-  const tournamentId = tournament?.id ?? null
+  const tournamentId = await resolveTournamentId(supabase)
   const user = await getUser()
 
   const [standingsRes, seriesRes, fixtureRes] = tournamentId
@@ -91,9 +79,7 @@ export default async function Lide2Page() {
           .order('matchday')
           .order('slot')
           .order('group_label')
-          // Within a group there are two matchups per slot and neither comes
-          // before the other: they are tiebroken by name so the list does not
-          // dance.
+          // Tiebreak by name so matchups in the same slot keep a stable order.
           .order('team_a_name'),
       ])
     : [
@@ -102,9 +88,8 @@ export default async function Lide2Page() {
         { data: [], error: null },
       ]
 
-  // The 13 universities, for the strip below the hero. It goes on its own and
-  // not inside the Promise.all above because it does not depend on the
-  // tournament being loaded: with no tournament, the strip still makes sense.
+  // The universities for the strip under the hero. Loaded separately because
+  // the strip works even when no tournament exists.
   const universities = rows<{ tag: string; name: string }>(
     await supabase.from('universities').select('tag,name').order('tag'),
     'the universities',
@@ -114,25 +99,21 @@ export default async function Lide2Page() {
   const series = rows<SeriesResultRow>(seriesRes, 'the bracket')
   const fixture = rows<FixtureResultRow>(fixtureRes, 'the fixture')
   const next = CALENDAR.find((milestone) => daysUntil(milestone.date) >= 0)
-  // What the hero shows once the final has been played and `next` runs out.
+  // Shown in the hero once the final is played.
   const champion = championOf(series)
-  // Who each group slot of the bracket can still turn out to be. It reads the
-  // two rows above and asks the database nothing of its own.
+  // Who can still take each group slot of the bracket, from the rows above.
   const slots = projectBracketSlots(standings, fixture)
 
   return (
     <TeamFocus teams={focusTeams(fixture)} className="flex flex-col gap-10">
-      {/* The section bar goes inside: it closes the hero, it does not follow it. */}
+      {/* The section bar is part of the hero. */}
       <Hero next={next} champion={champion} sections={SECTIONS} />
 
       <UniversityStrip universities={universities} />
 
       {/*
-        The red "the seed still has to be run" banner is for whoever administers
-        the site. A visitor can do nothing with it: all it tells them is that
-        the page is broken. Without a session nothing is shown and the rest of
-        the home page - the calendar, the venue, the countdown - still makes
-        sense.
+        The "run the seed" banner is for admins only; visitors see the rest of
+        the page, which still works without a tournament.
       */}
       {!tournamentId && user && (
         <p className="rounded border border-danger/40 bg-danger-dim px-4 py-3 text-sm text-danger">

@@ -99,6 +99,8 @@ describe('standings table', () => {
     expect(alfa.rows.map((r) => Number(r.kills))).toEqual([20, 14])
   })
 
+  // `team_standings` (0005) is the legacy per-stage view. The group table uses
+  // `group_standings`, which breaks ties by head to head since 0028.
   it('orders by wins and breaks ties on kill difference', async () => {
     const { rows } = await db.query<StandingRow>(
       `select team_name, games, wins, losses, kill_diff::text, position, form
@@ -108,7 +110,7 @@ describe('standings table', () => {
     expect(rows.map((r) => r.team_name)).toEqual(['Charlie', 'Bravo', 'Alfa', 'Delta'])
     expect(rows.map((r) => r.wins)).toEqual([2, 1, 1, 0])
 
-    // Bravo and Alfa are level at 1-1: Bravo goes through on difference (+10 against +6).
+    // Bravo and Alfa are level at 1-1: Bravo ranks higher on kill difference (+10 vs +6).
     const [, bravo, alfa] = rows
     expect(Number(bravo.kill_diff)).toBe(10)
     expect(Number(alfa.kill_diff)).toBe(6)

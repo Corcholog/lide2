@@ -30,16 +30,14 @@ export async function generateMetadata({ params }: PageProps<'/partidas/[id]'>) 
 }
 
 export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>) {
-  // El scoreboard se ve sin sesión. El .rofl no: el bucket es privado y el link
-  // de descarga lo rechaza igual, así que mostrarlo sólo servía para que un
-  // visitante hiciera clic y terminara en el login.
+  // The scoreboard is public. The .rofl download is not (the bucket is
+  // private), so its button is only shown with a session.
   const user = await getUser()
   const { id } = await params
 
   const supabase = await createClient()
-  // Los items y los hechizos venian de una cuarta consulta a `match_players`.
-  // Esa tabla dejo de ser legible sin sesion (tiene el PUUID y el JSON crudo) y
-  // ahora esas tres columnas viajan en el propio scoreboard.
+  // Items and spells come in the scoreboard view, since `match_players` (PUUID
+  // and raw JSON) is not readable without a session.
   const [summaryRes, teamsRes, scoresRes] = await Promise.all([
     supabase.from('match_summaries').select('*').eq('id', id).maybeSingle(),
     supabase.from('match_team_stats').select('*').eq('match_id', id),
@@ -94,9 +92,7 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        {/* Decía "Partidas" y llevaba a la portada. El resto del sitio nombra
-            el destino en la flecha —"← Equipos" va a /equipos, "← Panel" al
-            panel—, así que lo que estaba mal era el href. */}
+        {/* The back arrow names its destination, like the rest of the site. */}
         <Link href="/partidas" className="text-sm text-muted transition-colors hover:text-fg">
           ← Partidas
         </Link>
@@ -121,9 +117,8 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
       <header className="rounded-lg border border-line bg-surface px-6 py-5">
         <div className="flex items-center justify-center gap-6">
           {/*
-            El marcador es lo primero que se lee y los dos nombres son la puerta
-            a cada ficha. Van con `desde` para que la flecha de la ficha del
-            equipo vuelva a esta partida y no al listado de todas.
+            Team names link to their pages, with `desde` so the team page's back
+            arrow returns to this match.
           */}
           <TeamName
             name={summary.blue_team_name}
@@ -171,10 +166,9 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
         </p>
 
         {/*
-          The organizers overturned this result. The game stays - the replay
-          and the scoreboard below are the evidence of what was sanctioned -
-          but neither side is painted as the winner above, and this says what
-          counts instead and what no longer does.
+          The organizers overturned this result. The replay and scoreboard stay
+          as evidence, neither side is shown as the winner above, and this
+          notice explains what counts instead.
         */}
         {summary.annulled && (
           <p className="mt-4 border-l-2 border-accent pl-3 text-sm text-fg-soft">
@@ -221,11 +215,8 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
 }
 
 /**
- * El nombre de un equipo en el encabezado: link cuando hay ficha adonde ir.
- *
- * Una partida sin cruce asignado no tiene equipos —el .rofl trae los diez
- * nicks y nada mas—, y ahi el nombre es texto: un link a ninguna parte es peor
- * que ningun link.
+ * A team name in the header, linked when there is a team page. Matches not yet
+ * assigned to a matchup have no teams, so the name is plain text.
  */
 function TeamName({
   name,

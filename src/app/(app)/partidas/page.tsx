@@ -19,40 +19,23 @@ export const metadata = {
 export const dynamic = 'force-dynamic'
 
 /**
- * The tournament's history.
+ * The match history.
  *
- * The rows are `MatchList`, the same ones a team's page draws, and the detail
- * inside them comes preloaded - `loadMatchDetails` says why in one go and not
- * on demand.
- *
- * THIS PAGE HAS NO FILTERS OF ITS OWN. It reads no query string: it always
- * loads the whole phase, and both cuts - the matchday and the team - are
- * honoured in the browser over the matches this render already sent. That is
- * what the preloading earns: picking a matchday is hiding rows, not fetching
- * anything, and going back to the whole phase is free. `MatchFilters` explains
- * how, and why the URL is still where the choice lives.
- *
- * What it costs is at the other end: a shared `?fecha=2` link now brings the
- * forty matches of the phase and not that matchday's sixteen. That is the
- * weight of the page everybody lands on anyway, and every change of cut after
- * it is free.
+ * Rows are `MatchList`, with details preloaded (see `loadMatchDetails`). The
+ * page reads no query string: it always loads the whole phase, and the matchday
+ * and team filters run in the browser (see `MatchFilters`). A shared
+ * `?fecha=2` link therefore still loads every match, which is the same page
+ * everyone lands on anyway.
  */
 export default async function MatchesPage() {
-  // The list is visible without a session; uploading replays is not.
+  // The list is public; uploading replays needs a session.
   const user = await getUser()
   const supabase = await createClient()
   const tournamentId = await resolveTournamentId(supabase)
 
   /*
-   * The tournament's matches only.
-   *
-   * Without the filter this list showed the whole of `match_summaries`, which
-   * is every .rofl ever uploaded: the test ones, the ones from another
-   * tournament and the ones waiting for somebody to assign them a matchup. None
-   * of that is LIDE 2, and on a public page it reads as if it were.
-   *
-   * The ones that do not have a matchup yet are visible on /admin/asignar,
-   * which is where they need to be seen.
+   * Only this tournament's matches: `match_summaries` also holds test uploads and
+   * matches not yet assigned, which are listed on /admin/asignar.
    */
   const teams = tournamentId
     ? rows<{ id: string; name: string; group_label: string | null }>(
@@ -78,9 +61,8 @@ export default async function MatchesPage() {
     : []
 
   /*
-    The phase, as the two filters see it: a matchday and two ids per match. It
-    is what lets the browser answer how many matches are in the cut and whether
-    any are left - see `cut.ts` - now that neither question goes to the server.
+    Each match reduced to its matchday and team ids, so the browser can count
+    matches in the current filter (see `cut.ts`).
   */
   const cut: MatchCut[] = matches.map((match) => ({
     matchday: match.matchday,
@@ -92,8 +74,7 @@ export default async function MatchesPage() {
     matches.map((match) => match.id),
   )
 
-  // The listing spans patches, but champion names do not change from one to
-  // another: the latest catalogue is enough.
+  // Champion names do not change between patches: the latest catalog is enough.
   const version = await assetVersion(null)
   const champNames = await championNames(version)
 
@@ -101,8 +82,7 @@ export default async function MatchesPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          {/* The same treatment as stats, tables and admin: moving between
-              sections, the title should not change size or shape. */}
+          {/* Same heading style as the other sections. */}
           <h1 className="font-display text-3xl uppercase tracking-tight">Partidas</h1>
           <MatchCount matches={cut} teamIds={teams.map((team) => team.id)} />
         </div>
@@ -121,15 +101,8 @@ export default async function MatchesPage() {
       {matches.length === 0 ? (
         <div className="rounded-lg border border-dashed border-line-strong px-6 py-14 text-center">
           {/*
-            Two texts because these are two different people. With a session
-            this is a working screen and what is missing is uploading the files.
-            With none it is somebody who came to watch the tournament: asking
-            them to upload a .rofl is asking for something they cannot do, in a
-            word they may not even know.
-
-            The third case - a cut that has nothing in it - is not here: which
-            cut is being looked at is decided in the browser, so the note that
-            says so is `MatchFilters`'.
+            Different text for admins (upload replays) and visitors. The empty
+            filter case is handled by `MatchFilters` in the browser.
           */}
           <p className="text-fg-soft">
             {user
@@ -139,10 +112,7 @@ export default async function MatchesPage() {
         </div>
       ) : (
         /*
-          No `highlight`: which team is marked is decided in the browser, and
-          `MatchFilters` writes that rule along with the ones that hide the
-          rows. On a team's page, where the listing is already about one team,
-          it is `MatchList` itself that writes it.
+          No `team` here: `MatchFilters` writes the team underline in the browser.
         */
         <MatchList
           from="partidas"

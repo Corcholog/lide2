@@ -1,9 +1,11 @@
 /**
  * Types for the .rofl parser (League of Legends replays).
  *
- * Format references:
- *  - https://github.com/fraxiinus/roflxd.cs  (Rofl2Reader / RoflReader) - offsets and signatures
- *  - https://github.com/gzordrai/rofl-parser.js (MIT) - the original logic, ported here
+ * The format is undocumented. References:
+ *  - https://github.com/fraxiinus/roflxd.cs (MIT): offsets and signatures
+ *    (Rofl2Reader / RoflReader)
+ *  - https://github.com/gzordrai/rofl-parser.js (Apache-2.0): the parsing
+ *    logic this implementation was ported from
  */
 
 /** ROFL = old format (< 14.9). ROFL2 = new format (>= 14.11). */

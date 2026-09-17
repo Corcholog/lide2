@@ -1,24 +1,17 @@
 import Link from 'next/link'
 import { LoginForm } from '@/components/auth/LoginForm'
 
-/*
- * Without this the tab showed the whole tournament's default title, which says
- * nothing on a sign-in screen. The root layout's template appends the
- * "· LIDE 2" behind it.
- */
+// The layout's title template adds "· LIDE 2".
 export const metadata = { title: 'Entrar' }
 
 export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
   const params = await searchParams
 
   /*
-   * Where it returns to after signing in. It comes from the URL, so anybody can
-   * write it: it has to be a route of this site and nothing else.
-   *
-   * Starting with "/" is not enough: "//othersite.com" starts that way too and
-   * the browser reads it as an absolute URL with no protocol, which would send
-   * somebody who just signed in to a foreign domain.
-   */
+    Where to go after signing in. It comes from the URL, so it must be a path
+    on this site: starting with "/" is not enough, since "//othersite.com" is a
+    protocol-relative URL to another domain.
+  */
   const raw = typeof params.next === 'string' ? params.next : null
   const next = raw && raw.startsWith('/') && !raw.startsWith('//') ? raw : '/'
 
@@ -31,10 +24,8 @@ export default async function LoginPage({ searchParams }: PageProps<'/login'>) {
       <LoginForm next={next} />
 
       {/*
-        This page sits outside the (app) group, so it does not inherit the
-        layout: it has no bar and no footer. Without this link, whoever lands
-        here through an old link or by mistake can only leave with the browser's
-        back button.
+        /login is outside the (app) group, so it has no header or footer; this
+        link is the way back to the site.
       */}
       <Link
         href="/"

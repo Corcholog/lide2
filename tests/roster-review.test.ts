@@ -4,16 +4,12 @@ import { createTestDb } from './helpers/db'
 
 
 /**
- * What the matchday leaves to sort out.
+ * Roster issues left by a matchday.
  *
- * The nicks and the lanes get entered by hand during the week, from whatever
- * people send in. Then it gets played, and the replay is the first hard fact
- * about any of it: somebody changed their nick and did not say so, two of them
- * swapped lanes, a substitute nobody had signed up went in.
- *
- * `roster_review` is that list, per team, and `merge_manual_account()` closes
- * the case that actually loses data - the nick change - by handing the real
- * account the signup its placeholder was holding.
+ * Nicks and lanes are entered by hand before playing; the replay then shows what
+ * actually happened: a nick change, swapped lanes, an unlisted substitute.
+ * `roster_review` lists them per team, and `merge_manual_account()` resolves a
+ * nick change by moving the signup to the real account.
  */
 
 interface ReviewRow {
@@ -45,7 +41,7 @@ describe('roster review', () => {
   let team01: string
   let team07: string
   const matchup: string[] = []
-  const cuenta = new Map<string, string>()
+  const account = new Map<string, string>()
 
   beforeEach(async () => {
     db = await createTestDb()
@@ -78,18 +74,18 @@ describe('roster review', () => {
 
   afterEach(async () => {
     matchup.length = 0
-    cuenta.clear()
+    account.clear()
     await db?.close()
   })
 
-  /** Types a nick into Team 01's roster, the way the team page does. */
-  async function cargar(nick: string, tag: string | null, role?: string) {
+  /** Enters a nick into Team 01's roster, as the team page does. */
+  async function addNick(nick: string, tag: string | null, role?: string) {
     const { rows } = await db.query<{ add_team_account: { player_id: string } }>(
       'select public.add_team_account($1, $2, $3)',
       [team01, nick, tag],
     )
     const playerId = rows[0].add_team_account.player_id
-    cuenta.set(nick, playerId)
+    account.set(nick, playerId)
 
     if (role) {
       await db.query('select public.assign_team_member_role($1, $2, $3)', [team01, playerId, role])
@@ -97,8 +93,8 @@ describe('roster review', () => {
     return playerId
   }
 
-  /** Signs a legal name up on the sheet and matches it with an account. */
-  async function anotar(fullName: string, orderIndex: number, playerId?: string) {
+  /** Adds a legal name to the signup sheet and links it to an account. */
+  async function signUp(fullName: string, orderIndex: number, playerId?: string) {
     const { rows } = await db.query<{ id: string }>(
       `insert into public.team_roster (team_id, full_name, order_index)
        values ($1, $2, $3) returning id`,
@@ -113,16 +109,13 @@ describe('roster review', () => {
   /**
    * Plays a matchday for Team 01 with the given Riot IDs, in lane order.
    *
-   * It walks the same steps as `ingest_match()` and in the same order, instead
-   * of using the `playScoreboard` helper, because the order is the whole point
-   * here: the scoreboard lands first with nothing but PUUIDs, THEN
-   * `adopt_manual_accounts()` gives the real PUUID to the hand-typed row that
-   * matches, and only then are the remaining accounts created. Creating the
-   * `players` rows up front - which is what the shared helper does - skips the
-   * adoption and leaves two rows for every nick that was typed in correctly,
-   * which is exactly the bug this feature is about.
+   * Follows `ingest_match()`'s steps in order instead of using `playScoreboard`:
+   * the scoreboard is inserted with PUUIDs only, `adopt_manual_accounts()` gives
+   * the real PUUID to matching hand-entered rows, and only then are the remaining
+   * accounts created. Creating `players` rows first would skip the adoption and
+   * duplicate every correctly typed nick.
    */
-  async function jugarFecha(matchday: number, nicks: [string, string | null][]) {
+  async function playMatchday(matchday: number, nicks: [string, string | null][]) {
     const lanes = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'SUPPORT']
     const { rows } = await db.query<{ id: string }>(
       `insert into public.matches
@@ -152,7 +145,7 @@ describe('roster review', () => {
       )
     }
 
-    // The three lines of ingest_match(), in its order.
+    // The steps of ingest_match(), in order.
     await db.query('select public.adopt_manual_accounts($1)', [matchId])
     await db.query(
       `insert into public.players (puuid, riot_game_name, riot_tag_line)
@@ -209,17 +202,17 @@ describe('roster review', () => {
   }
 
   it('before matchday 1 nothing is pending: nobody has played yet', async () => {
-    await cargar('Corcho', 'fkc', 'TOP')
-    await cargar('Pachu', '777', 'JUNGLE')
+    await addNick('Corcho', 'fkc', 'TOP')
+    await addNick('Pachu', '777', 'JUNGLE')
 
     expect(await review()).toEqual([])
-    // And the lineup does not accuse anybody of not having played.
+    // The lineup does not mark anyone as not having played.
     expect((await lineup()).every((r) => r.did_not_play === false)).toBe(true)
   })
 
   it('a nick that was typed in and did not turn up is flagged once the team plays', async () => {
-    await cargar('Corcho', 'fkc', 'TOP')
-    await jugarFecha(1, [
+    await addNick('Corcho', 'fkc', 'TOP')
+    await playMatchday(1, [
       ['Alfa', 'arg'],
       ['Bravo', 'arg'],
       ['Charlie', 'arg'],
@@ -227,9 +220,9 @@ describe('roster review', () => {
       ['Eco', 'arg'],
     ])
 
-    const noJugo = (await review()).filter((r) => r.kind === 'no_jugo')
-    expect(noJugo).toHaveLength(1)
-    expect(noJugo[0]).toMatchObject({
+    const didNotPlay = (await review()).filter((r) => r.kind === 'no_jugo')
+    expect(didNotPlay).toHaveLength(1)
+    expect(didNotPlay[0]).toMatchObject({
       name: 'Corcho',
       games: 0,
       is_placeholder: true,
@@ -237,16 +230,16 @@ describe('roster review', () => {
       played_role: null,
     })
 
-    // And the lineup says so where the nick is drawn.
+    // The lineup shows it too.
     const corcho = (await lineup()).find((r) => r.name === 'Corcho')!
     expect(corcho.did_not_play).toBe(true)
-    // Top belongs to whoever played it, not to the one who was promised it.
+    // Top goes to the player who played it, not the one assigned.
     expect((await lineup()).find((r) => r.slot === 1)!.name).toBe('Alfa')
   })
 
   it('four of five recognized and one left over: it suggests the pairing', async () => {
-    // The week's roster. Four of them play under the nick that was typed in;
-    // Corcho shows up as Corchito, which is what a nick change looks like.
+    // The roster entered before the matchday. Four play under their typed nick;
+    // Corcho appears as Corchito, i.e. a nick change.
     for (const [nick, tag] of [
       ['Corcho', 'fkc'],
       ['Bravo', 'arg'],
@@ -254,10 +247,10 @@ describe('roster review', () => {
       ['Delta', 'arg'],
       ['Eco', 'arg'],
     ] as const) {
-      await cargar(nick, tag)
+      await addNick(nick, tag)
     }
 
-    await jugarFecha(1, [
+    await playMatchday(1, [
       ['Corchito', 'zzz'],
       ['Bravo', 'arg'],
       ['Charlie', 'arg'],
@@ -265,9 +258,9 @@ describe('roster review', () => {
       ['Eco', 'arg'],
     ])
 
-    const noJugo = (await review()).filter((r) => r.kind === 'no_jugo')
-    expect(noJugo).toHaveLength(1)
-    expect(noJugo[0]).toMatchObject({
+    const didNotPlay = (await review()).filter((r) => r.kind === 'no_jugo')
+    expect(didNotPlay).toHaveLength(1)
+    expect(didNotPlay[0]).toMatchObject({
       name: 'Corcho',
       suggested_name: 'Corchito',
       suggested_reason: 'unica',
@@ -275,19 +268,19 @@ describe('roster review', () => {
   })
 
   it('the #TAG is the strongest hint, and it wins over the arithmetic', async () => {
-    await cargar('Corcho', 'fkc')
-    await cargar('Pachu', '777')
+    await addNick('Corcho', 'fkc')
+    await addNick('Pachu', '777')
     for (const [nick, tag] of [
       ['Charlie', 'arg'],
       ['Delta', 'arg'],
       ['Eco', 'arg'],
     ] as const) {
-      await cargar(nick, tag)
+      await addNick(nick, tag)
     }
 
-    // Two did not play and two are new, so the "only one left" rule cannot
-    // fire. The tag is what pairs Corcho with Corchito.
-    await jugarFecha(1, [
+    // Two did not play and two are new, so the "only one left" rule does not
+    // apply; the tag pairs Corcho with Corchito.
+    await playMatchday(1, [
       ['Corchito', 'fkc'],
       ['Otro', 'nnn'],
       ['Charlie', 'arg'],
@@ -295,13 +288,13 @@ describe('roster review', () => {
       ['Eco', 'arg'],
     ])
 
-    const noJugo = (await review()).filter((r) => r.kind === 'no_jugo')
-    expect(noJugo).toHaveLength(2)
+    const didNotPlay = (await review()).filter((r) => r.kind === 'no_jugo')
+    expect(didNotPlay).toHaveLength(2)
 
-    const corcho = noJugo.find((r) => r.name === 'Corcho')!
+    const corcho = didNotPlay.find((r) => r.name === 'Corcho')!
     expect(corcho).toMatchObject({ suggested_name: 'Corchito', suggested_reason: 'mismo_tag' })
-    // Pachu's tag matches nobody, and the count rules out the arithmetic.
-    expect(noJugo.find((r) => r.name === 'Pachu')!.suggested_player_id).toBeNull()
+    // Pachu's tag matches nobody, and the counts rule out the other rule.
+    expect(didNotPlay.find((r) => r.name === 'Pachu')!.suggested_player_id).toBeNull()
   })
 
   it('a substitute who played before and sat this one out is never offered for merge', async () => {
@@ -312,19 +305,19 @@ describe('roster review', () => {
       ['Delta', 'arg'],
       ['Eco', 'arg'],
     ] as const) {
-      await cargar(nick, tag)
+      await addNick(nick, tag)
     }
 
-    await jugarFecha(1, [
+    await playMatchday(1, [
       ['Alfa', 'arg'],
       ['Bravo', 'arg'],
       ['Charlie', 'arg'],
       ['Delta', 'arg'],
       ['Eco', 'arg'],
     ])
-    // Eco sits out the second and Foxtrot goes in. Eco has games behind them,
-    // so they are a substitute who did not play - not an old nick to absorb.
-    await jugarFecha(2, [
+    // Eco sits out matchday 2 and Foxtrot plays. Eco already has games, so this is
+    // a substitute, not an old nick to merge.
+    await playMatchday(2, [
       ['Alfa', 'arg'],
       ['Bravo', 'arg'],
       ['Charlie', 'arg'],
@@ -337,20 +330,20 @@ describe('roster review', () => {
   })
 
   it('the merge hands the real account the signup, and the placeholder is gone', async () => {
-    const corcho = await cargar('Corcho', 'fkc')
+    const corcho = await addNick('Corcho', 'fkc')
     for (const [nick, tag] of [
       ['Bravo', 'arg'],
       ['Charlie', 'arg'],
       ['Delta', 'arg'],
       ['Eco', 'arg'],
     ] as const) {
-      await cargar(nick, tag)
+      await addNick(nick, tag)
     }
-    // The legal name behind the nick: this is what would be lost, and with it
-    // which university that person's matches count towards.
-    const rosterId = await anotar('Apellido, Nombre', 0, corcho)
+    // The signup (legal name) is what decides which university the matches count
+    // for, so it must follow the account.
+    const rosterId = await signUp('Apellido, Nombre', 0, corcho)
 
-    await jugarFecha(1, [
+    await playMatchday(1, [
       ['Corchito', 'zzz'],
       ['Bravo', 'arg'],
       ['Charlie', 'arg'],
@@ -358,8 +351,8 @@ describe('roster review', () => {
       ['Eco', 'arg'],
     ])
 
-    const sugerido = (await review()).find((r) => r.kind === 'no_jugo')!.suggested_player_id!
-    const result = await merge(corcho, sugerido)
+    const suggested = (await review()).find((r) => r.kind === 'no_jugo')!.suggested_player_id!
+    const result = await merge(corcho, suggested)
 
     expect(result).toMatchObject({
       ok: true,
@@ -368,21 +361,21 @@ describe('roster review', () => {
       roster_moved: true,
     })
 
-    // The signup now points at the account that actually played.
+    // The signup now points to the account that played.
     const { rows: roster } = await db.query<{ player_id: string }>(
       'select player_id from public.team_roster where id = $1',
       [rosterId],
     )
-    expect(roster[0].player_id).toBe(sugerido)
+    expect(roster[0].player_id).toBe(suggested)
 
     // The placeholder is gone from the roster and from players.
-    const { rows: quedan } = await db.query<{ n: number }>(
+    const { rows: remaining } = await db.query<{ n: number }>(
       'select count(*)::int as n from public.players where id = $1',
       [corcho],
     )
-    expect(quedan[0].n).toBe(0)
+    expect(remaining[0].n).toBe(0)
 
-    // Nothing left pending, and the lineup is the five who played.
+    // Nothing pending, and the lineup is the five who played.
     expect((await review()).filter((r) => r.kind === 'no_jugo')).toEqual([])
     const rows = await lineup()
     expect(rows).toHaveLength(5)
@@ -398,9 +391,9 @@ describe('roster review', () => {
       ['Delta', 'arg'],
       ['Eco', 'arg'],
     ] as const) {
-      await cargar(nick, tag)
+      await addNick(nick, tag)
     }
-    await jugarFecha(1, [
+    await playMatchday(1, [
       ['Alfa', 'arg'],
       ['Bravo', 'arg'],
       ['Charlie', 'arg'],
@@ -411,28 +404,28 @@ describe('roster review', () => {
     const { rows } = await db.query<{ id: string }>(
       `select id from public.players where riot_game_name = 'Alfa'`,
     )
-    const { rows: otra } = await db.query<{ id: string }>(
+    const { rows: other } = await db.query<{ id: string }>(
       `select id from public.players where riot_game_name = 'Bravo'`,
     )
 
-    const result = await merge(rows[0].id, otra[0].id)
+    const result = await merge(rows[0].id, other[0].id)
     expect(result.ok).toBe(false)
     expect(result.error).toContain('ya apareció en un replay')
   })
 
   it('it refuses when each account is already a different signup', async () => {
-    const corcho = await cargar('Corcho', 'fkc')
+    const corcho = await addNick('Corcho', 'fkc')
     for (const [nick, tag] of [
       ['Bravo', 'arg'],
       ['Charlie', 'arg'],
       ['Delta', 'arg'],
       ['Eco', 'arg'],
     ] as const) {
-      await cargar(nick, tag)
+      await addNick(nick, tag)
     }
-    await anotar('Apellido, Nombre', 0, corcho)
+    await signUp('Apellido, Nombre', 0, corcho)
 
-    await jugarFecha(1, [
+    await playMatchday(1, [
       ['Corchito', 'zzz'],
       ['Bravo', 'arg'],
       ['Charlie', 'arg'],
@@ -443,7 +436,7 @@ describe('roster review', () => {
     const { rows } = await db.query<{ id: string }>(
       `select id from public.players where riot_game_name = 'Corchito'`,
     )
-    await anotar('Otra Persona Distinta', 1, rows[0].id)
+    await signUp('Otra Persona Distinta', 1, rows[0].id)
 
     const result = await merge(corcho, rows[0].id)
     expect(result.ok).toBe(false)
@@ -451,7 +444,7 @@ describe('roster review', () => {
   })
 
   it('it refuses an account from another team', async () => {
-    const corcho = await cargar('Corcho', 'fkc')
+    const corcho = await addNick('Corcho', 'fkc')
     const { rows } = await db.query<{ add_team_account: { player_id: string } }>(
       'select public.add_team_account($1, $2, $3)',
       [team07, 'DeOtroLado', 'xyz'],
@@ -463,17 +456,17 @@ describe('roster review', () => {
   })
 
   it('a lane that changed is reported, and the lineup already shows the played one', async () => {
-    // Charlie was written down as mid and played support.
-    const charlie = await cargar('Charlie', 'arg', 'MIDDLE')
+    // Charlie was assigned mid and played support.
+    const charlie = await addNick('Charlie', 'arg', 'MIDDLE')
     for (const [nick, tag] of [
       ['Alfa', 'arg'],
       ['Bravo', 'arg'],
       ['Delta', 'arg'],
     ] as const) {
-      await cargar(nick, tag)
+      await addNick(nick, tag)
     }
 
-    await jugarFecha(1, [
+    await playMatchday(1, [
       ['Alfa', 'arg'],
       ['Bravo', 'arg'],
       ['Eco', 'arg'],
@@ -481,9 +474,9 @@ describe('roster review', () => {
       ['Charlie', 'arg'],
     ])
 
-    const cambio = (await review()).filter((r) => r.kind === 'cambio_de_rol')
-    expect(cambio).toHaveLength(1)
-    expect(cambio[0]).toMatchObject({
+    const roleChanges = (await review()).filter((r) => r.kind === 'cambio_de_rol')
+    expect(roleChanges).toHaveLength(1)
+    expect(roleChanges[0]).toMatchObject({
       player_id: charlie,
       assigned_role: 'MIDDLE',
       played_role: 'SUPPORT',
@@ -496,7 +489,7 @@ describe('roster review', () => {
   })
 
   it('somebody who played and matches no signup is reported as new', async () => {
-    await jugarFecha(1, [
+    await playMatchday(1, [
       ['Alfa', 'arg'],
       ['Bravo', 'arg'],
       ['Charlie', 'arg'],
@@ -504,14 +497,14 @@ describe('roster review', () => {
       ['Eco', 'arg'],
     ])
 
-    const nuevas = (await review()).filter((r) => r.kind === 'nueva')
-    expect(nuevas).toHaveLength(5)
-    expect(nuevas.every((r) => r.games === 1 && !r.linked)).toBe(true)
+    const newOnes = (await review()).filter((r) => r.kind === 'nueva')
+    expect(newOnes).toHaveLength(5)
+    expect(newOnes.every((r) => r.games === 1 && !r.linked)).toBe(true)
   })
 
   it('without a session the review is empty: it runs on the querier permissions', async () => {
-    await cargar('Corcho', 'fkc')
-    await jugarFecha(1, [
+    await addNick('Corcho', 'fkc')
+    await playMatchday(1, [
       ['Alfa', 'arg'],
       ['Bravo', 'arg'],
       ['Charlie', 'arg'],

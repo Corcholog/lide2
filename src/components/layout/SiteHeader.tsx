@@ -6,30 +6,15 @@ import { useEffect, useRef, useState } from 'react'
 import { ThemeToggle } from '@/components/theme/ThemeToggle'
 
 /**
- * The site's bar.
+ * The site header, pinned to the top.
  *
- * It did not fit on a phone: the logo, the five links, the theme button and the
- * sign-in one add up to about 540px of width against the 312 usable on a 360
- * screen. And because <html> carries `overflow-x-clip` - which is there so the
- * home page can break out of the container without producing horizontal scroll
- * - whatever overflowed could not be scrolled to: it was clipped and vanished.
- * Which is to say there was no way to reach Estadísticas or the theme switch
- * from a phone.
+ * From `md` up the links show inline; below that they are behind a menu button,
+ * since they do not fit on a phone (and <html> has `overflow-x-clip`, so
+ * overflow would be unreachable). Section bars dock under this header at
+ * `--site-header`, and `SectionNav` measures it.
  *
- * From `md` up the usual bar shows; below it, the links tuck behind the menu
- * button and the panel drops down under the bar.
- *
- * IT IS PINNED TO THE TOP. Two pages dock a section bar there while you scroll
- * - the tournament's and the stats' - and with the site bar gone that strip
- * looked like the site's whole navigation while leading nowhere except further
- * down the same page: reaching Estadísticas from the bottom of a listing meant
- * scrolling all the way back up. Pinned, the section bar docks UNDER it
- * (`--site-header` is where, and `SectionNav` measures this element to know),
- * so the two read as one stack: where you can go, and where you are.
- *
- * It is a client component because the menu holds state. The sign-out action
- * arrives as a prop from the layout, which is a server component: a server
- * action can be passed like that and the <form> still runs it on the server.
+ * A client component for the menu state. The sign-out server action comes from
+ * the layout as a prop.
  */
 
 export interface NavLink {
@@ -52,13 +37,9 @@ export function SiteHeader({
   const header = useRef<HTMLElement>(null)
 
   /*
-   * Navigating closes the menu. Without this it stays open over the new page,
-   * because the App Router does not unmount the layout on a route change.
-   *
-   * It is adjusted during render and not in a `useEffect`: with the effect,
-   * React first paints the open menu over the new page and only then closes it,
-   * which is a flicker and one render too many. Comparing against the previous
-   * route is the pattern React recommends for this.
+   * Close the menu on navigation: the layout does not unmount between routes.
+   * Adjusted during render, as React recommends, rather than in an effect, which
+   * would paint the open menu over the new page first.
    */
   const [lastPath, setLastPath] = useState(pathname)
   if (pathname !== lastPath) {
@@ -72,8 +53,7 @@ export function SiteHeader({
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false)
     }
-    // A click outside closes it. It goes on `pointerdown` and not on `click`
-    // so it responds before the element underneath does its own thing.
+    // `pointerdown` so it closes before the element underneath reacts.
     const onOutside = (event: PointerEvent) => {
       if (!header.current?.contains(event.target as Node)) setOpen(false)
     }
@@ -86,18 +66,15 @@ export function SiteHeader({
     }
   }, [open])
 
-  /** The section you are in. `/` is the logo, so it does not count here. */
+  /** Whether a link is the current section. `/` is the logo, not a link here. */
   const isCurrent = (href: string) => pathname === href || pathname.startsWith(`${href}/`)
 
   return (
     <header
       ref={header}
       /*
-        The id is not decoration: `SectionNav` reads this element's height to
-        know how far down to dock. It measures rather than parsing
-        `--site-header` because a variable comes back as "3.875rem", and turning
-        that into pixels means guessing the root font size - while the bar
-        itself already knows what it is worth.
+        `SectionNav` reads this element's height by id to know where to dock
+        (measuring is simpler than converting `--site-header` from rem).
       */
       id="barra-del-sitio"
       className="sticky top-0 z-40 h-[var(--site-header)] border-b-2 border-line bg-surface/85 backdrop-blur"
@@ -107,11 +84,7 @@ export function SiteHeader({
           LIDE
         </Link>
 
-        {/*
-          No "Torneo" link: the home page IS the tournament, and the logo on the
-          left already leads there. A nav item pointing at the page you are
-          already on is an invitation to click for nothing.
-        */}
+        {/* No home link: the logo already leads there. */}
         <nav aria-label="Secciones" className="hidden flex-1 gap-4 text-sm md:flex">
           {links.map((link) => (
             <Link
@@ -150,9 +123,7 @@ export function SiteHeader({
       </div>
 
       {open && (
-        // No scrim darkening the page: the click outside already closes it,
-        // and a panel of four links does not need the rest of the site dimmed
-        // to be read. It hangs off the bar, so with the bar pinned it stays.
+        // No backdrop: clicking outside closes it, and the panel is small.
         <div
           id="menu-del-sitio"
           className="absolute inset-x-0 top-full border-b-2 border-line bg-surface shadow-hard md:hidden"
@@ -184,12 +155,8 @@ export function SiteHeader({
 }
 
 /**
- * Who is signed in and how to get out. Not how to get in: that is /login, by
- * hand.
- *
- * The email is the only thing that differs between the two places: in the menu
- * it gets a whole row and always shows, and in the bar it competes with the
- * links, so it only appears once there is room to spare.
+ * The signed-in email and the sign-out button. In the header bar the email only
+ * shows on wide screens; in the menu it always shows.
  */
 function Session({
   email,
@@ -201,15 +168,8 @@ function Session({
   inMenu?: boolean
 }) {
   /*
-   * With no session nothing is drawn, not even a "Sign in".
-   *
-   * The site is for watching the tournament and the only person who needs to
-   * sign in knows /login exists and goes there alone. A sign-in button in the
-   * bar suggests to everybody else that there is something more behind it and
-   * that they are missing out, when all that is behind it is the upload panel.
-   *
-   * /login still exists and still works; what is removed is the sign, not the
-   * door. robots.ts already had it under disallow.
+   * Nothing without a session, not even a sign-in link: visitors have no reason
+   * to sign in, and admins go to /login directly.
    */
   if (!email) return null
 
@@ -232,13 +192,7 @@ function Session({
   )
 }
 
-/**
- * The three bars, which fold into a cross when open.
- *
- * One SVG with the same three lines transformed, and not two different icons:
- * that way the transition reads as the icon folding, which is what says what
- * the button does.
- */
+/** Menu icon: three lines that fold into a cross when open. */
 function MenuIcon({ open }: { open: boolean }) {
   return (
     <svg

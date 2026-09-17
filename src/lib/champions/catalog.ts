@@ -1,24 +1,14 @@
 /**
- * From what somebody typed to the champion they meant.
+ * Resolves typed text to a champion, for the bans form.
  *
- * The bans panel is a text field with a `<datalist>`: you can pick from the
- * list, but you can also type. And whoever enters ten drafts in a row types
- * fast and without accents - "kaisa", "drmundo", "wukong" - so the comparison
- * has to be forgiving or the form turns into a fight.
- *
- * Pure functions on purpose: they ask the network for nothing, they take an
- * already-loaded catalogue (`championCatalog` from src/lib/ddragon.ts) and they
- * are tested without a database or a fetch.
+ * The form is a text field with a `<datalist>`, and names are typed quickly and
+ * without accents ("kaisa", "drmundo", "wukong"), so matching is forgiving.
+ * Pure functions over a catalog loaded with `championCatalog`.
  */
 
 /**
- * The shape everything is compared in: no capitals, no accents and nothing that
- * is not a letter or a digit.
- *
- * With that, "Kai'Sa", "kaisa" and "KAI SA" are the same thing, and so are
- * "Dr. Mundo" and "drmundo", "Nunu y Willump" and "nunuywillump", "Cho'Gath"
- * and "chogath". The apostrophes and dots in these names are exactly what
- * nobody types.
+ * Lower case, no accents, letters and digits only: "Kai'Sa", "kaisa" and
+ * "KAI SA" all become "kaisa"; "Dr. Mundo" becomes "drmundo".
  */
 function normalize(text: string): string {
   return text
@@ -29,12 +19,9 @@ function normalize(text: string): string {
 }
 
 /**
- * The lookup index: from any spelling to the ddragon key.
- *
- * Both ends are indexed - the visible name ("Wukong") and the internal key
- * ("MonkeyKing") - because both circulate. The site shows the name, but the
- * database and the files hold the key, and whoever enters the bans while
- * looking at a scoreboard may type either one.
+ * Lookup index from any spelling to the ddragon key. Indexes both the display
+ * name ("Wukong") and the internal key ("MonkeyKing"), since either may be
+ * typed.
  */
 export function championIndex(catalog: { key: string; name: string }[]): Map<string, string> {
   const index = new Map<string, string>()
@@ -48,12 +35,8 @@ export function championIndex(catalog: { key: string; name: string }[]): Map<str
 }
 
 /**
- * The ddragon key of the champion that was typed, or null when it is none of
- * them.
- *
- * Null and not "whatever came in": storing a made-up champion dirties the meta
- * with a ghost row nobody will be able to explain three weeks later. Better for
- * the form to say it could not find it.
+ * The ddragon key for the typed text, or null when nothing matches, so the
+ * form can report it instead of storing an unknown champion.
  */
 export function resolveChampion(index: Map<string, string>, text: string): string | null {
   const key = normalize(text ?? '')

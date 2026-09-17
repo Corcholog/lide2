@@ -74,8 +74,8 @@ describe('sortRows', () => {
   })
 
   it('the tiebreak is not flipped by the direction', () => {
-    // Even in ascending order the tie is always resolved the same way: if it
-    // flipped, changing direction would move rows that are worth the same.
+    // Ties resolve the same way in both directions, so reversing the order does
+    // not shuffle equal rows.
     const out = sortRows(rows, (row) => row.value, 'asc', byName)
     expect(out.slice(1, 3).map((row) => row.name)).toEqual(['Ahri', 'Darius'])
   })

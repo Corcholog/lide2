@@ -1,38 +1,30 @@
 -- ===========================================================================
--- Enganchar una partida subida con su cruce del fixture.
+-- Linking an uploaded match to its fixture matchup.
 --
--- Este es el paso operativo del torneo, y hay un problema de huevo y gallina
--- que resolver:
+-- Knowing which teams played needs rosters (which Riot account belongs to
+-- which team), resolved by link_match_teams() through PUUID majority against
+-- team_members. But rosters start empty: signup sheets have legal names, not
+-- Riot accounts.
 --
---   * Para saber que equipos jugaron una partida hace falta el plantel: quien
---     es cada cuenta de Riot. Eso lo resuelve link_match_teams() por mayoria de
---     PUUIDs contra team_members.
---   * Pero el plantel no existe. Las planillas de inscripcion tienen nombres
---     legales, no cuentas de Riot, y nadie las emparejo todavia (team_roster
---     esta cargada con los 113 inscriptos y player_id en null).
---
--- La salida es al reves de lo que parece: ASIGNAR EL CRUCE ES LO QUE ENSENA EL
--- PLANTEL. Cuando el panel dice "este replay es Equipo 03 vs Equipo 20", los 5
--- PUUIDs de un lado son el plantel del 03 y los 5 del otro el del 20. A partir
--- de la segunda fecha ya se deduce solo y el panel solo confirma.
---
--- Por eso assign_match_to_fixture() hace las dos cosas de una: engancha el
--- cruce y da de alta a los jugadores que todavia no estaban en ningun equipo.
+-- So assigning the matchup is what teaches the rosters: once the panel says
+-- "this replay is Equipo 03 vs Equipo 20", each side's five PUUIDs are that
+-- team's players. From the second matchday on, orientation can be deduced and
+-- the panel only confirms. assign_match_to_fixture() links the matchup and
+-- registers players who are not on any team yet.
 -- ===========================================================================
 
--- --- Que equipo jugo de un lado ---------------------------------------------
+-- --- Which team played a side ----------------------------------------------
 --
--- Estaba escrito dos veces adentro de link_match_teams. Se saca afuera porque
--- ahora tambien lo necesitan el panel (para sugerir la orientacion) y la
--- asignacion (para deducirla cuando se puede).
+-- Extracted from link_match_teams, since the panel (to suggest orientation) and
+-- the assignment (to deduce it) also need it.
 
 create or replace function public.side_team(p_match_id uuid, p_side smallint)
 returns uuid
 language sql
 stable
 as $$
-  -- Un equipo se asigna a un lado cuando al menos 3 de los 5 jugadores figuran
-  -- en su roster: tolera suplentes y jugadores todavia no cargados.
+  -- A team is assigned to a side when at least 3 of the 5 players are on its
+  -- roster: this tolerates substitutes and players not yet loaded.
   select best.team_id from (
     select tm.team_id, count(*) as n
       from public.match_players mp
@@ -51,14 +43,13 @@ returns void
 language plpgsql
 as $$
 declare
-  -- Los casts a smallint no son adorno: Postgres no resuelve side_team(uuid,
-  -- integer) contra side_team(uuid, smallint), y sin ellos esto falla recien
-  -- cuando alguien lo llama.
+  -- The smallint casts are required: Postgres does not resolve side_team(uuid,
+  -- integer) to side_team(uuid, smallint), and it would only fail when called.
   v_blue uuid := public.side_team(p_match_id, 100::smallint);
   v_red  uuid := public.side_team(p_match_id, 200::smallint);
 begin
-  -- Si los dos lados resuelven al mismo equipo, algo esta mal cargado: no se
-  -- asigna ninguno en vez de inventar un enfrentamiento contra si mismo.
+  -- If both sides resolve to the same team, something is misconfigured: neither
+  -- is assigned rather than inventing a team playing itself.
   if v_blue is not null and v_blue = v_red then
     v_blue := null;
     v_red := null;
@@ -75,14 +66,11 @@ begin
 end;
 $$;
 
--- --- La cola del panel -------------------------------------------------------
+-- --- The panel's queue -----------------------------------------------------
 --
--- Las partidas que todavia no son ningun cruce, con las dos alineaciones al
--- lado. Los nombres viajan armados desde la base porque el panel los muestra y
--- nada mas: asi la pagina no tiene que joinear diez filas por partida.
---
--- Va el Riot game name sin el tag (#ARG): el tag no aporta nada para reconocer
--- a alguien y es la regla del resto del sitio.
+-- Matches not yet linked to a matchup, with both lineups. Names are assembled in
+-- the database, so the page does not join ten rows per match. Riot game names
+-- without the tag, as on the rest of the site.
 
 create view public.unassigned_matches with (security_invoker = on) as
 select
@@ -96,7 +84,7 @@ select
   m.round_label,
   m.blue_team_id,
   m.red_team_id,
-  -- Sugerencia de orientacion: null en la primera fecha, util despues.
+  -- Orientation suggestion: null on the first matchday, useful afterwards.
   public.side_team(m.id, 100::smallint)             as blue_guess,
   public.side_team(m.id, 200::smallint)             as red_guess,
   (
@@ -138,13 +126,13 @@ where not exists (select 1 from public.fixtures f where f.match_id = m.id);
 comment on view public.unassigned_matches is
   'Partidas subidas que todavia no se engancharon a un cruce del fixture.';
 
--- --- Asignar -----------------------------------------------------------------
+-- --- Assign ----------------------------------------------------------------
 
 create or replace function public.assign_match_to_fixture(
   p_match_id      uuid,
   p_fixture_id    uuid,
-  -- Que equipo jugo de azul. Se puede omitir: si algun jugador ya esta
-  -- vinculado, se deduce.
+  -- The team that played blue. Optional: deduced if any player is already
+  -- linked.
   p_blue_team_id  uuid default null
 )
 returns jsonb
@@ -167,9 +155,8 @@ begin
     return jsonb_build_object('ok', false, 'error', 'Esa partida no existe.');
   end if;
 
-  -- Orientacion: la que diga el panel, o la que se pueda deducir. Se intenta
-  -- por los dos lados porque puede pasar que uno de los dos equipos ya tenga
-  -- plantel cargado y el otro no.
+  -- Orientation: as given by the panel, or deduced. Both sides are tried, since
+  -- one team may already have a roster and the other not.
   v_blue := p_blue_team_id;
 
   if v_blue is null then
@@ -199,9 +186,8 @@ begin
     return jsonb_build_object('ok', false, 'error', 'Ese equipo no juega este cruce.');
   end if;
 
-  -- Una partida es un cruce y uno solo: si estaba enganchada a otro, se libera.
-  -- Hay un indice unico parcial sobre fixtures.match_id que lo garantiza, pero
-  -- fallar con un error de constraint no le explica nada a nadie.
+  -- A match belongs to one matchup only; release it from any other. A partial
+  -- unique index guarantees this, but a constraint error explains nothing.
   update public.fixtures set match_id = null
    where match_id = p_match_id and id <> p_fixture_id;
 
@@ -211,9 +197,8 @@ begin
      set blue_team_id  = v_blue,
          red_team_id   = v_red,
          tournament_id = v_fixture.tournament_id,
-         -- Las etiquetas de texto quedan alineadas con el cruce. match_context
-         -- ya no las mira cuando hay fixture, pero team_standings (la vista
-         -- vieja, de antes del calendario) si.
+         -- Keep the text labels aligned with the matchup. match_context ignores
+         -- them when there is a fixture, but the older team_standings view uses them.
          stage_label   = v_fixture.group_label,
          round_label   = 'Fecha ' || v_fixture.matchday
    where id = p_match_id;
@@ -222,10 +207,9 @@ begin
      set team_id = case when side = 100 then v_blue else v_red end
    where match_id = p_match_id;
 
-  -- Aprender el plantel. Solo los que no estan en ningun equipo: a alguien que
-  -- ya tiene equipo no se lo muda solo, porque un jugador en dos alineaciones
-  -- es una partida mal asignada o alguien jugando donde no debe, y las dos
-  -- cosas las tiene que mirar una persona.
+  -- Learn the rosters, only for players not on any team: a player on two
+  -- lineups means a wrong assignment or someone playing elsewhere, which an
+  -- admin must check.
   with alta as (
     insert into public.team_members (team_id, player_id)
     select case when mp.side = 100 then v_blue else v_red end, mp.player_id
@@ -263,12 +247,11 @@ $$;
 comment on function public.assign_match_to_fixture(uuid, uuid, uuid) is
   'Engancha una partida a su cruce, vincula los equipos y da de alta a los jugadores que no tenian.';
 
--- --- Desasignar ---------------------------------------------------------------
+-- --- Unassign --------------------------------------------------------------
 --
--- Para arreglar una asignacion equivocada. NO da de baja lo que se aprendio del
--- plantel: que el cruce estuviera mal no quiere decir que esos cinco no jueguen
--- juntos, y los planteles se editan desde /equipos. Los equipos de la partida
--- se vuelven a deducir con lo que se sepa.
+-- Fixes a wrong assignment. It does not undo what was learned for rosters (the
+-- five may still play together; rosters are edited from /equipos). The match's
+-- teams are deduced again from what is known.
 
 create or replace function public.unassign_match(p_match_id uuid)
 returns jsonb

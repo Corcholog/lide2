@@ -1,11 +1,8 @@
 import Link from 'next/link'
 
 /**
- * A team, a player or a match that does not exist.
- *
- * The pages call `notFound()` when the query comes back empty, and without this
- * they landed on Next's generic screen, outside the site. Here they at least
- * stay inside, with the navigation in place and a way back.
+ * 404 for teams, players and matches that do not exist, rendered inside the
+ * site layout.
  */
 export default function NotFound() {
   return (

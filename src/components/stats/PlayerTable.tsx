@@ -2,17 +2,13 @@
 
 import Link from 'next/link'
 import { SortableTable, type Column } from '@/components/table/SortableTable'
-import { formatNumber, formatPosition, ROLES } from '@/lib/format'
+import { formatNumber, formatPercent, formatPosition, ROLES } from '@/lib/format'
 import type { SortOrder } from '@/lib/table/sort'
 import { playerPath, teamPath } from '@/lib/routes'
 
 /**
- * Every player within the scope, with all of their columns.
- *
- * It honours the matchday and group scope, and sorts by whatever you like: it
- * is the one that answers "who does the most damage among Group C's junglers?".
- * Each player's page is reached from here, which is the only route there is:
- * the /jugadores index was removed and the route now returns a 404.
+ * Every player in the scope, with all their columns, sortable. It is also the
+ * main way to reach player pages.
  */
 
 export interface PlayerRow {
@@ -90,7 +86,7 @@ export function PlayerTable({ rows, initial }: { rows: PlayerRow[]; initial: Sor
     {
       id: 'victorias',
       label: 'V–D',
-      title: 'Victorias y losses',
+      title: 'Victorias y derrotas',
       sort: (row) => (row.games === 0 ? null : row.wins / row.games),
       cell: (row) => (
         <>
@@ -118,7 +114,7 @@ export function PlayerTable({ rows, initial }: { rows: PlayerRow[]; initial: Sor
       label: 'KP',
       title: 'Participación en las kills de su equipo',
       sort: (row) => row.killParticipation,
-      cell: (row) => `${Math.round(row.killParticipation * 100)}%`,
+      cell: (row) => formatPercent(row.killParticipation),
     },
     {
       id: 'dano',

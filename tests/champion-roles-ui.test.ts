@@ -3,17 +3,14 @@ import { championRoles, formatRoles } from '@/lib/format'
 import { byRole, championsInRole, parseRole, scopeCounts } from '@/lib/stats/tables'
 
 /*
- * The two halves of showing a champion's roles that do not live in SQL: the
- * order they are read in, and the filter that decides which champions a role
- * shows.
+ * The parts of champion roles handled in TypeScript: display order and the
+ * role filter.
  *
- * The views hand the roles over as an unordered set on purpose, so the order is
- * this side's job and is the thing worth pinning down: the main role leads -
- * it is the answer to "what is this champion" - and the rest follow by lane,
- * which is how a team is read everywhere else on the site.
+ * The views return roles unordered, so ordering is tested here: the main role
+ * first, then the rest in lane order.
  */
 
-/** The role option the `?rol=` chips produce, by the label people read. */
+/** The role option a `?rol=` chip produces, by its label. */
 function role(label: string) {
   const found = parseRole(label.toLowerCase())
   if (!found) throw new Error(`there is no role called ${label}`)
@@ -47,8 +44,7 @@ describe('the order the roles are read in', () => {
   })
 
   it('keeps a role it has no name for instead of dropping it', () => {
-    // An un-normalized row, or a lane Riot invents next season: something to
-    // see, not something to swallow.
+    // Unknown lanes (unnormalized rows, new Riot values) are kept, not dropped.
     expect(championRoles(['TOP', 'RARO'], 'TOP')).toEqual(['TOP', 'RARO'])
     expect(formatRoles(['TOP', 'RARO'], 'TOP')).toBe('Top, RARO')
   })
@@ -60,11 +56,9 @@ describe('the order the roles are read in', () => {
 
 describe('which champion rows a role asks for', () => {
   /*
-   * `champion_meta` returns, for one scope, the row of each champion whole and
-   * one row per role it was played in. Choosing a role is choosing which of
-   * those to read - so the numbers on screen are that role's - and not throwing
-   * rows away, which is what it used to do and is why a filtered Camille showed
-   * the stats of her three picks when only one of them was the role asked for.
+   * `champion_meta` returns, per scope, a whole-champion row and one row per
+   * role played. Choosing a role selects the matching rows, so the numbers shown
+   * are that role's only.
    */
   const rows = [
     { champion: 'Camille', all_roles: true, position: 'TOP', picks: 3 },
@@ -87,7 +81,7 @@ describe('which champion rows a role asks for', () => {
   it('gives the numbers of that role and not of the champion', () => {
     const support = championsInRole(rows, role('Soporte'))
 
-    // One pick, not three: this is the whole point of the change.
+    // One pick, not three: the numbers are the role's only.
     expect(support.map((row) => [row.champion, row.picks])).toEqual([
       ['Camille', 1],
       ['Thresh', 4],
@@ -95,12 +89,12 @@ describe('which champion rows a role asks for', () => {
   })
 
   it('takes a champion by a role that is not its commonest', () => {
-    // Camille's main lane is top, and she still has to answer to support.
+    // Camille's main lane is top, but she still appears under support.
     expect(championsInRole(rows, role('Soporte')).map((row) => row.champion)).toContain('Camille')
   })
 
   it('never mixes the whole-champion row into a filtered table', () => {
-    // That row would double the champion and carry the wrong numbers with it.
+    // A whole-champion row would duplicate the champion with the wrong numbers.
     expect(championsInRole(rows, role('Top')).every((row) => !row.all_roles)).toBe(true)
     expect(championsInRole(rows, role('Top')).map((row) => row.picks)).toEqual([2])
   })
@@ -110,9 +104,8 @@ describe('which champion rows a role asks for', () => {
   })
 
   it('still fills the table from a view that has no role dimension yet', () => {
-    // The column arrives with 0030 and the code deploys before the migration
-    // is run. Every row of the old view is a whole champion, and the unfiltered
-    // table - the one everybody lands on - has to keep working.
+    // Views older than 0030 have no `all_roles`, and every row is a whole
+    // champion; the unfiltered table must keep working.
     const old = [
       { champion: 'Camille', position: 'TOP', picks: 3 },
       { champion: 'Thresh', position: 'SUPPORT', picks: 4 },
@@ -124,9 +117,8 @@ describe('which champion rows a role asks for', () => {
 
 describe('the size of the scope', () => {
   /*
-   * It is read off a whole-champion row and never off a per-role one: ask for a
-   * role nobody played and there are no rows of that kind, and the page would
-   * answer "nothing has been played here" about a tournament that is half over.
+   * Read from a whole-champion row, never a per-role one: a role nobody played
+   * has no rows, and the page would report nothing played.
    */
   const rows = [
     { champion: 'Camille', all_roles: true, matches: 31, matches_with_bans: 4 },
@@ -138,8 +130,7 @@ describe('the size of the scope', () => {
   })
 
   it('survives a view that has no role dimension yet', () => {
-    // The trap that broke the page: read as truthy, a missing `all_roles` finds
-    // nothing and the whole tables page falls into its "nothing played" state.
+    // A truthy check on a missing `all_roles` would find nothing and empty the page.
     const old = [{ champion: 'Camille', matches: 31, matches_with_bans: 4 }]
 
     expect(scopeCounts(old)).toEqual({ matches: 31, withDraft: 4 })
@@ -152,9 +143,8 @@ describe('the size of the scope', () => {
 
 describe('the role filter for players', () => {
   /*
-   * Players keep the old behaviour, and should: `player_phase_totals.position`
-   * is a `mode()`, so this picks who is drawn and their averages still hold
-   * every game they played, filling in another lane included.
+   * Players still filter rows: `player_phase_totals.position` is the lane played
+   * most, and their averages include every game.
    */
   const players = [
     { player_id: 'p1', position: 'JUNGLE' },

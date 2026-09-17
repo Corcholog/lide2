@@ -1,11 +1,9 @@
 import type { PGlite } from '@electric-sql/pglite'
+import { ROLES } from '../../src/lib/format'
 
 /**
- * Builds a match by hand: the `matches` row and one player a side.
- *
- * One player a side is enough because the views sum by side, and it saves the
- * 10 rows of a real scoreboard in tests that do not look at individual stats.
- * For real ingest there are the .rofl fixtures.
+ * Builds a match by hand: the `matches` row and one player per side. Enough for
+ * views that sum by side; the .rofl fixtures cover real ingestion.
  */
 export interface PlayMatchOptions {
   blueTeamId?: string | null
@@ -91,11 +89,8 @@ export async function playMatch(db: PGlite, options: PlayMatchOptions): Promise<
 }
 
 /**
- * One scoreboard line: a player with their numbers.
- *
- * Everything has a default because each test looks at two or three columns, and
- * filling in ten fields per player to exercise the vision ranking is pure
- * noise.
+ * One scoreboard line. Every field has a default, since each test only looks at
+ * a few columns.
  */
 export interface PlayerLine {
   puuid: string
@@ -128,18 +123,12 @@ export interface ScoreboardOptions {
   minutes?: number
 }
 
-const POSITIONS = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'SUPPORT']
 
 /**
- * Builds a match with the whole scoreboard, the way the ingest leaves it.
- *
- * Unlike playMatch (one player a side, which is enough for the views that sum
- * by side), this is needed for everything that looks at the player: MVP, kill
- * participation, individual rankings and per-university attribution.
- *
- * It also creates the `players` row and links it, which is what ingest_match()
- * does: without that, player_id stays null and a person's university cannot be
- * resolved.
+ * Builds a match with a full scoreboard, as ingestion leaves it. Needed for
+ * anything per player (MVP, kill participation, rankings, university
+ * attribution). Also creates and links the `players` rows, as ingest_match()
+ * does, so player_id and universities resolve.
  */
 export async function playScoreboard(db: PGlite, options: ScoreboardOptions): Promise<string> {
   const {
@@ -211,7 +200,7 @@ export async function playScoreboard(db: PGlite, options: ScoreboardOptions): Pr
           teamId,
           line.puuid,
           line.champion ?? 'Ahri',
-          line.position ?? POSITIONS[index % POSITIONS.length],
+          line.position ?? ROLES[index % ROLES.length],
           side === winningSide,
           line.kills ?? 0,
           line.deaths ?? 0,

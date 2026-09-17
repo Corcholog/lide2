@@ -10,32 +10,22 @@ import { createTestDb } from './helpers/db'
 import { playScoreboard } from './helpers/matches'
 
 /**
- * The batch of pieces.
+ * The batch of Instagram pieces.
  *
- * Nearly everything here is pure functions over what the database returns, so
- * they are tested without a database. At the end there is a full run against
- * embedded Postgres, which is the only thing that verifies the views and the
- * batch speak the same language: a misplaced filter returns zero rows without
- * an error, and without this test the symptom would be an empty page on the
- * day of the first matchday.
+ * Mostly pure functions over database rows, tested without a database. The last
+ * block runs against embedded Postgres to check that the views and the batch
+ * agree: a wrong filter returns zero rows without any error.
  */
 
 /**
- * The transport differences between PGlite and PostgREST.
+ * Type parsers matching PostgREST's output.
  *
- * PGlite speaks the Postgres protocol, like node-postgres: `numeric` and
- * `bigint` arrive as text (they do not fit a `number` without losing precision)
- * and dates arrive as `Date`. PostgREST returns JSON: numbers and ISO text.
- *
- * The stats engine does arithmetic with those values (`row.kda.toFixed`,
- * `played_at.localeCompare`), so without this the test fails because of the
- * transport and not because of the code, which is the worst kind of test: red
- * while everything is fine.
- *
- * The dates are left as the protocol's raw text instead of ISO. It is enough
- * for the only thing done with them here, which is comparing to break ties.
+ * PGlite returns `numeric` and `bigint` as text and dates as `Date`, while
+ * PostgREST returns JSON numbers and ISO strings. The stats code does arithmetic
+ * on those values, so without this the tests would fail on transport
+ * differences. Dates stay as raw text, which is enough for ordering ties.
  */
-const COMO_POSTGREST = {
+const AS_POSTGREST = {
   20: Number,
   700: Number,
   701: Number,
@@ -46,11 +36,8 @@ const COMO_POSTGREST = {
 }
 
 /**
- * The same as `loadStats`, against PGlite.
- *
- * The filters are repeated instead of importing the function because that one
- * speaks PostgREST. If the two drift apart, the test at the end shows it: the
- * batch would come out empty.
+ * `loadStats` reimplemented against PGlite (the real one uses PostgREST). If the
+ * filters drift apart, the final test fails with an empty batch.
  */
 async function loadFromDb(db: PGlite, scope: StatScope): Promise<StatsData> {
   const total = scope.matchday === null
@@ -61,11 +48,10 @@ async function loadFromDb(db: PGlite, scope: StatScope): Promise<StatsData> {
     ? [scope.tournamentId, scope.phase]
     : [scope.tournamentId, scope.phase, scope.matchday]
 
-  // One at a time and not with Promise.all: PGlite is a single connection and
-  // concurrent queries hang without an error. In production it is six parallel
-  // trips to Postgres, which does cope.
+  // Sequential, not Promise.all: PGlite is a single connection and concurrent
+  // queries hang without an error.
   const view = async <T>(name: string) =>
-    (await db.query<T>(`select * from public.${name} where ${where}`, params, { parsers: COMO_POSTGREST }))
+    (await db.query<T>(`select * from public.${name} where ${where}`, params, { parsers: AS_POSTGREST }))
       .rows
 
   const recordsWhere = total
@@ -80,7 +66,7 @@ async function loadFromDb(db: PGlite, scope: StatScope): Promise<StatsData> {
   const records = await db.query<MatchRecordRow>(
     `select * from public.match_records where ${recordsWhere}`,
     params,
-    { parsers: COMO_POSTGREST },
+    { parsers: AS_POSTGREST },
   )
 
   return { scope, players, teams, universities, champions, records: records.rows, mvp }
@@ -90,7 +76,7 @@ async function standingsFromDb(db: PGlite, tournamentId: string): Promise<GroupS
   const { rows } = await db.query<GroupStandingRow>(
     'select * from public.group_standings where tournament_id = $1 order by position',
     [tournamentId],
-    { parsers: COMO_POSTGREST },
+    { parsers: AS_POSTGREST },
   )
   return rows
 }
@@ -202,12 +188,12 @@ describe("the matchday's numbers", () => {
       }),
     )!
 
-    const larga = block.rows.find((row) => row.id === 'mas-larga')!
-    const corta = block.rows.find((row) => row.id === 'mas-corta')!
+    const longest = block.rows.find((row) => row.id === 'mas-larga')!
+    const shortest = block.rows.find((row) => row.id === 'mas-corta')!
 
-    expect(larga.display).toBe('45:00')
-    expect(larga.subtitle).toBe('Equipo 01 vs Equipo 12')
-    expect(corta.display).toBe('15:00')
+    expect(longest.display).toBe('45:00')
+    expect(longest.subtitle).toBe('Equipo 01 vs Equipo 12')
+    expect(shortest.display).toBe('15:00')
   })
 
   it('with a single match it does not repeat it as both longest and shortest', () => {
@@ -219,7 +205,7 @@ describe("the matchday's numbers", () => {
   })
 
   it('the closest one is measured by gold, not by kills', () => {
-    // The kill blowout is level on gold; the other was won on gold by a mile.
+    // The largest kill gap is even on gold; the other game has a big gold gap.
     const block = matchdayNumbers(
       data({
         records: [
@@ -233,7 +219,7 @@ describe("the matchday's numbers", () => {
   })
 
   it('ignores matches with no gold when picking the closest one', () => {
-    // An old replay may carry no gold: zero does not mean "it was razor close".
+    // Old replays may have no gold data: zero does not mean a close game.
     const block = matchdayNumbers(
       data({
         records: [
@@ -247,8 +233,8 @@ describe("the matchday's numbers", () => {
   })
 
   it('the closest one shows the gold and not the scoreline', () => {
-    // Showing the kills would make the piece contradict itself: the real
-    // closest game of matchday 1 ended 44-25, with a 1.4k gold gap.
+    // Showing kills would contradict the pick: the closest game by gold can have
+    // a lopsided kill score.
     const block = matchdayNumbers(
       data({ records: [record({ blue_gold: 55_000, red_gold: 50_000 })] }),
     )!
@@ -310,8 +296,8 @@ describe('the group tables', () => {
 
 describe('the batch', () => {
   it('every id in the batch exists in the registry', () => {
-    // The list is editorial and written by hand: a mistyped id breaks nothing,
-    // that piece simply stops going out. This turns it into an error.
+    // The list is hand-written: a mistyped id would silently drop a piece, so the
+    // test makes it an error.
     const known = new Set(STATS.map((stat) => stat.id))
     for (const id of [...BY_MATCHDAY, ...ACCUMULATED]) expect([id, known.has(id)]).toEqual([id, true])
   })
@@ -331,9 +317,8 @@ describe('the batch', () => {
   })
 
   it('the numbers are not numbered; the rankings and the tables are', () => {
-    // Numbering "partidas jugadas, kills totales, la más larga" 1-2-3 would
-    // say one is better than the other, and they are not the same thing
-    // measured: they are different things.
+    // These figures are different measurements, so numbering them would imply a
+    // ranking.
     const posters = buildPosters(data({ records: [record()] }), [standing()])
     const ordered = new Map(posters.map((poster) => [poster.id, poster.ordered]))
 
@@ -347,8 +332,7 @@ describe('the batch', () => {
   })
 
   it('stats with no data stay out instead of going out empty', () => {
-    // There are matches but no players or champions loaded: the MVP and the
-    // meta have nothing to work with, and no blank card should appear.
+    // Matches exist but no players or champions: no empty cards should appear.
     const posters = buildPosters(data({ records: [record()] }), [])
     expect(posters.map((poster) => poster.id)).toEqual(['numeros'])
   })
@@ -401,8 +385,8 @@ describe('the raw data', () => {
   })
 
   it('the CSV carries the raw number as well as the formatted one', () => {
-    // The formatted one is for reading; the raw one is for re-sorting in a
-    // spreadsheet, which is what whoever builds the piece on their own does.
+    // The formatted value is for reading; the raw one for re-sorting in a
+    // spreadsheet.
     expect(toCsv(block)).toContain('"17.37"')
   })
 })
@@ -411,7 +395,7 @@ describe('the batch against the real database', () => {
   let db: PGlite
   let tournamentId: string
 
-  /** The same scope, but with the id that exists: `scope()` uses a fake one. */
+  /** The same scope with the real tournament id (`scope()` uses a placeholder). */
   const dbScope = (matchday: number | null): StatScope => ({
     tournamentId,
     phase: 'grupos',
@@ -438,8 +422,8 @@ describe('the batch against the real database', () => {
        returning id, name`,
       [tournamentId, university.rows[0].id],
     )
-    const uno = teams.rows.find((row) => row.name === 'Equipo 01')!.id
-    const siete = teams.rows.find((row) => row.name === 'Equipo 07')!.id
+    const one = teams.rows.find((row) => row.name === 'Equipo 01')!.id
+    const seven = teams.rows.find((row) => row.name === 'Equipo 07')!.id
 
     // Two matchdays, so the total differs from a single matchday's scope.
     for (const matchday of [1, 2]) {
@@ -448,7 +432,7 @@ describe('the batch against the real database', () => {
            (tournament_id, group_label, matchday, slot, kickoff, team_a_id, team_b_id)
          values ($1, 'Grupo A', $2, 1, '2026-09-05T17:00:00Z', $3, $4)
          returning id`,
-        [tournamentId, matchday, uno, siete],
+        [tournamentId, matchday, one, seven],
       )
 
       const matchId = await playScoreboard(db, {
@@ -477,7 +461,7 @@ describe('the batch against the real database', () => {
       await db.query('select public.assign_match_to_fixture($1, $2, $3)', [
         matchId,
         fixture.rows[0].id,
-        uno,
+        one,
       ])
     }
   }, 60_000)
@@ -497,7 +481,7 @@ describe('the batch against the real database', () => {
     expect(ids).toContain('mvp')
     expect(ids).toContain('quinteto')
     expect(ids).toContain('tabla-grupo-a')
-    // With no bans entered there is no bans piece, which is manual and optional.
+    // Without bans entered there is no bans piece (it is optional).
     expect(ids).not.toContain('bans')
   })
 

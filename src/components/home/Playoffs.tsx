@@ -7,10 +7,8 @@ import { teamPath } from '@/lib/routes'
 import type { SeriesResultRow } from '@/types/db'
 
 /*
- * The three playoff rounds. `round` is the value the database stores and the
- * one that gets filtered on; `short` is what fits in the tab: at 390px the
- * three share about 104px each and "Cuartos de final" breaks onto three lines.
- * The long name is already in the section's subtitle.
+ * The playoff rounds. `round` is the value stored in the database; `short` is
+ * the tab label on phones, where the full name would wrap.
  */
 const ROUNDS = [
   { round: 'Cuartos de final', short: 'Cuartos' },
@@ -19,25 +17,15 @@ const ROUNDS = [
 ]
 
 /**
- * The team that goes into an empty slot, or null while there is none to name.
+ * The team to show in an empty quarter-final slot, or null.
  *
- * TWO CONDITIONS, both needed. The team has to have played every game of its
- * group, and the slot has to be settled - it takes that place however the games
- * still to come turn out. Anything short of that shows nothing at all: no list
- * of possibles, no hedge.
+ * Only when the team has played all its group games and the slot is settled
+ * (it lands there in every scenario). `projection.ts` can often tell earlier,
+ * but the bracket waits so the last matchday keeps its suspense; that is a
+ * display choice, which is why it lives here.
  *
- * The arithmetic knows more than this. The head to head settles most places
- * with a matchday still to go, and the projection can name them. Saying so is
- * what takes the air out of the last matchday, so the bracket waits until a
- * team is actually done. It is a decision about running a tournament and not
- * about being right, which is why it lives here and not in `projection.ts` -
- * that one keeps saying everything it can work out, and this picks what is
- * worth showing.
- *
- * The team the organizers wrote down always wins: once `team_a_id` is filled
- * in, the group phase is over and there is nothing to project. And a slot that
- * comes from another series - the semis and the final - has no group table
- * behind it and keeps its placeholder.
+ * A team entered by the organizers always wins, and semifinal and final slots
+ * have no group behind them, so they keep their placeholder.
  */
 function preview(
   slots: SlotProjection[],
@@ -56,7 +44,7 @@ export function Playoffs({
   slots = [],
 }: {
   series: SeriesResultRow[]
-  /** Who can still fill each group slot, for the quarters nobody has entered yet. */
+  /** Group slot projections, for quarter-final slots not yet filled in. */
   slots?: SlotProjection[]
 }) {
   const inRound = (round: string) => series.filter((item) => item.round === round)
@@ -69,27 +57,15 @@ export function Playoffs({
       </div>
 
       {/*
-        THE BRACKET IS DRAWN TWICE, and CSS picks which one shows.
+        The bracket is rendered twice and CSS shows one.
 
-        A bracket communicates through the shape of the tree: the three rounds
-        side by side, each with half the matchups of the one before. Where there
-        is width that holds and it is shown whole. Where there is not - a phone -
-        it used to be solved with `min-w-3xl` and horizontal scroll: 768px
-        crammed into 390, with "Semifinales" cut in half and no sign that it
-        continued. There one round shows at a time, with the fixture's own tabs.
+        From `md` up, the three rounds sit side by side so the tree shape is
+        visible. Below that, one round at a time behind tabs, like the fixture.
+        `md` rather than `sm`: at 640px the columns are too narrow for team names.
 
-        The breakpoint is `md` (768px) and not `sm`: the grid asked for 3xl
-        precisely because three columns need that width. At 640px each one comes
-        to 197px and the names truncate, which is coming back to the problem
-        from another side. At 768 they are 229px, which is what the original
-        design had.
-
-        It is drawn twice and not switched with JavaScript because `inert` is a
-        DOM attribute and cannot be made conditional per breakpoint from CSS:
-        the tabs' hidden panels have to be inert on the phone and not exist at
-        all on the desktop. With `hidden` the browser takes them out of the
-        accessibility tree, so nothing gets read twice, and they are seven
-        cards: a few extra kilobytes of HTML.
+        Not switched with JavaScript because the tab panels need `inert` on
+        phones, which CSS cannot toggle per breakpoint. `hidden` removes the
+        unused copy from the accessibility tree, so nothing is read twice.
       */}
       <div className="hidden gap-4 md:grid md:grid-cols-3">
         {ROUNDS.map(({ round }) => (
@@ -103,8 +79,7 @@ export function Playoffs({
         ))}
       </div>
 
-      {/* The same `gap-4` as the section: Tabs returns the bar and the panels
-          as siblings and the container separates them. */}
+      {/* Tabs returns the bar and panels as siblings; this gap spaces them. */}
       <div className="flex flex-col gap-4 md:hidden">
         <Tabs
           label="Rondas de playoffs"
@@ -131,10 +106,7 @@ export function Playoffs({
   )
 }
 
-/**
- * One round as a column of the bracket. This is the desktop view: the three
- * side by side form the tree, which is what a bracket has to say.
- */
+/** One round as a bracket column (desktop). */
 function RoundColumn({
   title,
   series,
@@ -155,8 +127,8 @@ function RoundColumn({
         <p className="text-xs text-faint">{date ? dayAndMonth(date) : 'a definir'}</p>
       </div>
 
-      {/* Each column spreads its series down the height so they sit centred
-          against the previous one: four quarters, two semis, one final. */}
+      {/* Series spread over the column's height so they line up with the
+          previous round. */}
       <div className="flex flex-1 flex-col justify-around gap-3">
         {series.map((item) => (
           <SeriesCard key={item.id} series={item} slots={slots} />
@@ -168,13 +140,8 @@ function RoundColumn({
 }
 
 /**
- * The same round as its tab's panel. This is the phone view, where the tree
- * does not fit: a single column, stacked.
- *
- * With no title or date inside, which go in the tab above - same as in the
- * fixture, where the panel does not repeat "Fecha 2" either - and without the
- * column's `justify-around`, which exists to line one round up against the one
- * beside it and here there is none beside it.
+ * One round as a tab panel (phones): a single stacked column. The title and
+ * date are in the tab.
  */
 function Round({
   series,
@@ -248,25 +215,15 @@ function SeriesCard({ series, slots }: { series: SeriesResultRow; slots: SlotPro
 }
 
 /**
- * One side of a series: the team, or where it is going to come from.
+ * One side of a series.
  *
- * Three states now instead of two. With the team entered it is drawn as it
- * always was. With the group finished and the slot settled, the projected name
- * takes the place of the placeholder and goes in red, which is the site's way
- * of saying "this one is in" - the group table paints the two qualifying rows
- * with the same accent. While the group is still being played, everything is
- * shown as what can still happen, settled or not, and the teams that can reach
- * the place go underneath the placeholder.
+ * Three states: the team entered by the organizers; a projected team (group
+ * finished and slot settled), shown in red like the qualifying rows of the
+ * group table; or the slot placeholder ("1º A").
  *
- * Every name that has a team behind it leads to that team's page, the same as
- * in the group tables and in the fixture, and the projected ones lead there
- * too: from a visitor's side there is no difference between a team the
- * organizers entered and one that arithmetic already put there.
- *
- * `data-team` is what hooks those names into the highlight: hovering over a
- * team in the group table lights up the slot it is heading for, which is the
- * whole question somebody looking at a bracket in the middle of the group phase
- * is asking.
+ * Team names, projected ones included, link to the team page. `data-team`
+ * hooks them into TeamFocus, so hovering a team in the group table highlights
+ * the slot it is heading for.
  */
 function SeriesTeam({
   id,
@@ -288,7 +245,7 @@ function SeriesTeam({
   const shown = name ?? settled?.teamName ?? null
   const teamId = id ?? settled?.teamId ?? null
 
-  // Projected: the name is not in the database yet, arithmetic put it there.
+  // Projected: not in the database yet, derived from the group table.
   const projected = !name && settled !== null
   const tone = won
     ? 'font-semibold'
@@ -306,8 +263,8 @@ function SeriesTeam({
           <Link
             href={teamPath(teamId, 'playoffs')}
             data-team={teamId}
-            // The projected name is already accent, so its hover has to move
-            // somewhere: without this it is a link that does not answer.
+            // The projected name is already accent, so its hover uses a
+            // different shade.
             className={`${label} transition-colors ${
               projected ? 'hover:text-accent-soft' : 'hover:text-accent'
             }`}

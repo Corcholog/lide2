@@ -1,48 +1,31 @@
 -- ===========================================================================
--- El meta con filtro por grupo, y una forma de cargar los bans.
+-- Champion stats with a group filter, and hand-entered bans.
 --
--- LO QUE FALTABA. `champion_stats` (0013_publico.sql) recorta el meta por
--- fecha o acumulado, y nada mas. Alcanza para las tarjetas de /estadisticas,
--- que son un top 5 del torneo entero, pero no para mirar "que se jugo en el
--- Grupo B la fecha 2", que es lo primero que pregunta alguien que juega en el
--- Grupo B.
+-- `champion_stats` (0013_publico.sql) only slices by matchday or total, not by
+-- group. A new view is added instead of extending it: `loadStats()` filters it
+-- with {tournament_id, phase, is_total: true}, and adding groups to its grouping
+-- sets would return several rows per champion to the stat cards (and the
+-- Instagram pieces) without any error. `champion_meta` is additive.
 --
--- POR QUE UNA VISTA NUEVA Y NO UNA COLUMNA MAS EN `champion_stats`.
--- `loadStats()` la filtra con {tournament_id, phase, is_total: true}. Si se le
--- agregaran los grupos a los grouping sets, ese mismo filtro pasaria a
--- devolver cinco filas por campeon —el total y una por grupo— y las tarjetas
--- del meta mostrarian el mismo campeon repetido con numeros parciales, sin
--- tirar ningun error. Y esas tarjetas son las que se publican en Instagram
--- desde /admin/cards, asi que el radio de dano incluye lo que sale afuera.
--- `champion_meta` es aditiva: no toca nada de lo que ya anda.
---
--- LOS BANS. La tabla `match_bans` existe desde 0006_tournament.sql y esta
--- vacia: el .rofl no guarda el draft, asi que no hay de donde sacarlo salvo
--- que alguien lo escriba. Por eso `bans`, `ban_rate` y `presence` se miden
--- siempre sobre `matches_with_bans` y no sobre `matches`, y son NULL —no 0—
--- cuando no hay ninguna partida con draft cargado. Cero baneos y "no se sabe"
--- son cosas distintas y no se pueden dibujar igual.
---
--- `set_match_bans` es lo que le falta a esa tabla para poder llenarse.
+-- Bans: `match_bans` exists since 0006_tournament.sql but the .rofl has no draft,
+-- so it is filled by hand. `bans`, `ban_rate` and `presence` are measured over
+-- `matches_with_bans`, and are NULL (not 0) when no match has a draft: zero bans
+-- and "unknown" are different. `set_match_bans` fills the table.
 -- ===========================================================================
 
--- --- 1. El meta, con grupo ----------------------------------------------------
+-- --- 1. Champion stats with groups -----------------------------------------
 --
--- Cuatro recortes en una sola vista, con el mismo truco de grouping sets que
--- usan las vistas de 0010/0013: el acumulado, por fecha, por grupo, y grupo
--- mas fecha. Una consulta con un filtro de igualdad elige cual.
+-- Four scopes in one view via grouping sets, as in 0010/0013: total, per
+-- matchday, per group, and group plus matchday. An equality filter picks one.
 --
--- LAS DOS BANDERAS. `all_groups` y `all_matchdays` dicen cual de los cuatro
--- es, y no se pueden reemplazar por `group_label is null` / `matchday is
--- null`: un group_label nulo puede significar "todos los grupos" (a proposito,
--- porque la fila es del acumulado) o "esta partida todavia no esta enganchada
--- a su cruce" (por accidente, porque match_context no lo pudo resolver). Es el
--- mismo motivo por el que las otras vistas llevan `is_total`.
+-- `all_groups` and `all_matchdays` identify the scope. They cannot be replaced
+-- by `group_label is null` / `matchday is null`: a null group can mean "all
+-- groups" (total row) or "match not linked to its matchup yet". Same reason
+-- the other views have `is_total`.
 --
--- Las partidas sin grupo resuelto arman su propio bucket con
--- all_groups = false y group_label = null. La UI nunca lo pide —solo ofrece
--- los grupos A a D— pero esas partidas si suman a las filas totales, que es
--- exactamente lo que ya hace `champion_stats` hoy.
+-- Matches without a resolved group form their own bucket (all_groups = false,
+-- group_label = null). The UI never requests it, but those matches still count
+-- in the total rows, as in `champion_stats`.
 
 create view public.champion_meta with (security_invoker = off) as
 with picked as (
@@ -56,10 +39,8 @@ with picked as (
     (grouping(s.round_label) = 1)                    as all_matchdays,
     s.champion,
     count(*)                                         as picks,
-    -- Los picks que pasaron por una partida con draft cargado. Es el numerador
-    -- de `presence` y no `picks` a secas: si un campeon se jugo diez veces
-    -- pero solo tres partidas tienen los bans, mezclarlos daria una presencia
-    -- mayor a 1.
+    -- Picks in matches with a draft entered: the numerator of `presence`. Using
+    -- all picks could push presence above 1.
     count(*) filter (where hb.match_id is not null)  as picks_with_bans,
     count(*) filter (where s.win)                    as wins,
     sum(s.kills)                                     as kills,
@@ -98,8 +79,7 @@ banned as (
     (c.tournament_id, c.phase, b.champion, c.group_label, c.matchday, c.round_label)
   )
 ),
--- El denominador de las tres tasas: cuantas partidas tiene el recorte, y de
--- esas cuantas tienen el draft cargado.
+-- The rates' denominators: matches in the scope, and how many have a draft.
 scope as (
   select
     c.tournament_id,
@@ -120,9 +100,8 @@ scope as (
     (c.tournament_id, c.phase, c.group_label, c.matchday, c.round_label)
   )
 ),
--- La union es lo que hace que un campeon que se baneo siempre y no se jugo
--- nunca aparezca igual en la tabla. Sin esto el meta diria que no existe,
--- cuando en realidad es el mas respetado del torneo.
+-- The union makes a champion that was always banned and never played still
+-- appear in the table.
 keys as (
   select tournament_id, phase, group_label, matchday, round_label,
          all_groups, all_matchdays, champion from picked
@@ -153,8 +132,8 @@ select
   coalesce(b.bans, 0)                                as bans,
   sc.matches,
   coalesce(sc.matches_with_bans, 0)                  as matches_with_bans,
-  -- Las tres tasas, todas NULL cuando su denominador es cero. Un campeon con
-  -- 0 picks no tiene 0% de winrate: no tiene winrate.
+  -- All three rates are NULL when their denominator is zero: a champion with 0
+  -- picks has no win rate, not 0%.
   round(coalesce(p.picks, 0)::numeric / nullif(sc.matches, 0), 3) as pick_rate,
   case
     when coalesce(sc.matches_with_bans, 0) > 0
@@ -196,14 +175,12 @@ left join scope sc
 comment on view public.champion_meta is
   'El meta de campeones en cuatro recortes a la vez: acumulado, por fecha, por grupo y grupo+fecha. all_groups y all_matchdays eligen cual. bans, ban_rate y presence se miden solo sobre matches_with_bans, y son NULL si no hay ningun draft cargado.';
 
--- --- 2. Cargar el draft a mano ------------------------------------------------
+-- --- 2. Entering a draft by hand -------------------------------------------
 --
--- Reemplaza los bans de una partida enteros: los diez que se manden son los
--- que quedan. Va en SQL y no como delete + insert desde la server action por
--- el mismo motivo que `assign_match_to_fixture` (0011_asignacion.sql): dos
--- viajes a Postgres pueden dejar la partida con CERO bans si el insert falla
--- despues del delete, y eso se lee como "esta partida no tiene draft" sin que
--- nadie se entere de que se perdio algo que ya estaba cargado.
+-- Replaces a match's bans entirely. Done in SQL rather than delete + insert from
+-- the server action, like `assign_match_to_fixture` (0011_asignacion.sql): two
+-- round trips could leave zero bans if the insert failed after the delete,
+-- which would silently read as "no draft".
 
 create or replace function public.set_match_bans(
   p_match_id   uuid,
@@ -240,16 +217,14 @@ begin
     return jsonb_build_object('ok', false, 'error', 'Orden de ban inválido: ' || v_mal || '.');
   end if;
 
-  -- LA GRAFIA. `champion_meta` une picks y bans por igualdad exacta de texto,
-  -- y las dos puntas escriben distinto: el .rofl guarda "FiddleSticks" y
-  -- ddragon dice "Fiddlesticks". Sin esta linea ese campeon saldria DOS VECES
-  -- en la tabla del meta, una con los picks y otra con los bans, cada una con
-  -- la mitad de los numeros. Se adopta la grafia que ya usa la base para los
-  -- campeones que alguna vez se jugaron; para el resto no hay contra que
-  -- comparar y queda lo que vino (la app ya lo normaliza contra ddragon).
+  -- Spelling: `champion_meta` joins picks and bans by exact text, and the .rofl
+  -- writes "FiddleSticks" while ddragon writes "Fiddlesticks". Without this the
+  -- champion would appear twice, picks and bans split. The spelling already
+  -- stored for played champions is adopted; others are kept as sent (the app
+  -- already normalizes against ddragon).
   --
-  -- Los vacios se descartan y no se guardan: un equipo puede pasar un ban, y
-  -- ahi ese order_index simplemente no existe.
+  -- Empty entries are dropped: a team can skip a ban, and that order_index
+  -- simply does not exist.
   with crudas as (
     select
       (e->>'side')::smallint              as side,
@@ -279,8 +254,8 @@ begin
     into v_entradas
     from limpias l;
 
-  -- En un draft no se puede banear dos veces al mismo, asi que un repetido es
-  -- casi siempre un error de carga: alguien se salteo un casillero.
+  -- A champion cannot be banned twice in a draft; a duplicate is almost always
+  -- a skipped slot.
   select e->>'champion'
     into v_repetido
     from jsonb_array_elements(v_entradas) e
@@ -311,22 +286,19 @@ comment on function public.set_match_bans(uuid, jsonb, uuid) is
 
 revoke execute on function public.set_match_bans(uuid, jsonb, uuid) from public, anon, authenticated;
 
--- --- 3. `match_summaries` con el recorte y el estado del draft -----------------
+-- --- 3. `match_summaries` with scope columns and draft state ---------------
 --
--- Cinco columnas al final. Las 29 de arriba van repetidas tal cual porque
--- `create or replace view` no deja renombrar ni reordenar: solo agregar.
+-- Five columns appended; the existing ones are repeated as is because
+-- `create or replace view` only allows appending.
 --
--- OJO CON `security_invoker`. Va explicito otra vez aunque la vista ya lo
--- tenga: al reemplazarla se pierde la opcion y vuelve al default, y el sintoma
--- es que la lista de partidas queda vacia SOLO para quien no tiene sesion, sin
--- ningun error. En desarrollo, siempre logueado, se ve perfecta.
+-- `security_invoker` is set explicitly again: replacing the view resets the
+-- option, and the symptom would be an empty match list only for signed-out
+-- visitors, with no error.
 --
--- Para que sirve cada una:
---   matchday / group_label / phase / slot -> los filtros de /partidas salen de
---     un .eq() sobre esta misma vista, sin tener que juntar ids con
---     match_context primero.
---   ban_count -> el badge de "sin draft" del panel, con un count exacto y
---     head: true. Mismo patron que `file_count`.
+--   matchday / group_label / phase / slot -> scope columns for the match list,
+--     without joining match_context.
+--   ban_count -> the panel's "sin draft" badge, via an exact head count, like
+--     `file_count`.
 
 create or replace view public.match_summaries with (security_invoker = off) as
 select

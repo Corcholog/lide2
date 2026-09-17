@@ -1,31 +1,16 @@
 -- ===========================================================================
--- Decir a mano en qué línea juega cada cuenta.
+-- Setting an account's lane by hand.
 --
--- `team_lineup` (0014_plantel.sql) arma la formación mirando qué rol jugó más
--- cada cuenta: sirve una vez que hay replays, pero antes de la fecha 1 no hay
--- de dónde sacarlo, y ahí el equipo entero cae al banco aunque quien cargó los
--- nicks sepa perfectamente quién es el top y quién el soporte porque se lo
--- dijeron en la inscripción.
+-- `team_lineup` (0014_plantel.sql) derives lanes from matches, so before
+-- matchday 1 every account lands on the bench. `team_members.role` (unused since
+-- 0001_init.sql) now stores a hand assignment, set by
+-- `assign_team_member_role`, and the view prefers it over match history.
 --
--- `team_members` ya tiene una columna `role` desde 0001_init.sql que nunca se
--- escribió: esta migración es la que la pone a andar. `assign_team_member_role`
--- la actualiza, y la vista pasa a preferirla por sobre lo que diga el
--- historial de partidas —a mano le gana a lo deducido, porque una persona
--- sabe algo que las partidas todavía no mostraron—. Si mañana esa cuenta
--- juega otra línea, se corrige con el mismo desplegable; nada de esto se
--- deduce solo dos veces.
---
--- LA POOL SIN NUMERAR. El motivo original de esta migración era otro: en la
--- ficha del equipo, un lugar del banco sin rol se llamaba "Suplente 1",
--- "Suplente 2"... un número que sugiere un orden que nadie eligió. Con la
--- asignación a mano ese número deja de hacer falta: quien sabe qué línea
--- juega cada cual lo escribe, y a quien no se le asignó nada le alcanza con
--- verse en una lista sin numerar. El número de banco (`sub_number`) se queda
--- en la vista —sigue haciendo falta para que cada fila tenga una clave— pero
--- la página deja de mostrarlo; eso se resuelve del lado del front, no acá.
+-- Bench slots without a role are no longer numbered in the UI; `sub_number`
+-- stays in the view as a row key.
 -- ===========================================================================
 
--- --- 1. El alta ---------------------------------------------------------------
+-- --- 1. Assigning ----------------------------------------------------------
 
 create or replace function public.assign_team_member_role(
   p_team_id   uuid,
@@ -36,8 +21,8 @@ returns jsonb
 language plpgsql
 as $$
 declare
-  -- Vacío es "sin asignar": limpia lo que hubiera, igual que
-  -- assign_roster_account con player_id en null (0019_asignar_cuenta.sql).
+  -- Empty means "unassigned" and clears it, like assign_roster_account with a
+  -- null player_id (0019_asignar_cuenta.sql).
   v_role   text := nullif(upper(btrim(coalesce(p_role, ''))), '');
   v_nombre text;
 begin
@@ -59,10 +44,8 @@ begin
      and player_id = p_player_id
      and left_at is null;
 
-  -- FOUND despues de un UPDATE dice si tocó alguna fila. Sin esto, pedirle la
-  -- posición de una cuenta que no es de este equipo se guardaría en silencio
-  -- y no se vería en ningún lado: el `where` del update no encuentra fila y
-  -- no rompe nada, pero tampoco avisa.
+  -- FOUND after an UPDATE says whether a row was touched. Without it, setting the
+  -- lane of an account not on this team would silently do nothing.
   if not found then
     return jsonb_build_object(
       'ok', false,
@@ -79,19 +62,15 @@ comment on function public.assign_team_member_role(uuid, uuid, text) is
 
 revoke execute on function public.assign_team_member_role(uuid, uuid, text) from public, anon, authenticated;
 
--- --- 2. La vista, con la asignación de arriba ---------------------------------
+-- --- 2. The view, with hand assignments ------------------------------------
 --
--- Solo cambian tres CTEs: `rol` combina lo deducido de las partidas con lo
--- asignado a mano (a mano gana), `cuentas` lleva la marca de cuál fue, y
--- `ordenadas` la usa para decidir el titular cuando dos cuentas compiten por
--- la misma línea. El resto —banco, lugares, el select final— es igual a
+-- Three CTEs change: `rol` combines match-derived and hand-assigned lanes (hand
+-- wins), `cuentas` records which one applied, and `ordenadas` uses it to pick
+-- the starter when two accounts compete for a lane. The rest matches
 -- 0018_tag_a_la_vista.sql.
 --
--- LO NUEVO va al final del select, como en 0018: `assign_role` es la
--- asignación a mano tal cual está guardada (o null si no hay), separada del
--- `role` de arriba que es la línea EFECTIVA del casillero. Sin la cruda, la
--- ficha no podría precargar el desplegable con lo que ya se eligió: `role`
--- puede venir de las partidas y no decir nada de si alguien lo tocó a mano.
+-- New at the end: `assigned_role`, the hand assignment as stored, separate from
+-- `role` (the slot's effective lane), so the page can preload the dropdown.
 
 create or replace view public.team_lineup with (security_invoker = off) as
 with partidas as (
@@ -116,11 +95,8 @@ rol_manual as (
     from public.team_members tm
    where tm.left_at is null and tm.role is not null
 ),
--- Un full join y no un left/coalesce de las dos tablas por separado: hace
--- falta juntar a alguien que solo aparece de un lado (jugó pero nadie le puso
--- una línea a mano, o se la pusieron y todavía no jugó ni un partido) con
--- alguien que aparece de los dos (jugó Y tiene asignación a mano, y ahí gana
--- la de a mano).
+-- A full join: an account may appear only in matches (played, no hand lane),
+-- only in assignments (assigned, not played yet), or in both (hand wins).
 rol as (
   select
     coalesce(j.team_id, m.team_id)     as team_id,
@@ -148,11 +124,9 @@ ordenadas as (
   select c.*,
          row_number() over (
            partition by c.team_id, c.role
-           -- A mano le gana a lo jugado, y a lo jugado el que más lo jugó.
-           -- Cuando dos cuentas quedan asignadas a mano a la misma línea —un
-           -- error de tipeo, dos personas anotadas de "top"— gana una y la
-           -- otra cae al banco, igual que ya pasaba con dos que rotaban de
-           -- línea y quedaban empatados (ver 0014_plantel.sql).
+           -- Hand assignments beat played lanes, then most games in the lane.
+           -- Two accounts hand-assigned to the same lane: one wins and the other
+           -- goes to the bench (as with tied players in 0014_plantel.sql).
            order by c.asignado_a_mano desc, c.role_games desc, c.games desc, c.player_id
          ) as en_rol
     from cuentas c
@@ -199,8 +173,7 @@ select
   coalesce(ti.games, su.games, 0)                 as games,
   p.riot_game_name                                as game_name,
   p.riot_tag_line                                 as tag_line,
-  -- LO NUEVO: la asignación a mano tal cual está guardada. Ver el comentario
-  -- de arriba de todo.
+  -- New: the hand assignment as stored. See the note at the top.
   coalesce(ti.assigned_role, su.assigned_role)    as assigned_role
 from lugares l
 left join titulares ti on ti.team_id = l.team_id and ti.role = l.role

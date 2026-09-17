@@ -4,11 +4,8 @@ import { UniversityLogo } from '@/components/tournament/UniversityLogo'
 import type { GroupStandingRow } from '@/types/db'
 
 /**
- * The group phase: four tables, two qualifying places each.
- *
- * The grouping happens here and not in the page because it is presentation:
- * the view returns one flat row per team, already ordered by position with the
- * rulebook's tiebreaks applied.
+ * The group phase: four tables, two qualifying places each. The view returns
+ * rows already ordered with the rulebook's tiebreaks; this only groups them.
  */
 export function GroupPhase({ standings }: { standings: GroupStandingRow[] }) {
   const groups = byGroup(standings)
@@ -39,7 +36,7 @@ export function GroupPhase({ standings }: { standings: GroupStandingRow[] }) {
   )
 }
 
-/** Buckets the table by group, honouring the A, B, C, D order. */
+/** Groups the rows by group, in A-D order. */
 function byGroup(standings: GroupStandingRow[]): { label: string; rows: GroupStandingRow[] }[] {
   const groups = new Map<string, GroupStandingRow[]>()
   for (const row of standings) {
@@ -70,21 +67,9 @@ function GroupTable({ label, rows }: { label: string; rows: GroupStandingRow[] }
             <th className="px-2 py-2 text-left font-medium">Equipo</th>
             <th className="w-14 px-2 py-2 text-right font-medium">G-P</th>
             {/*
-              "Dif. de kills" and not "Dif.": it is the difference between the
-              kills the team scored and the ones it conceded. Abbreviated,
-              nobody guesses it.
-
-              IT DOES NOT BREAK TIES, whatever this comment used to say. The
-              rulebook's tiebreak (2.2) is the game between the two teams, and
-              since 0028 that is what orders the table. This column is worth
-              reading - it says how a team wins, not only how often - but it
-              decides nothing, and a reader who takes it for the criterion will
-              read the two top rows wrong exactly when it matters.
-
-              w-16 and the heading wrapped onto two lines. It is a column of
-              two-digit numbers, so giving it the 78px the full heading measures
-              would be taking them from the team's name, which on a phone is the
-              first thing to truncate.
+              Kill difference (kills scored minus conceded). It does not break
+              ties: since 0028 the order follows the rulebook's head to head
+              (2.2). The heading wraps to keep the column narrow for team names.
             */}
             <th className="w-16 px-2 py-2 text-right font-medium">Dif. de kills</th>
           </tr>
@@ -103,10 +88,8 @@ function StandingsRow({ row }: { row: GroupStandingRow }) {
   const qualified = row.position <= 2
 
   return (
-    // The red border on the left, on top of the tinted background: a team
-    // qualifying was said with colour alone, and with red-green colour
-    // blindness - or with the phone in the sun - the five rows look identical.
-    // The bar reads as a shape and does not depend on the hue.
+    // Qualifying rows get a red left border, not only a tint, so the
+    // distinction does not rely on color alone.
     <tr
       data-team={row.team_id}
       className={qualified ? 'bg-accent-dim/40 [box-shadow:inset_3px_0_0_0_var(--accent)]' : ''}
@@ -120,15 +103,8 @@ function StandingsRow({ row }: { row: GroupStandingRow }) {
       </td>
       <td className="px-2 py-2">
         {/*
-          The crest at the side and not inside the second line. Placed there it
-          measured 16px, which for these drawings - UNLP's has a whole scene
-          inside - is a smudge. At the side it spans both lines, so it fits at
-          32px without the row growing a pixel: the height was already set by
-          the name plus the tag.
-
-          Only the main one goes in, even when the team represents three. Three
-          crests would be 96px of width in the column that has to show the name,
-          and the line below already names them all.
+          The main university's crest beside both text lines, at 32px. Only the
+          main one: the line below already names every university.
         */}
         <div className="flex items-center gap-2">
           {row.university_tags[0] && <UniversityLogo tag={row.university_tags[0]} size="md" />}

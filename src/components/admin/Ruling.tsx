@@ -5,20 +5,13 @@ import { setRulingAction, type RulingResult } from '@/app/(app)/admin/actions'
 import { RULINGS } from '@/lib/lide2/rulings'
 
 /**
- * Overturning a played result by the rulebook.
+ * Overturns a played result by ruling (ineligible lineup).
  *
- * The sibling of `Walkover`, and deliberately not the same control. A walkover
- * is a matchup nobody played; this one WAS played, has its replay hooked up,
- * and the organizers decided it does not count - a team fielded a lineup that
- * was not its registered roster. Loading it annuls the whole match: the win
- * changes hands in the standings and nothing from that game counts for any
- * statistic. The replay and the scoreboard stay, marked. See
- * `supabase/migrations/0031_alineacion_indebida.sql`.
- *
- * A dropdown and a confirm, for the same reason as the walkover: two buttons
- * are one misclick away from handing a win to the wrong team. The empty option
- * is what undoes it, and it says what undoing means - the played result comes
- * back.
+ * Unlike `Walkover`, the match was played: setting a ruling annuls it for all
+ * statistics and gives the matchup to the other team, while the replay and
+ * scoreboard stay, marked. See `supabase/migrations/0031_alineacion_indebida.sql`.
+ * A dropdown plus confirm avoids awarding the wrong team with one misclick; the
+ * empty option restores the played result.
  */
 export function Ruling({
   fixtureId,
@@ -29,7 +22,7 @@ export function Ruling({
   fixtureId: string
   teamA: { id: string; name: string }
   teamB: { id: string; name: string }
-  /** Who the ruling already favours, when there is one. */
+  /** The team the current ruling favours, if any. */
   current: string | null
 }) {
   const [state, formAction, pending] = useActionState<RulingResult | null, FormData>(

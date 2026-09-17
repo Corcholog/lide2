@@ -1,30 +1,19 @@
 -- ===========================================================================
--- Cargar un nick a mano, antes de que esa persona juegue.
+-- Adding a nick by hand, before that person plays.
 --
--- `players` se llena sola desde los replays, y eso deja un agujero: el plantel
--- de un equipo no se puede completar hasta que se juegue. Un suplente que
--- todavia no entro, alguien que se sumo despues de la planilla o un equipo
--- entero antes de la fecha 1 no tienen forma de figurar, y la ficha del equipo
--- muestra cinco casilleros vacios aunque el equipo este completo.
+-- `players` is filled from replays, so a roster cannot be completed before
+-- matches are played (substitutes, late additions, whole teams before
+-- matchday 1).
 --
--- EL PROBLEMA. La identidad de una cuenta es el PUUID, y el PUUID solo existe
--- adentro del .rofl: nadie lo sabe de memoria ni figura en ninguna planilla.
--- Una cuenta cargada a mano no tiene con que llenar esa columna.
---
--- LA SALIDA. Se guarda una marca en su lugar —'manual:nombre#tag'— que cumple
--- lo unico que la base le pide al PUUID: ser unica. Y la primera vez que esa
--- persona juega, `adopt_manual_accounts()` le pone el PUUID de verdad ENCIMA DE
--- LA MISMA FILA, en vez de dar de alta una cuenta nueva.
---
--- Eso ultimo es lo que hace que la funcion valga la pena. Sin la adopcion, el
--- alta manual crearia un duplicado garantizado: la persona quedaria dos veces
--- en el plantel —una con 0 partidas para siempre— y habria que limpiarlo a
--- mano. Con la adopcion, el vinculo con el equipo (team_members) y con el
--- inscripto (team_roster.player_id) sobreviven, y lo unico que cambia es que la
--- cuenta pasa a tener partidas.
+-- An account's identity is the PUUID, which only exists inside the .rofl. A
+-- hand-entered account stores a placeholder instead ('manual:name#tag'), unique
+-- like a PUUID. The first time that person plays, `adopt_manual_accounts()`
+-- writes the real PUUID onto the same row instead of creating a new account,
+-- so the links to the team (team_members) and the signup
+-- (team_roster.player_id) survive and there is no duplicate.
 -- ===========================================================================
 
--- --- Adoptar lo que se cargo a mano ------------------------------------------
+-- --- Adopting hand-entered accounts ----------------------------------------
 
 create or replace function public.adopt_manual_accounts(p_match_id uuid)
 returns integer
@@ -42,12 +31,11 @@ begin
      where mp.match_id = p_match_id
        and mp.riot_game_name is not null
        and btrim(mp.riot_game_name) <> ''
-       -- Si el PUUID ya tiene su fila, esta cuenta no es ninguna alta manual.
+       -- If the PUUID already has a row, this is not a hand-entered account.
        and not exists (select 1 from public.players p where p.puuid = mp.puuid)
   loop
-    -- El tag puede faltar de los dos lados: quien cargo el nick pudo escribirlo
-    -- sin #TAG, y hay .rofl viejos que no lo traen. Cuando esta en los dos,
-    -- tiene que coincidir.
+    -- The tag may be missing on either side (typed without #TAG, or old .rofl
+    -- files without one). When both have it, it must match.
     select count(*), min(p.id::text)::uuid
       into v_candidatas, v_player
       from public.players p
@@ -59,9 +47,8 @@ begin
          or lower(btrim(p.riot_tag_line)) = lower(btrim(v_row.riot_tag_line))
        );
 
-    -- Solo cuando es inequivoco, igual que link_roster_accounts(): adoptar la
-    -- fila equivocada le da las partidas de alguien a otra persona, y eso no lo
-    -- ve nadie despues.
+    -- Only when unambiguous, like link_roster_accounts(): adopting the wrong row
+    -- would credit someone's matches to another person, unnoticed.
     if v_candidatas = 1 and v_player is not null then
       update public.players
          set puuid          = v_row.puuid,
@@ -80,7 +67,7 @@ $$;
 comment on function public.adopt_manual_accounts(uuid) is
   'Le pone el PUUID de verdad a las cuentas cargadas a mano que aparecen en una partida, en vez de duplicarlas.';
 
--- --- El alta ------------------------------------------------------------------
+-- --- Adding the account ----------------------------------------------------
 
 create or replace function public.add_team_account(
   p_team_id   uuid,
@@ -106,8 +93,8 @@ begin
     return jsonb_build_object('ok', false, 'error', 'Ese equipo no existe.');
   end if;
 
-  -- Si la cuenta ya existe se reusa, no se duplica: puede ser alguien que ya
-  -- jugo (y entonces esto es sumarlo al plantel) o un alta manual anterior.
+  -- An existing account is reused, not duplicated: someone who already played
+  -- (being added to the roster) or an earlier hand entry.
   if v_tag is not null then
     select count(*), min(id::text)::uuid into v_cuentas, v_player
       from public.players
@@ -118,7 +105,7 @@ begin
       from public.players
      where lower(btrim(riot_game_name)) = lower(v_name);
 
-    -- Un game name suelto se repite entre desconocidos; el Riot ID entero no.
+  -- A bare game name can repeat across strangers; a full Riot ID cannot.
     if v_cuentas > 1 then
       return jsonb_build_object(
         'ok', false,
@@ -139,9 +126,9 @@ begin
       return jsonb_build_object('ok', false, 'error', 'Esa cuenta ya esta en el plantel.');
     end if;
 
-    -- A nadie se lo muda solo de equipo: un jugador en dos alineaciones es un
-    -- cambio de plantel o un error de dedo, y las dos cosas las mira una
-    -- persona. Se saca desde el otro equipo y se vuelve a agregar aca.
+    -- Nobody is moved between teams automatically: a player on two lineups is a
+    -- roster change or a typo, which a person must check. Remove them from the
+    -- other team and add them here.
     select t.name into v_otro
       from public.team_members tm
       join public.teams t on t.id = tm.team_id
@@ -154,8 +141,8 @@ begin
   else
     insert into public.players (puuid, riot_game_name, riot_tag_line)
     values (
-      -- La marca es el Riot ID en minusculas, asi que cargar dos veces el mismo
-      -- nick choca contra el unique de puuid en vez de crear dos cuentas.
+      -- The placeholder is the lower-case Riot ID, so adding the same nick twice
+      -- hits the unique puuid constraint instead of creating two accounts.
       'manual:' || lower(v_name) || coalesce('#' || lower(v_tag), ''),
       v_name,
       v_tag
@@ -167,8 +154,8 @@ begin
 
   insert into public.team_members (team_id, player_id) values (p_team_id, v_player);
 
-  -- Si el nick que se acaba de cargar es el que declaro un inscripto en la
-  -- planilla, quedan emparejados ahora y no cuando juegue.
+  -- If this nick is the one a signup declared, link them now rather than when
+  -- they play.
   perform public.link_roster_accounts(p_team_id);
 
   return jsonb_build_object(
@@ -186,15 +173,12 @@ comment on function public.add_team_account(uuid, text, text) is
 revoke execute on function public.adopt_manual_accounts(uuid) from public, anon, authenticated;
 revoke execute on function public.add_team_account(uuid, text, text) from public, anon, authenticated;
 
--- --- La ingesta adopta antes de dar de alta -----------------------------------
+-- --- Ingestion adopts before inserting players -----------------------------
 --
--- El unico cambio esta marcado abajo: una linea antes del alta de jugadores. Va
--- ahi y no despues porque el upsert siguiente busca por puuid, asi que la fila
--- manual tiene que tener ya el PUUID de verdad para que la encuentre y la
--- actualice en vez de insertar una segunda.
---
--- Se re-declara la funcion entera porque plpgsql no tiene forma de agregarle un
--- pedazo. El resto es igual a 0003_ingest_match.sql.
+-- The only change is marked below, one line before inserting players: the
+-- following upsert looks up by puuid, so the hand-entered row must already have
+-- the real PUUID to be updated instead of duplicated. The function is
+-- redeclared in full; the rest matches 0003_ingest_match.sql.
 
 create or replace function public.ingest_match(payload jsonb)
 returns jsonb
@@ -206,8 +190,8 @@ declare
   v_file      jsonb := payload->'file';
   v_match     jsonb := payload - 'players' - 'file';
 begin
-  -- La huella identifica la partida, no al archivo: los dos equipos suben su
-  -- propio .rofl del mismo juego y son bytes distintos.
+  -- The fingerprint identifies the match, not the file: both teams upload their
+  -- own .rofl of the same game, with different bytes.
   select id into v_match_id
     from public.matches
    where fingerprint = payload->>'fingerprint';
@@ -232,8 +216,8 @@ begin
     v_status := 'duplicate';
   end if;
 
-  -- El archivo se guarda siempre: si la partida ya existia queda como prueba
-  -- adicional (el .rofl del otro equipo).
+  -- The file is always stored: if the match already existed it is kept as extra
+  -- evidence (the other team's .rofl).
   if v_file is not null then
     insert into public.match_files (
       match_id, storage_provider, storage_path, file_name, file_size, sha256,
@@ -252,12 +236,12 @@ begin
     on conflict (sha256) do nothing;
   end if;
 
-  -- LO NUEVO: las cuentas cargadas a mano se quedan con su fila y reciben el
-  -- PUUID que traiga el replay. Ver el comentario de arriba de todo.
+  -- New: hand-entered accounts keep their row and receive the replay's PUUID.
+  -- See the note at the top.
   perform public.adopt_manual_accounts(v_match_id);
 
-  -- Alta o actualizacion de los jugadores detectados. El Riot ID cambia con el
-  -- tiempo; el PUUID no, asi que es la clave.
+  -- Insert or update the detected players, keyed by PUUID (Riot IDs change over
+  -- time).
   insert into public.players (puuid, riot_game_name, riot_tag_line, last_seen_at)
   select
     p->>'puuid',

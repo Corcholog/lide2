@@ -5,18 +5,14 @@ export const runtime = 'nodejs'
 const DDRAGON = 'https://ddragon.leagueoflegends.com'
 const ALLOWED = [
   /^cdn\/[\w.]+\/img\/(champion|item|spell|profileicon)\/[\w.'-]+\.png$/,
-  // The loading screen art, which hangs off no version: see `championLoading`.
+  // Loading screen art has no version in its path (see `championLoading`).
   /^cdn\/img\/champion\/loading\/\w+_\d+\.jpg$/,
 ]
 
 /**
- * Same-origin proxy for Riot's assets.
- *
- * It serves two purposes: letting the Instagram card be exported to PNG without
- * the canvas being tainted by cross-origin images, and keeping the app from
- * depending on the CDN sending CORS headers.
- *
- * The JSON error messages stay in Spanish: they reach the upload panel.
+ * Same-origin proxy for Riot's Data Dragon images, so cards can be exported to
+ * PNG without a tainted canvas and without depending on the CDN's CORS headers.
+ * Error messages are Spanish because they can reach the panel.
  */
 export async function GET(_request: Request, { params }: RouteContext<'/api/ddragon/[...path]'>) {
   const { path } = await params

@@ -1,22 +1,15 @@
 /**
- * Pasting whatever list of Riot IDs the organizers send.
- *
- * There is no telling what format it will arrive in. It could be any of these:
+ * Imports a pasted list of Riot IDs into the signups, whatever its format:
  *
  *   Equipo 15, Dario Ferro, DarioFerro#LAN
  *   Dario Ferro; DarioFerro#LAN
  *   Ferro, Dario    DarioFerro#LAN
  *   15 | Dario Ferro | DarioFerro#LAN | titular
  *
- * So instead of demanding a format, the search works differently: each line
- * gives up its Riot ID (the field with a `#`, or the last one) and what is left
- * is used to find the signups whose names are **all** contained in the line.
- * That survives extra columns, different separators and a reversed "Surname,
- * Name", because it compares loose words and not the whole string.
- *
- * It only applies when there is exactly one candidate signup. With two or more
- * the line is reported as ambiguous and nothing is touched: filing somebody's
- * Riot ID under somebody else's row is a mistake that goes unseen afterwards.
+ * Each line gives up its Riot ID (the field with a `#`, or the last field), and
+ * the rest must contain every word of exactly one signup's name. This tolerates
+ * extra columns, other separators and "Surname, Name". Lines matching several
+ * signups are reported as ambiguous and left untouched.
  */
 
 import { parseRiotId } from '@/lib/format'
@@ -44,11 +37,8 @@ export interface RosterImportResult {
 }
 
 /**
- * The words of a text, made comparable.
- *
- * Without accents (the spreadsheet has them and the lists that arrive over
- * WhatsApp do not) and without punctuation, so "Ferro, Dario" and "Dario Ferro"
- * come out the same.
+ * The words of a text, lower case, without accents or punctuation, so
+ * "Ferro, Dario" and "Dario Ferro" compare equal.
  */
 function words(text: string): string[] {
   return text
@@ -72,8 +62,7 @@ function splitLine(line: string): { riot: string; rest: string } | null {
 
   if (fields.length === 0) return null
 
-  // The field with a '#' is unambiguously the Riot ID. When there is none, the
-  // last one is taken, which is where it usually sits.
+  // A field with '#' is the Riot ID; otherwise it is usually the last field.
   const index = fields.findLastIndex((field) => field.includes('#'))
   const at = index >= 0 ? index : fields.length - 1
 

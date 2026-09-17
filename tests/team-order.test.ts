@@ -2,11 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { parseTeamOrder, sortTeams, type OrderableTeam } from '../src/lib/teams/order'
 
 /**
- * The order teams are listed in on /equipos.
- *
- * What matters here is the win rate: it is not a `team_totals` column - it has
- * to be divided out - and the edge cases are the ones that look odd on screen,
- * above all the team that has not played anything yet.
+ * Team order on /equipos. The win rate is computed (not a `team_totals` column),
+ * and the edge cases are teams that have not played yet.
  */
 
 function team(name: string, wins: number, games: number): OrderableTeam {
@@ -18,7 +15,7 @@ describe('parseTeamOrder', () => {
     expect(parseTeamOrder(undefined)).toBe('alfabetico')
     expect(parseTeamOrder('')).toBe('alfabetico')
     expect(parseTeamOrder('cualquier-cosa')).toBe('alfabetico')
-    // `?orden=winrate&orden=x` arrives as an array: it is nobody's request.
+    // A repeated `?orden=` arrives as an array and is ignored.
     expect(parseTeamOrder(['winrate'])).toBe('alfabetico')
   })
 
@@ -54,7 +51,7 @@ describe('sortTeams', () => {
   })
 
   it('whoever played nothing goes last, not first', () => {
-    // 0 out of 0 is not 0%: it is unknown, and the card shows an em dash.
+    // 0 of 0 is unknown, not 0%; the card shows an em dash.
     const teams = [team('Sin jugar', 0, 0), team('Perdió todo', 0, 4), team('Ganó', 2, 4)]
     expect(sortTeams(teams, 'winrate').map((t) => t.name)).toEqual([
       'Ganó',
@@ -70,10 +67,10 @@ describe('sortTeams', () => {
 
   it('the order is always the same: two identical teams do not take turns', () => {
     const teams = [team('Equipo 02', 2, 4), team('Equipo 01', 2, 4)]
-    const una = sortTeams(teams, 'winrate').map((t) => t.name)
-    const otra = sortTeams([...teams].reverse(), 'winrate').map((t) => t.name)
+    const one = sortTeams(teams, 'winrate').map((t) => t.name)
+    const other = sortTeams([...teams].reverse(), 'winrate').map((t) => t.name)
 
-    expect(una).toEqual(['Equipo 01', 'Equipo 02'])
-    expect(otra).toEqual(una)
+    expect(one).toEqual(['Equipo 01', 'Equipo 02'])
+    expect(other).toEqual(one)
   })
 })

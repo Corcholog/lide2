@@ -3,12 +3,11 @@ import { FINAL_ROUND, championOf, seriesWinner } from '@/lib/lide2/winner'
 import type { SeriesResultRow } from '@/types/db'
 
 /*
- * The champion is what the home page's hero shows once the calendar runs out,
- * so it can only be seen for real the day after the final. That is late to find
- * out that the name is taken from the wrong column, hence these.
+ * The champion shown in the hero after the final. It can only be seen live the
+ * day after the final, so it is tested here.
  */
 
-/** A `series_results` row, with everything the winner does not read left empty. */
+/** A `series_results` row with only the fields the winner logic reads. */
 function series(fields: Partial<SeriesResultRow>): SeriesResultRow {
   return {
     id: 'serie',

@@ -5,30 +5,22 @@ import { rows } from '@/lib/supabase/query'
 import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { RosterImport } from '@/components/admin/RosterImport'
 import { RosterTeam, type UniversityOption } from '@/components/admin/RosterTeam'
+import { Stat } from '@/components/admin/Stat'
 import type { RosterStatusRow, TeamAccountRow } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * The rosters: who is signed up for each team and which Riot account each one
+ * Rosters: who is signed up for each team, and which Riot account each signup
  * is.
  *
- * WHO. The signup sheet predates the tournament and is not final: people drop
- * out, a substitute comes in, a name arrived misspelled. Every row can be
- * edited or removed and new ones added; a team's roster is saved whole, at
- * once.
+ * Signups can be edited, removed and added, and a team's roster is saved as a
+ * whole. Matching a signup to its account decides which university its games
+ * count for: it matters for the mixed teams (13, 15, 16 and 17), and some
+ * universities only have players on those teams.
  *
- * WHICH ACCOUNT. Matching each signup with their Riot account buys one thing:
- * the university. Sixteen of the 20 teams come from a single one, and there the
- * fallback (the team's university) is already exact. The four built from
- * individual signups - 13, 15, 16 and 17 - have 2 out of every 5 misattributed.
- * And there are two universities, UADE and UNCuyo, with a single signup each
- * and both inside mixed teams: without this matching they appear in no table at
- * all.
- *
- * The names on this screen are legal names, from a signup form. They never
- * leave here: `team_roster` is the only table that stays behind the login now
- * that the site is open to the public.
+ * Names here are legal names from the signup form. `team_roster` is only
+ * readable when signed in.
  */
 export default async function RostersPage() {
   await requireUser()
@@ -40,9 +32,8 @@ export default async function RostersPage() {
     .eq('slug', TOURNAMENT.slug)
     .maybeSingle()
 
-  // The teams come from `teams` and not from the signups: a team whose five
-  // were all removed still has to keep its card, which is the only place from
-  // which people can be added back.
+  // Teams come from `teams`, not from signups, so a team whose signups were all
+  // removed keeps its card and can get new ones.
   const [teamsRes, rosterRes, accountsRes, universitiesRes] = await Promise.all([
     supabase.from('teams').select('id,name,group_label').order('name'),
     supabase.from('roster_status').select('*').order('team_name').order('order_index'),
@@ -52,7 +43,7 @@ export default async function RostersPage() {
 
   const teams = rows<{ id: string; name: string; group_label: string | null }>(
     teamsRes,
-    'los equipos',
+    'the teams',
   )
   const roster = rows<RosterStatusRow>(rosterRes, 'the signups')
   const accounts = rows<TeamAccountRow>(accountsRes, 'the linked accounts')
@@ -92,7 +83,12 @@ export default async function RostersPage() {
 
       <dl className="grid grid-cols-2 gap-0.5 bg-line sm:grid-cols-4">
         <Stat label="Inscriptos" value={roster.length} />
-        <Stat label="Emparejados" value={linked} tone={linked === roster.length && linked > 0} />
+        <Stat
+          label="Emparejados"
+          value={linked}
+          tone={linked === roster.length && linked > 0}
+          toneClass="text-ok"
+        />
         <Stat label="Riot ID cargado" value={declared} />
         <Stat label="Cuentas sin dueño" value={orphans} />
       </dl>
@@ -129,15 +125,6 @@ export default async function RostersPage() {
           </div>
         </>
       )}
-    </div>
-  )
-}
-
-function Stat({ label, value, tone }: { label: string; value: number; tone?: boolean }) {
-  return (
-    <div className="bg-surface px-4 py-3 text-fg">
-      <dt className="text-xs uppercase tracking-wide text-faint">{label}</dt>
-      <dd className={`font-display text-2xl tabular-nums ${tone ? 'text-ok' : ''}`}>{value}</dd>
     </div>
   )
 }

@@ -24,10 +24,9 @@ interface ByeRow {
 }
 
 /**
- * A group of 5 with the same skeleton as the real one: in every slot two pairs
- * play and one rests. One group is enough to verify the views; that the whole
- * fixture adds up is checked by tests/fixture.test.ts over the data, with no
- * database.
+ * A group of five shaped like the real ones: each slot has two matchups and one
+ * team resting. The full fixture's consistency is checked without a database in
+ * tests/fixture.test.ts.
  */
 describe('fixture in the database', () => {
   let db: PGlite
@@ -65,8 +64,7 @@ describe('fixture in the database', () => {
       team.set(name, rows[0].id)
     }
 
-    // Team 15 is one of those that came out of individual signups: three
-    // universities, the main one first.
+    // Team 15 is a mixed team: three universities, main one first.
     for (const [index, tag] of ['UNER', 'UADE', 'UNLP'].entries()) {
       await db.query(
         `insert into public.team_universities (team_id, university_id, order_index)
@@ -79,7 +77,7 @@ describe('fixture in the database', () => {
       team.get('Equipo 15'),
     ])
 
-    // Team 01 represents just one.
+    // Team 01 represents a single university.
     await db.query(
       `insert into public.team_universities (team_id, university_id, order_index)
        values ($1, $2, 0)`,
@@ -115,9 +113,8 @@ describe('fixture in the database', () => {
   })
 
   it('shows the matchups as pending while there is no match', async () => {
-    // Within a slot there are two matchups per group and the order between
-    // them means nothing, so they are tiebroken by name so the test does not
-    // depend on the order Postgres returns them in.
+    // Two matchups per group in a slot have no inherent order, so ties are broken
+    // by name for a deterministic result.
     const { rows } = await db.query<FixtureRow>(
       `select * from public.fixture_results
         where tournament_id = $1
@@ -148,7 +145,7 @@ describe('fixture in the database', () => {
   })
 
   it('brings the result once the match is hooked to it', async () => {
-    // Team 10 (blue side) beats 07 by 18 to 6.
+    // Team 10 (blue) beats 07, 18 to 6.
     const matchId = await playMatch(db, {
       blueTeamId: team.get('Equipo 10'),
       redTeamId: team.get('Equipo 07'),
@@ -181,7 +178,7 @@ describe('fixture in the database', () => {
   })
 
   it('flips the result when team A played the red side', async () => {
-    // The matchup says "15 vs 16" but in the match 15 played red and lost.
+    // The matchup lists "15 vs 16", but in the match 15 played red and lost.
     const matchId = await playMatch(db, {
       blueTeamId: team.get('Equipo 16'),
       redTeamId: team.get('Equipo 15'),
@@ -222,13 +219,13 @@ describe('fixture in the database', () => {
 
     const tags = new Map(rows.map((row) => [row.team_name, row.university_tags]))
 
-    // The main one first, then the others in the order the organizers set.
+    // Main university first, then the others in the organizers' order.
     expect(tags.get('Equipo 15')).toEqual(['UNER', 'UADE', 'UNLP'])
     expect(tags.get('Equipo 01')).toEqual(['UNLP'])
   })
 
   it('falls back to the loose university when the team has no list loaded', async () => {
-    // Team 07 never made it into team_universities, but it has a university_id.
+    // Team 07 has no team_universities rows, only a university_id.
     const { rows } = await db.query<{ university_tags: string[] }>(
       `select university_tags from public.group_standings where team_id = $1`,
       [team.get('Equipo 07')],

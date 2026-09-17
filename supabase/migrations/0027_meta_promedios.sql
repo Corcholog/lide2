@@ -1,29 +1,16 @@
 -- ===========================================================================
--- La tabla de campeones muestra promedios, y dos de sus columnas no lo eran.
+-- Averaged columns for the champion table.
 --
--- QUE MOSTRABA. `champion_meta.kda` es la razon del total: todas las kills y
--- asistencias que hizo el campeon divididas por todas sus muertes. Es la misma
--- cuenta que `player_phase_totals.kda` y tiene el mismo problema cuando se la
--- pone en una tabla al lado de "picks": borra las partidas. Un campeon que en
--- una partida hizo 10/0/10 y en otra 0/10/0 queda en 2.00, igual que uno que
--- hizo 5/5/5 dos veces, y no se jugaron parecido.
+-- `champion_meta.kda` is the ratio of totals, which hides individual games (see
+-- 0025). Damage was averaged per pick (`avg_damage`) but not per minute, so
+-- longer games inflated it; `dpm` normalizes that.
 --
--- El dano si era un promedio —`avg_damage` es por pick— pero por partida, y
--- una partida de 20 minutos y una de 45 no se comparan: el que jugo la larga
--- pega mas por haber estado mas tiempo, no por pegar mas fuerte. Por minuto
--- eso se normaliza, que es para lo que existe `dpm` en `player_match_stats`.
+-- The new columns are averaged over the champion's picks, and the table says so.
 --
--- Las dos columnas nuevas se promedian sobre los PICKS del campeon, o sea
--- sobre las partidas en las que se jugo. La tabla lo dice arriba, en el
--- renglon de la seccion, porque un promedio sin denominador a la vista es un
--- numero que cada uno interpreta como quiere.
---
--- NO SE TOCA `kda` NI `avg_damage`. Las dos siguen ahi y las siguen usando las
--- tarjetas de /estadisticas: sacar una columna obliga a tirar la vista y a
--- rehacer todo lo que cuelga de ella, y estas dos no estan mal, son otra
--- pregunta. `create or replace view` solo deja AGREGAR columnas al final, asi
--- que las nuevas van despues de `presence` y hay que repetir la definicion
--- entera de 0021_meta_y_bans.sql.
+-- `kda` and `avg_damage` are kept: the stat cards still use them, and dropping a
+-- column would require rebuilding the view and its dependents. `create or
+-- replace view` only allows appending columns, so the new ones go after
+-- `presence` and the definition from 0021_meta_y_bans.sql is repeated.
 -- ===========================================================================
 
 create or replace view public.champion_meta with (security_invoker = off) as
@@ -38,10 +25,8 @@ with picked as (
     (grouping(s.round_label) = 1)                    as all_matchdays,
     s.champion,
     count(*)                                         as picks,
-    -- Los picks que pasaron por una partida con draft cargado. Es el numerador
-    -- de `presence` y no `picks` a secas: si un campeon se jugo diez veces
-    -- pero solo tres partidas tienen los bans, mezclarlos daria una presencia
-    -- mayor a 1.
+    -- Picks in matches with a draft entered: the numerator of `presence`. Using
+    -- all picks could push presence above 1.
     count(*) filter (where hb.match_id is not null)  as picks_with_bans,
     count(*) filter (where s.win)                    as wins,
     sum(s.kills)                                     as kills,
@@ -50,8 +35,8 @@ with picked as (
     round((sum(s.kills) + sum(s.assists))::numeric / greatest(sum(s.deaths), 1), 2) as kda,
     round(avg(s.damage_to_champions))                as avg_damage,
     round(avg(s.score), 2)                           as avg_score,
-    -- El KDA de cada partida, promediado, y el dano por minuto. Ver el
-    -- comentario de arriba: `kda` de aca al lado es la razon del total.
+    -- Each game's KDA, averaged, and damage per minute. `kda` next to it is the
+    -- ratio of totals.
     round(avg(s.kda), 2)                             as avg_kda,
     round(avg(s.dpm))                                as dpm,
     mode() within group (order by s.position)        as position
@@ -84,8 +69,7 @@ banned as (
     (c.tournament_id, c.phase, b.champion, c.group_label, c.matchday, c.round_label)
   )
 ),
--- El denominador de las tres tasas: cuantas partidas tiene el recorte, y de
--- esas cuantas tienen el draft cargado.
+-- The rates' denominators: matches in the scope, and how many have a draft.
 scope as (
   select
     c.tournament_id,
@@ -106,9 +90,8 @@ scope as (
     (c.tournament_id, c.phase, c.group_label, c.matchday, c.round_label)
   )
 ),
--- La union es lo que hace que un campeon que se baneo siempre y no se jugo
--- nunca aparezca igual en la tabla. Sin esto el meta diria que no existe,
--- cuando en realidad es el mas respetado del torneo.
+-- The union makes a champion that was always banned and never played still
+-- appear in the table.
 keys as (
   select tournament_id, phase, group_label, matchday, round_label,
          all_groups, all_matchdays, champion from picked
@@ -139,8 +122,8 @@ select
   coalesce(b.bans, 0)                                as bans,
   sc.matches,
   coalesce(sc.matches_with_bans, 0)                  as matches_with_bans,
-  -- Las tres tasas, todas NULL cuando su denominador es cero. Un campeon con
-  -- 0 picks no tiene 0% de winrate: no tiene winrate.
+  -- All three rates are NULL when their denominator is zero: a champion with 0
+  -- picks has no win rate, not 0%.
   round(coalesce(p.picks, 0)::numeric / nullif(sc.matches, 0), 3) as pick_rate,
   case
     when coalesce(sc.matches_with_bans, 0) > 0
@@ -151,7 +134,7 @@ select
     then round(
       (coalesce(p.picks_with_bans, 0) + coalesce(b.bans, 0))::numeric / sc.matches_with_bans, 3)
   end                                                as presence,
-  -- Al final porque `create or replace view` solo deja agregar ahi.
+  -- At the end, since `create or replace view` only allows appending there.
   coalesce(p.avg_kda, 0)                             as avg_kda,
   coalesce(p.dpm, 0)                                 as dpm
 from keys k

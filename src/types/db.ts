@@ -1,8 +1,6 @@
 /**
- * Rows of the views the app queries.
- *
- * Written by hand for now; once the Supabase project exists they get replaced
- * by the ones generated with `supabase gen types typescript`.
+ * Row types for the tables and views the app queries, written by hand to match
+ * `supabase/migrations/`. Update them together with the migrations.
  */
 
 export interface MatchSummaryRow {
@@ -36,9 +34,8 @@ export interface MatchSummaryRow {
   blue_team_logo: string | null
   red_team_logo: string | null
 
-  // The slice of the tournament the match belongs to, resolved by
-  // `match_context` (0021_meta_y_bans.sql). It comes from here and not from a
-  // separate query so /partidas' filters are an `.eq()` over this view.
+  // The tournament slice the match belongs to, resolved by `match_context`
+  // (0021_meta_y_bans.sql).
   /** Tournament matchday, 1 to 3. Null in playoffs or when unresolved. */
   matchday: number | null
   group_label: string | null
@@ -47,8 +44,8 @@ export interface MatchSummaryRow {
   /** How many bans are entered by hand. 0 = no draft; the .rofl does not carry it. */
   ban_count: number
   /**
-   * Its matchup was overturned by the rulebook: it stays listed, with its
-   * scoreboard, and counts for no statistic. See 0031_alineacion_indebida.sql.
+   * The matchup was overturned by a ruling: the match stays listed with its
+   * scoreboard but counts for no statistic. See 0031_alineacion_indebida.sql.
    */
   annulled: boolean
   ruling: string | null
@@ -120,27 +117,6 @@ export interface MatchTeamStatsRow {
   team_id: string | null
 }
 
-export interface TeamStandingRow {
-  stage_label: string | null
-  team_id: string
-  team_name: string
-  team_tag: string | null
-  games: number
-  wins: number
-  losses: number
-  win_pct: number
-  kills: number
-  kills_against: number
-  kill_diff: number
-  gold_diff: number
-  avg_minutes: number | null
-  first_played_at: string | null
-  last_played_at: string | null
-  /** The last 5 results, newest first. */
-  form: boolean[] | null
-  position: number
-}
-
 export interface PlayerTotalsRow {
   player_id: string
   riot_game_name: string | null
@@ -175,11 +151,8 @@ export interface PlayerChampionRow {
 }
 
 /**
- * A `player_profiles` row: the public part of a Riot account.
- *
- * No `puuid`. The `players` table is not readable without a session precisely
- * because its key is that identifier, which can be used to ask Riot's API
- * things about that person.
+ * A `player_profiles` row: the public part of a Riot account. It has no
+ * `puuid`, which is why the `players` table is not readable without a session.
  */
 export interface PlayerProfileRow {
   player_id: string
@@ -214,8 +187,8 @@ export interface GroupStandingRow {
   form: boolean[] | null
   position: number
   /**
-   * Every university on the roster, the main one first. Nearly always just one;
-   * the teams built from individual signups have several.
+   * Every university on the roster, main one first. Teams formed from
+   * individual signups have several.
    */
   university_tags: string[]
 }
@@ -281,11 +254,11 @@ export interface FixtureResultRow {
 
   winner_team_id: string | null
   /**
-   * `w.o.` is the matchup that will not be played: the rival did not turn up
-   * within the 15 minutes the rules allow, and it was awarded. It is a separate
-   * value from `pendiente` because that one still might be played.
+   * `w.o.`: awarded because a team did not turn up within the 15 minutes the
+   * rules allow (unlike `pendiente`, which may still be played).
+   * `reglamento`: overturned by the organizers (0031); its match, if any, is
+   * annulled.
    */
-  /** `reglamento`: the organizers overturned it (0031). The match, if any, is annulled. */
   status: 'pendiente' | 'sin resultado' | 'jugado' | 'w.o.' | 'reglamento'
 
   /** Each side's university tags, the main one first. */
@@ -293,33 +266,19 @@ export interface FixtureResultRow {
   team_b_universities: string[] | null
 
   /**
-   * Who took the matchup without playing it. Needed alongside `winner_team_id`
-   * so the fixture can write "W.O." where the scoreline goes.
+   * The team awarded the matchup without playing, so the fixture can show
+   * "W.O." instead of a score.
    */
   walkover_team_id: string | null
-  /** Why the organizers overturned it: a key of RULINGS. Null with no ruling. */
+  /** Why the organizers overturned it: a key of `RULINGS`. Null without a ruling. */
   ruling: string | null
-}
-
-/** A team resting in a slot: one per group sits out each one. */
-export interface FixtureByeRow {
-  tournament_id: string
-  matchday: number
-  slot: number
-  kickoff: string
-  group_label: string
-  team_id: string
-  team_name: string
-  team_logo: string | null
 }
 
 // --- Stats (supabase/migrations/0010_stats.sql) -----------------------------
 //
-// The four accumulated views share the same scope header and return, in the
-// same query, each matchday's row and the row for the whole phase. `is_total`
-// is what tells them apart: the accumulated one has `matchday: null`, but so
-// does a match whose matchday could not be resolved yet, so filtering on
-// `matchday is null` is not enough.
+// The accumulated views return each matchday's rows and the whole-phase rows
+// in the same query, told apart by `is_total`. Filtering on `matchday is null`
+// is not enough: matches whose matchday is unresolved also have it null.
 
 export type StatPhase = 'grupos' | 'playoffs'
 
@@ -371,7 +330,7 @@ export interface PlayerPhaseTotalsRow extends StatScopeColumns {
   avg_vision: number
   wards_placed: number
   wards_killed: number
-  /** Longest streak without dying: it replaces first bloods, which the .rofl lacks. */
+  /** Longest streak without dying (stands in for first blood, which the .rofl lacks). */
   best_killing_spree: number
   best_multi_kill: number
   double_kills: number
@@ -383,12 +342,8 @@ export interface PlayerPhaseTotalsRow extends StatScopeColumns {
   avg_score: number
   mvp_count: number
   /**
-   * The average of each game's KDA, which is not the same as `kda`.
-   *
-   * `kda` is the ratio over the whole slice: every kill and assist divided by
-   * every death. This one averages the per-game ratios, so a deathless game
-   * counts in full instead of being diluted into the totals. See
-   * 0025_kda_promedio.sql.
+   * The average of each game's KDA. Unlike `kda` (the ratio of totals), a
+   * deathless game counts in full. See 0025_kda_promedio.sql.
    */
   avg_kda: number
 }
@@ -419,10 +374,8 @@ export interface TeamPhaseTotalsRow extends StatScopeColumns {
 }
 
 /**
- * A `university_totals` row.
- *
- * It counts by appearance (player-match) and not by match: four teams mix
- * universities, so one match adds to several at once.
+ * A `university_totals` row. Counts by appearance (one player in one match),
+ * because mixed teams add to several universities at once.
  */
 export interface UniversityTotalsRow extends StatScopeColumns {
   university_id: string
@@ -450,26 +403,22 @@ export interface UniversityTotalsRow extends StatScopeColumns {
 }
 
 /**
- * A `champion_stats` row.
- *
- * `bans` and `presence` hold only over the matches whose draft was entered by
- * hand; `matches_with_bans` says over how many, and the UI has to spell it
- * out.
+ * A `champion_stats` row. `bans` and `presence` only cover matches with a draft
+ * entered by hand; `matches_with_bans` says how many, and the UI must show it.
  */
 export interface ChampionStatRow extends StatScopeColumns {
   champion: string
   /** The role it was played in most often. */
   position: string | null
   /**
-   * Every role it was played in, unordered: a champion is not one lane, and
-   * `position` alone hides the rest. Reading order is the UI's - the main one
-   * first, then the others by lane - see `championRoles` in `@/lib/format`.
+   * Every role it was played in, unordered. Display order (main role first,
+   * then by lane) comes from `championRoles` in `@/lib/format`.
    */
   positions: string[]
   picks: number
   wins: number
   losses: number
-  /** NULL - not 0 - for a champion that was only banned: it has no games to win. */
+  /** NULL, not 0, for a champion that was only banned. */
   win_pct: number | null
   kills: number
   deaths: number
@@ -486,15 +435,13 @@ export interface ChampionStatRow extends StatScopeColumns {
 /**
  * A `champion_meta` row (0021_meta_y_bans.sql).
  *
- * The same meta as `champion_stats` but with the group dimension, and with the
- * three rates already computed. Four scopes coexist in the view - accumulated,
- * by matchday, by group, and group+matchday - and the two flags say which row
- * is which. They cannot be replaced by `group_label is null`: that null can
- * mean "every group" or "this match has no group resolved", which is the same
- * problem `is_total` solves in the other views.
+ * Like `champion_stats`, plus the group dimension and precomputed rates. Each
+ * scope (whole phase, matchday, group, group and matchday) has its own rows,
+ * identified by the `all_*` flags. `group_label is null` cannot replace them:
+ * it would also match games with no resolved group.
  *
  * `pick_rate`, `ban_rate` and `presence` are null when their denominator is
- * zero: a champion nobody played does not have a 0% win rate, it has none.
+ * zero.
  */
 export interface ChampionMetaRow {
   tournament_id: string | null
@@ -507,12 +454,9 @@ export interface ChampionMetaRow {
   /** true = the row for the whole phase; false = one matchday's. */
   all_matchdays: boolean
   /**
-   * true = the champion across every role; false = the champion in the one role
-   * `position` names, with every number counted over those picks alone.
-   *
-   * It is a dimension and not a filter, the same as the group and the matchday:
-   * an average cannot be taken apart after the fact, so the row for a role has
-   * to be aggregated as such.
+   * true = the champion across every role; false = only its picks in the role
+   * `position` names (0030). Per-role averages cannot be derived from the whole
+   * row, so the view aggregates them separately.
    */
   all_roles: boolean
 
@@ -532,9 +476,8 @@ export interface ChampionMetaRow {
   avg_damage: number
   avg_score: number
   /**
-   * NULL on a per-role row. A ban is on the champion, not on a lane: "the times
-   * Camille was banned as a support" is not a quantity. Same for `ban_rate` and
-   * `presence`, which are built on it.
+   * NULL on a per-role row: bans apply to a champion, not a lane. The same goes
+   * for `ban_rate` and `presence`.
    */
   bans: number | null
   matches: number
@@ -543,11 +486,7 @@ export interface ChampionMetaRow {
   pick_rate: number | null
   ban_rate: number | null
   presence: number | null
-  /**
-   * The average of each game's KDA, which is not `kda`: that one is the ratio
-   * over the totals. Same distinction as `player_phase_totals`. See
-   * 0027_meta_promedios.sql.
-   */
+  /** The average of each game's KDA, not the ratio of totals. See 0027_meta_promedios.sql. */
   avg_kda: number
   /** Damage to champions per minute, averaged over the champion's picks. */
   dpm: number
@@ -591,11 +530,8 @@ export interface MatchRecordRow {
 /**
  * A `roster_status` row: a signup and their Riot account.
  *
- * `declared_*` is what the sheet says; `linked_*` is the real account, and it
- * only appears once that person has played and got matched.
- *
- * It carries `full_name`, which are legal names: this row never leaves the
- * signed-in side.
+ * `declared_*` is what the signup sheet says; `linked_*` is the matched account.
+ * It includes `full_name` (legal names), so it is only used when signed in.
  */
 export interface RosterStatusRow {
   roster_id: string
@@ -630,9 +566,8 @@ export interface TeamAccountRow {
 /**
  * One slot in a team's lineup, from `team_lineup`.
  *
- * It is a slot, not a player: the five roles always exist and the bench ones
- * come from how many the team signed up. A null `player_id` is a slot whose
- * occupant is not known yet, and it is drawn with the role's name.
+ * The five role slots always exist and bench slots follow the number of
+ * signups. A null `player_id` is a slot with no known occupant yet.
  */
 export interface TeamLineupRow {
   team_id: string
@@ -651,26 +586,22 @@ export interface TeamLineupRow {
   /** The `#TAG`, without the `#`. Null on old accounts that came in without one. */
   tag_line: string | null
   /**
-   * The lane assigned by hand, exactly as stored. Different from `role`: that
-   * one is the slot's EFFECTIVE lane (which since 0023 comes from the matches
-   * whenever there are any); this one is what preloads the edit dropdown. Null
-   * when nobody touched it.
+   * The lane assigned by hand, as stored, used to preload the edit dropdown.
+   * `role` is the effective lane, which comes from played matches when there
+   * are any (0023). Null when never set.
    */
   assigned_role: string | null
   /**
-   * The nick was typed in, the team has already played, and this account was
-   * not in any of it. False for everybody before matchday 1, when nobody has
-   * played yet and the whole lineup is still a promise.
+   * The nick was entered by hand and the team has played without this account.
+   * False for everyone before the first matchday.
    */
   did_not_play: boolean
 }
 
 /**
- * A `roster_review` row: something the matchday left to sort out for a team.
- *
- * Only with a session - the view runs `security_invoker` over tables that have
- * no `anon` policy, so without a login it returns nothing. See
- * `supabase/migrations/0023_plantel_dinamico.sql`.
+ * A `roster_review` row: a roster issue left by the matchday. Only returned with
+ * a session (the view is `security_invoker` over tables with no `anon` policy).
+ * See `supabase/migrations/0023_plantel_dinamico.sql`.
  */
 export interface RosterReviewRow {
   team_id: string
@@ -681,18 +612,18 @@ export interface RosterReviewRow {
   tag_line: string | null
   games: number
   /**
-   * `nueva` played and nobody had typed them in; `no_jugo` was typed in and the
-   * team played without them; `cambio_de_rol` played a different lane than the
-   * one written down. One account can appear under two of them.
+   * `nueva`: played but was not entered; `no_jugo`: entered, but the team played
+   * without them; `cambio_de_rol`: played a different lane than assigned. An
+   * account can appear under two kinds.
    */
   kind: 'nueva' | 'no_jugo' | 'cambio_de_rol'
   assigned_role: string | null
   played_role: string | null
-  /** Never turned up in a replay: it is a placeholder and can be absorbed. */
+  /** Never appeared in a replay, so it can be merged into another account. */
   is_placeholder: boolean
-  /** It was typed in by hand at some point, whether or not it played later. */
+  /** Entered by hand at some point, whether or not it played later. */
   hand_entered: boolean
-  /** Matched with a signup on the sheet. The name itself never leaves the view. */
+  /** Linked to a signup. The signup's name is not exposed by the view. */
   linked: boolean
   /** On `no_jugo`: the account this one probably turned into. */
   suggested_player_id: string | null
