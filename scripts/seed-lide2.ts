@@ -1,15 +1,17 @@
 /**
  * Loads LIDE 2's structure into the database: tournament, universities, the 20
  * teams and their groups, the group-phase fixture and the playoff bracket. The
- * data comes from src/lib/lide2/tournament.ts.
+ * data comes from src/lib/lide2/tournament.ts, and the signups from
+ * private/rosters.json when that file exists (see src/lib/lide2/rosters.ts).
  *
- *   npm run seed:lide2                  structure and fixture
+ *   npm run seed:lide2                  structure, fixture and signups
  *   npm run seed:lide2 -- --qualified   puts each group's top two into the
  *                                       quarter-finals (run when the group
  *                                       phase ends)
  *   npm run seed:lide2 -- --clean       removes what the seed created
  */
-import { ROSTERS } from '../src/lib/lide2/rosters'
+import { existsSync, readFileSync } from 'node:fs'
+import { rosterProblems, type RosterEntry, type Rosters } from '../src/lib/lide2/rosters'
 import {
   CALENDAR,
   GROUPS,
@@ -24,6 +26,9 @@ import { createAdminClient } from '../src/lib/supabase/admin'
 
 const SLUG = TOURNAMENT.slug
 
+/** Not committed: the sheets hold legal names. */
+const ROSTERS_FILE = 'private/rosters.json'
+
 function milestone(id: string): string | null {
   return CALENDAR.find((entry) => entry.id === id)?.date ?? null
 }
@@ -35,8 +40,29 @@ async function findTournament(): Promise<string | null> {
   return (data?.id as string) ?? null
 }
 
+/**
+ * The signup sheets, checked against the declared teams before anything is
+ * written. Without the file the rest is still seeded, and signups can be added
+ * by hand from /admin/planteles.
+ */
+function loadRosters(): Rosters | null {
+  if (!existsSync(ROSTERS_FILE)) {
+    console.log(`  ${ROSTERS_FILE} not found: signups were not loaded.`)
+    return null
+  }
+
+  const rosters = JSON.parse(readFileSync(ROSTERS_FILE, 'utf8')) as Rosters
+  const problems = rosterProblems(rosters)
+  if (problems.length > 0) {
+    throw new Error(`${ROSTERS_FILE}:\n    ${problems.join('\n    ')}`)
+  }
+  return rosters
+}
+
 /** Creates the tournament, the 13 universities, the stages and the bracket's 7 series. */
 async function createStructure(): Promise<string> {
+  const rosters = loadRosters()
+
   const { data: tournament, error } = await supabase
     .from('tournaments')
     .upsert(
@@ -110,7 +136,7 @@ async function createStructure(): Promise<string> {
     console.log('  The stages and the bracket already existed: they were left alone.')
   }
 
-  const teamId = await createTeams(tournamentId, universityId)
+  const teamId = await createTeams(tournamentId, universityId, rosters)
   await createFixtures(tournamentId, teamId)
 
   return tournamentId
@@ -184,8 +210,8 @@ async function createBracket(stageId: Map<string, string>): Promise<void> {
 }
 
 /**
- * Creates or updates the 20 teams and their universities, and returns each
- * team's id by number (for the fixture).
+ * Creates or updates the 20 teams, their universities and their signups, and
+ * returns each team's id by number (for the fixture).
  *
  * `seed` stores the official number and `tag` the signup code, if any. Mixed
  * teams keep their main university in `university_id` and the full list in
@@ -194,6 +220,7 @@ async function createBracket(stageId: Map<string, string>): Promise<void> {
 async function createTeams(
   tournamentId: string,
   universityId: Map<string, string>,
+  rosters: Rosters | null,
 ): Promise<Map<number, string>> {
   const byNumber = new Map<number, string>()
 
@@ -245,7 +272,7 @@ async function createTeams(
       if (error) throw new Error(`universities of ${team.name}: ${error.message}`)
     }
 
-    await upsertRoster(id, team.number, universityId)
+    if (rosters) await upsertRoster(id, team.number, rosters[team.number], universityId)
   }
 
   return byNumber
@@ -258,9 +285,9 @@ async function createTeams(
 async function upsertRoster(
   teamId: string,
   number: number,
+  entries: RosterEntry[],
   universityId: Map<string, string>,
 ): Promise<void> {
-  const entries = ROSTERS[number] ?? []
   if (entries.length === 0) return
 
   const rows = entries.map((entry, index) => ({

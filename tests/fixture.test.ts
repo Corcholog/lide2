@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ROSTERS } from '@/lib/lide2/rosters'
+import { rosterProblems, type Rosters } from '@/lib/lide2/rosters'
 import {
   CALENDAR,
   GROUPS,
@@ -10,12 +10,13 @@ import {
   byesFor,
   teamByNumber,
   teamsOfGroup,
+  type UniversityTag,
 } from '@/lib/lide2/tournament'
 
 /**
- * The fixture and rosters are transcribed by hand from the organizers' sheets,
- * so this checks the transcription: a complete round robin, nobody playing twice
- * in a slot, and totals matching the announced numbers.
+ * The fixture is transcribed by hand from the organizers' sheets, so this
+ * checks the transcription: a complete round robin, nobody playing twice in a
+ * slot, and totals matching the announced numbers.
  */
 describe('LIDE 2 structure', () => {
   it('has 20 teams numbered 1 to 20, with no repeats', () => {
@@ -136,75 +137,57 @@ describe('group-phase fixture', () => {
   })
 })
 
-describe('rosters', () => {
-  it('has a roster for all 20 teams', () => {
-    for (const team of TEAMS) {
-      expect(ROSTERS[team.number], `team ${team.number}`).toBeDefined()
-    }
-    expect(Object.keys(ROSTERS)).toHaveLength(TOURNAMENT.teams)
+describe('signup sheet checks', () => {
+  /** A consistent sheet with made-up names: each team's count, over its universities. */
+  function sheet(): Rosters {
+    return Object.fromEntries(
+      TEAMS.map((team) => [
+        team.number,
+        Array.from({ length: team.roster }, (_, index) => ({
+          name: `Inscripto ${team.number}-${index + 1}`,
+          university: team.universities[index % team.universities.length],
+        })),
+      ]),
+    )
+  }
+
+  it('accepts a sheet that matches the declared teams', () => {
+    expect(rosterProblems(sheet())).toEqual([])
   })
 
-  it('adds up to 113 signups, which is what the organizers announced', () => {
-    const total = Object.values(ROSTERS).reduce((sum, entries) => sum + entries.length, 0)
-    expect(total).toBe(TOURNAMENT.players)
+  it('reports a missing team and one that does not exist', () => {
+    const rosters = sheet()
+    rosters[21] = rosters[1]
+    delete rosters[1]
+
+    expect(rosterProblems(rosters)).toEqual(
+      expect.arrayContaining(['team 21 does not exist', 'team 1 has no roster']),
+    )
   })
 
-  it('matches the signup count each team declares', () => {
-    for (const team of TEAMS) {
-      expect(ROSTERS[team.number], `team ${team.number}`).toHaveLength(team.roster)
-    }
+  it('reports a wrong count, an undeclared university and an empty name', () => {
+    const team = TEAMS.find((candidate) => candidate.universities.length === 1)!
+    const elsewhere = Object.keys(UNIVERSITIES).find((tag) => tag !== team.universities[0])!
+    const rosters = sheet()
+    rosters[team.number] = [
+      ...rosters[team.number].slice(1),
+      { name: '  ', university: team.universities[0] },
+      { name: 'Nombre Ficticio', university: elsewhere as UniversityTag },
+    ]
+
+    expect(rosterProblems(rosters)).toEqual(
+      expect.arrayContaining([
+        `team ${team.number} has ${team.roster + 1} signups, not ${team.roster}`,
+        `team ${team.number} has a signup without a name`,
+        expect.stringContaining('Nombre Ficticio is from'),
+      ]),
+    )
   })
 
-  it("invents no universities and leaves none of the team's out", () => {
-    for (const team of TEAMS) {
-      const onRoster = new Set(ROSTERS[team.number].map((entry) => entry.university))
+  it('reports the same person on two teams, ignoring case', () => {
+    const rosters = sheet()
+    rosters[2][0] = { ...rosters[2][0], name: rosters[1][0].name.toUpperCase() }
 
-      for (const tag of onRoster) {
-        expect(UNIVERSITIES[tag], `universidad ${tag}`).toBeDefined()
-        expect(team.universities, `team ${team.number} no declara ${tag}`).toContain(tag)
-      }
-      // And the reverse: every university a team declares is on its roster.
-      for (const tag of team.universities) {
-        expect(onRoster, `team ${team.number} declares ${tag} with no players`).toContain(tag)
-      }
-    }
-  })
-
-  it("puts the team's most represented university first", () => {
-    for (const team of TEAMS) {
-      const counts = new Map<string, number>()
-      for (const entry of ROSTERS[team.number]) {
-        counts.set(entry.university, (counts.get(entry.university) ?? 0) + 1)
-      }
-
-      const mostPlayers = Math.max(...counts.values())
-      expect(counts.get(team.universities[0]), `team ${team.number}`).toBe(mostPlayers)
-    }
-  })
-
-  it('leaves no empty names and none with the university tag stuck on', () => {
-    for (const [number, entries] of Object.entries(ROSTERS)) {
-      for (const entry of entries) {
-        expect(entry.name.trim(), `team ${number}`).not.toBe('')
-        expect(entry.name, `team ${number}: ${entry.name}`).toBe(entry.name.trim())
-        // Catches university tags pasted onto names when copying the sheet.
-        expect(entry.name, `team ${number}: ${entry.name}`).not.toMatch(
-          new RegExp(`[a-z]${entry.university}$`),
-        )
-      }
-    }
-  })
-
-  it('does not repeat the same person across two teams', () => {
-    const seen = new Map<string, string>()
-    for (const [number, entries] of Object.entries(ROSTERS)) {
-      for (const entry of entries) {
-        const key = entry.name.toLowerCase()
-        expect(seen.has(key), `${entry.name} appears in ${seen.get(key)} and in ${number}`).toBe(
-          false,
-        )
-        seen.set(key, number)
-      }
-    }
+    expect(rosterProblems(rosters)).toContain('INSCRIPTO 1-1 is on teams 1 and 2')
   })
 })

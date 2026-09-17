@@ -39,7 +39,10 @@ npm run dev
 Para la base: `npm run db:sql` imprime todas las migraciones juntas, listas para pegar en el SQL
 editor de Supabase. Después `npm run seed:lide2` escribe la estructura del torneo —universidades,
 los 20 equipos con su grupo, el fixture completo y el cuadro de playoffs— desde
-`src/lib/lide2/tournament.ts`. El usuario del panel se crea a mano en Authentication → Users.
+`src/lib/lide2/tournament.ts`. Los inscriptos de cada equipo se cargan sólo si existe
+`private/rosters.json`, que no está en el repositorio porque son nombres legales (el formato está
+en `src/lib/lide2/rosters.ts`); sin ese archivo se agregan a mano desde `/admin/planteles`. El
+usuario del panel se crea a mano en Authentication → Users.
 
 Las partidas entran de a un `.rofl` por `/admin/upload`. Para cargar muchas de una,
 `npm run ingest -- fixtures --auto` hace exactamente el mismo camino sin browser, y

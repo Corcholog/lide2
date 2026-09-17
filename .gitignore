@@ -43,6 +43,9 @@ next-env.d.ts
 *.rofl
 !fixtures/*.fixture.rofl
 
+# Signup sheets: legal names of real people. Read by scripts/seed-lide2.ts.
+private/
+
 # Supabase CLI artifacts
 supabase/.temp
 
