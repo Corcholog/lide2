@@ -1,49 +1,42 @@
 -- ===========================================================================
--- Un resultado que la organizacion anula por reglamento.
+-- A result the organizers overturn by ruling.
 --
--- EL CASO. Fecha 2, turno 1, Equipo 06 vs Equipo 17: el 17 gano jugando, 25 a
--- 23, con una alineacion que no era la de su plantel habilitado —dos perfiles
--- nuevos respecto de las rondas 1 y 2—. La organizacion anulo el resultado y
--- resolvio la partida por "alineacion indebida": gana el 06, pierde el 17.
+-- Case: a team won a match on the rift while fielding a lineup that was not its
+-- registered roster. The organizers annulled the result and ruled it an
+-- ineligible lineup ("alineacion indebida"): the other team wins.
 --
--- POR QUE NO ES UN W.O. El mecanismo de no presentacion (0024) exige que el
--- cruce no tenga partida, y desengancharla no alcanza: `match_context` cae a
--- las etiquetas del archivo —"Grupo D", "Fecha 2"— y la tabla contaria las DOS
--- cosas, la victoria del 17 jugando y la del 06 por W.O. Ademas el fixture
--- escribiria "W.O.", que dice que alguien no se presento, y no es lo que paso.
+-- Not a walkover. The walkover mechanism (0024) requires the matchup to have no
+-- match, and unlinking the match is not enough: `match_context` falls back to the
+-- file labels and the standings would count both the played win and the awarded
+-- one. The fixture would also show "W.O.", which means a team did not turn up.
 --
--- QUE SE ANULA: TODA LA PARTIDA, no solo quien gano. Ninguna estadistica sale
--- de ella —MVP, campeones, jugadores, universidades, records, totales de
--- equipo—: sumar el KDA de perfiles no registrados a un ranking premiaria justo
--- lo que se sanciono. La partida SIGUE EXISTIENDO: su replay, su scoreboard y
--- su lugar en /partidas quedan, marcados como anulados, porque son la prueba de
--- lo que se sanciono y borrarlos no deja rastro de por que la tabla dice lo que
--- dice.
+-- The whole match is annulled, not only its winner: no stat comes from it (MVP,
+-- champions, players, universities, records, team totals), since counting an
+-- ineligible lineup's numbers would reward what was sanctioned. The match still
+-- exists: its replay, scoreboard and /partidas entry stay, marked as annulled,
+-- as evidence.
 --
--- DONDE VIVE. En el cruce, como el W.O., porque es una decision de la
--- organizacion sobre ese cruce. Pero a diferencia del W.O. convive con la
--- partida: el fallo no dice que no se jugo, dice que lo que se jugo no vale.
+-- Where it lives: on the matchup, like a walkover, since it is an organizer
+-- decision about that matchup. Unlike a walkover it coexists with the match.
 --
--- DONDE SE CORTA. `match_context.annulled` es la unica definicion. La excluyen
--- las dos bases de las que cuelgan casi todos los agregados
--- —`team_match_results` y `player_match_stats`— y los cuatro agregados que leen
--- `matches` directo y se las saltean: `match_records`, `team_totals`,
--- `player_totals` y `player_champion_totals`. El detalle de la partida sale de
--- `match_player_scores` y `match_team_stats`, que no se tocan: el scoreboard se
--- sigue viendo entero.
+-- Where it applies: `match_context.annulled` is the single definition. It is
+-- excluded by the two base views most aggregates depend on
+-- (`team_match_results`, `player_match_stats`) and by the four aggregates that
+-- read `matches` directly (`match_records`, `team_totals`, `player_totals`,
+-- `player_champion_totals`). The match detail views (`match_player_scores`,
+-- `match_team_stats`) are unchanged, so the scoreboard stays complete.
 --
--- EL RESULTADO DEL FALLO lo suman `group_standings` y `fixture_results` por el
--- mismo camino que el W.O.: partido, victoria y derrota, sin kills, y cuenta
--- para el enfrentamiento directo. Leen `coalesce(walkover, fallo)`, que es
--- exacto porque un check impide que un cruce tenga los dos.
+-- The ruled result is added by `group_standings` and `fixture_results` like a
+-- walkover (played, win and loss, no kills, counts for head to head), through
+-- `coalesce(walkover, ruling)`, exact because a check forbids both.
 --
--- CUIDADO CON `security_invoker`. Seis de estas vistas nacieron en `on` y
--- 0013_publico.sql las paso a `off` con un `alter view`. Copiar el `with (...)`
--- de su definicion original las devolveria a `on` sin que nadie lo note, y a
--- varias las lee `anon`. Cada una se redefine con el valor que tiene HOY.
+-- `security_invoker`: six of these views were created `on` and switched to
+-- `off` by `alter view` in 0013_publico.sql. Copying their original `with (...)`
+-- would silently switch them back, and `anon` reads several of them. Each is
+-- redefined with its current value.
 -- ===========================================================================
 
--- --- 1. El fallo, en el cruce -------------------------------------------------
+-- --- 1. The ruling, on the matchup -----------------------------------------
 
 alter table public.fixtures
   add column if not exists ruling_winner_team_id uuid references public.teams(id) on delete set null,
@@ -56,9 +49,9 @@ comment on column public.fixtures.ruling is
 
 do $$
 begin
-  -- Un ganador por reglamento necesita un motivo: la interfaz tiene que poder
-  -- decir por que ese resultado no es el que se jugo. Solo en ese sentido, para
-  -- que el `on delete set null` sobre el ganador no pueda chocar contra esto.
+  -- A ruling winner needs a reason, so the UI can say why the result differs
+  -- from the played one. One-directional, so `on delete set null` on the winner
+  -- cannot violate it.
   if not exists (select 1 from pg_constraint where conname = 'fixtures_ruling_has_reason') then
     alter table public.fixtures
       add constraint fixtures_ruling_has_reason
@@ -73,16 +66,16 @@ begin
              or ruling_winner_team_id = team_b_id);
   end if;
 
-  -- Los motivos son los que la interfaz sabe nombrar. Uno nuevo se agrega en
-  -- una migracion, junto con su rotulo, y no aparece solo en la base.
+  -- Only reasons the UI can label. New ones are added in a migration along with
+  -- their label.
   if not exists (select 1 from pg_constraint where conname = 'fixtures_ruling_known') then
     alter table public.fixtures
       add constraint fixtures_ruling_known
       check (ruling is null or ruling in ('alineacion_indebida'));
   end if;
 
-  -- Un cruce no puede estar dado por ganado a uno por no presentacion y a otro
-  -- por reglamento. Es lo que hace exacto el `coalesce` de las vistas.
+  -- A matchup cannot be both a walkover and a ruling. This makes the views'
+  -- `coalesce` exact.
   if not exists (select 1 from pg_constraint where conname = 'fixtures_ruling_or_walkover') then
     alter table public.fixtures
       add constraint fixtures_ruling_or_walkover
@@ -90,11 +83,11 @@ begin
   end if;
 end $$;
 
--- --- 2. Las vistas ------------------------------------------------------------
+-- --- 2. The views ----------------------------------------------------------
 --
--- En orden de dependencia: primero la que define "anulada", despues las que la
--- leen. Cada una repite su definicion vigente entera porque `create or replace
--- view` no deja otra; lo que cambia esta marcado NUEVO.
+-- In dependency order: first the view that defines "annulled", then the ones
+-- that read it. Each repeats its current definition in full, as `create or
+-- replace view` requires; changes are marked NEW.
 
 create or replace view public.match_context with (security_invoker = off) as
 select
@@ -105,8 +98,8 @@ select
     when m.series_id is not null                                   then 'playoffs'
     when m.stage_label is not null or m.round_label is not null    then 'grupos'
   end                                               as phase,
-  -- Sin fixture se conserva la regla vieja (stage_label es el grupo), que es de
-  -- lo que depende group_standings desde antes.
+  -- Without a fixture, the previous rule applies (stage_label is the group),
+  -- which group_standings already relied on.
   coalesce(f.group_label, case when m.series_id is null then m.stage_label end)
                                                     as group_label,
   coalesce(
@@ -116,8 +109,8 @@ select
   f.slot,
   m.series_id,
   coalesce(f.stage_id, s.stage_id)                  as stage_id,
-  -- Etiqueta para mostrar: "Fecha 2" en grupos, el nombre de la ronda en
-  -- playoffs, y lo que haya quedado del nombre del archivo como ultimo recurso.
+  -- Display label: "Fecha 2" in groups, the round name in playoffs, and the file
+  -- label as a last resort.
   coalesce(
     case when f.matchday is not null then 'Fecha ' || f.matchday end,
     s.round,
@@ -125,9 +118,8 @@ select
   )                                                 as round_label,
   m.played_at,
   m.game_length_ms,
-  -- NUEVAS. Anulada = el cruce al que esta enganchada tiene un fallo de la
-  -- organizacion. Es la unica definicion: todo lo que excluye una partida
-  -- anulada lee esta columna y no vuelve a preguntarle a `fixtures`.
+  -- NEW. Annulled = the linked matchup has an organizer ruling. The single
+  -- definition: everything that excludes annulled matches reads this column.
   (f.ruling_winner_team_id is not null)             as annulled,
   f.ruling,
   f.ruling_winner_team_id
@@ -169,7 +161,7 @@ select
   coalesce(own.dragons, 0)   as dragons,
   coalesce(own.barons, 0)    as barons,
   coalesce(own.turrets, 0)   as turrets,
-  -- Nuevas: scope por torneo y por serie de playoffs.
+  -- New: tournament and playoff series scope.
   m.tournament_id,
   m.series_id,
   coalesce(own.heralds, 0)   as heralds,
@@ -180,8 +172,8 @@ join public.teams t on t.id = s.team_id
 left join public.teams o on o.id = s.opponent_team_id
 left join public.match_team_stats own   on own.match_id   = s.match_id and own.side   = s.side
 left join public.match_team_stats rival on rival.match_id = s.match_id and rival.side = s.opponent_side
--- NUEVO: una partida anulada no tiene resultado. El que vale es el del fallo, y
--- ese lo suman `group_standings` y `fixture_results` desde el cruce.
+-- NEW: an annulled match has no result. The ruled result counts instead, added
+-- by `group_standings` and `fixture_results` from the matchup.
 left join public.match_context c on c.match_id = s.match_id
 where not coalesce(c.annulled, false);
 
@@ -261,7 +253,7 @@ left join public.match_player_scores s on s.match_player_id = mp.id
 left join public.players p on p.id = mp.player_id
 left join public.teams t on t.id = mp.team_id
 left join public.universities u on u.id = public.player_university_id(mp.player_id, mp.team_id)
--- NUEVO: lo que pasa en una partida anulada no cuenta para ninguna estadistica.
+-- NEW: nothing in an annulled match counts for any stat.
 where not coalesce(c.annulled, false);
 
 create or replace view public.match_records with (security_invoker = off) as
@@ -304,7 +296,7 @@ left join public.teams bt on bt.id = m.blue_team_id
 left join public.teams rt on rt.id = m.red_team_id
 left join public.match_team_stats blue on blue.match_id = m.id and blue.side = 100
 left join public.match_team_stats red  on red.match_id  = m.id and red.side  = 200
--- NUEVO: una partida anulada no se queda con ningun record.
+-- NEW: an annulled match holds no record.
 where not c.annulled;
 
 create or replace view public.team_totals with (security_invoker = off) as
@@ -334,7 +326,7 @@ select
   sum(ts.dragons)                             as dragons,
   sum(ts.barons)                              as barons,
   sum(ts.turrets)                             as turrets,
-  -- Nuevas.
+  -- New.
   t.tournament_id,
   t.group_label,
   t.logo_url,
@@ -433,7 +425,7 @@ select
   c.phase,
   c.slot,
   (select count(*) from public.match_bans b where b.match_id = m.id) as ban_count,
-  -- NUEVAS: la partida sigue en el listado, con su replay, pero dice que no vale.
+  -- NEW: the match stays listed, with its replay, marked as not counting.
   coalesce(c.annulled, false) as annulled,
   c.ruling,
   c.ruling_winner_team_id
@@ -495,10 +487,10 @@ select
   public.team_university_tags(f.team_a_id) as team_a_universities,
   public.team_university_tags(f.team_b_id) as team_b_universities,
 
-  -- Nueva: quién se quedó con el cruce sin jugarlo. La página la necesita
-  -- aparte de `winner_team_id` para escribir "W.O." donde iría el marcador.
+  -- New: the team awarded the matchup without playing, so the page can show
+  -- "W.O." instead of a score.
   f.walkover_team_id,
-  -- NUEVA: el motivo del fallo, para que el fixture lo nombre.
+  -- NEW: the ruling's reason, so the fixture can name it.
   f.ruling
 from public.fixtures f
 join public.teams ta on ta.id = f.team_a_id
@@ -509,7 +501,7 @@ left join public.team_match_results rb on rb.match_id = f.match_id and rb.team_i
 
 create or replace view public.group_standings with (security_invoker = on) as
 with resultados as (
-  -- Lo que se jugó. Igual que en 0024.
+  -- Played results, as in 0024.
   select r.team_id,
          r.match_id,
          r.win,
@@ -545,12 +537,11 @@ with resultados as (
     ) w
 ),
 
--- NUEVO: quién le ganó a quién. Sólo las victorias: la derrota del otro es la
--- misma fila leída al revés y contarla no agrega nada.
+-- New: who beat whom. Only wins; the loss is the same row seen from the other
+-- side.
 --
--- El W.O. entra igual que una partida. El equipo que no se presentó perdió el
--- cruce para todo efecto, y el mano a mano es uno de ellos: si después terminan
--- igualados, el que se presentó está arriba.
+-- Walkovers count like played games: the absent team lost the matchup, head to
+-- head included.
 duelos as (
   select r.team_id,
          r.opponent_team_id,
@@ -568,9 +559,8 @@ duelos as (
    where coalesce(f.walkover_team_id, f.ruling_winner_team_id) is not null
 ),
 
--- La tabla de siempre, sin el puesto. Se parte en dos porque el desempate
--- necesita los récords ya sumados para saber quiénes están igualados, y eso no
--- se puede mirar desde adentro del mismo agregado.
+-- The standings without positions. Split in two because the tiebreak needs the
+-- summed records to know which teams are level.
 tabla as (
   select
     t.tournament_id,
@@ -602,17 +592,14 @@ tabla as (
            u.id, u.name, u.tag, u.logo_url
 ),
 
--- El desempate: victorias contra los que están igualados en victorias Y
--- derrotas.
+-- The tiebreak: wins against teams level on both wins AND losses.
 --
--- Las derrotas van en la igualdad y no sólo las victorias porque a mitad de
--- fase dos equipos pueden tener las mismas victorias con distinta cantidad de
--- partidos jugados, y ahí ya los separa el criterio anterior: no están
--- empatados y no hay nada que desempatar entre ellos.
+-- Losses are included because mid-phase two teams can have equal wins with
+-- different games played, and then the earlier criterion already separates
+-- them.
 --
--- Los dos equipos de un empate cuentan contra el MISMO conjunto —el de los que
--- comparten ese récord— así que los dos números son comparables, que es lo que
--- permite usarlos como una columna más del `order by`.
+-- Tied teams count against the same set (those sharing the record), so their
+-- numbers are comparable and usable as an `order by` column.
 mano_a_mano as (
   select tb.team_id,
          (select count(*)
@@ -660,11 +647,11 @@ select
 from tabla tb
 join mano_a_mano mm on mm.team_id = tb.team_id;
 
--- --- 3. Cargarlo y deshacerlo -------------------------------------------------
+-- --- 3. Setting and clearing -----------------------------------------------
 --
--- Igual que `set_fixture_walkover`: con el ganador en null se limpia. Un fallo
--- cargado mal le cambia una victoria de dueno en la tabla y le borra una partida
--- entera a las estadisticas, asi que tiene que poder revertirse desde el panel.
+-- Like `set_fixture_walkover`: a null winner clears it. A wrong ruling changes a
+-- win in the standings and removes a match from the stats, so it must be
+-- reversible from the panel.
 
 create or replace function public.set_fixture_ruling(
   p_fixture_id     uuid,

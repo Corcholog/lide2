@@ -1,27 +1,16 @@
 -- ===========================================================================
 -- Fix the script path stored in `universities.logo_url`'s comment.
 --
--- 0015_logos.sql wrote a comment on the column that points whoever inspects
--- the schema at the script which generates the files. That script was renamed
--- from `scripts/normalizar-logos.ts` to `scripts/normalize-logos.ts` when the
--- codebase moved to English, so the comment now names a file that does not
--- exist.
+-- 0015_logos.sql stored a column comment naming the script that generates the
+-- logos. The script was renamed from `scripts/normalizar-logos.ts` to
+-- `scripts/normalize-logos.ts`, so the stored comment is corrected here.
 --
--- WHY A MIGRATION AND NOT AN EDIT TO 0015. Applied migrations are not edited
--- backwards: 0015 already ran against the real database, and changing its text
--- would leave a database that was seeded before this commit disagreeing with
--- one seeded after it, with nothing to reconcile them. A migration of its own
--- is what makes both end up in the same place.
+-- A new migration rather than editing 0015's statement: 0015 already ran
+-- against the real database, and changing it would make databases created
+-- before and after the edit disagree.
 --
--- WHAT THIS CANNOT FIX. The same path also appears in a `--` comment at
--- 0015_logos.sql:21. That one is documentation inside an applied migration
--- file, not something stored in the database, so no migration can reach it and
--- it stays stale on purpose. This header is where the correction is recorded
--- for anyone reading the folder in order.
---
--- The comment's text stays in Spanish, like the rest of the schema's comments:
--- what was broken is the file name, and rewriting the sentence would churn a
--- comment on a live database for nothing.
+-- The comment's text stays in Spanish like the rest of the stored schema
+-- comments; only the file name changes.
 -- ===========================================================================
 
 comment on column public.universities.logo_url is

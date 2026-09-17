@@ -1,44 +1,27 @@
 -- ===========================================================================
--- Filtrar por rol tiene que recortar las estadisticas, no solo las filas.
+-- Filtering by role must filter the stats, not just the rows.
 --
--- 0029 hizo que un campeon muestre todos los roles en los que se jugo y que el
--- filtro lo tome por cualquiera de ellos. Faltaba la otra mitad: al pedir
--- Soporte, la Camille que aparece sigue mostrando los numeros de sus TRES
--- picks —dos de top y uno de support— y no los de su pick de support. El
--- recorte promete un rol y entrega el campeon entero.
+-- After 0029 the filter finds a champion by any role it played, but still showed
+-- the numbers of all its picks rather than those in the selected role.
 --
--- EL ROL PASA A SER UNA DIMENSION, como ya lo son el grupo y la fecha. La vista
--- devuelve, para cada recorte, la fila del campeon entero y una fila por cada
--- rol en el que se jugo; `all_roles` dice cual es cual, igual que `all_groups`
--- y `all_matchdays`. Son los mismos cuatro recortes de antes multiplicados por
--- dos, y Postgres los escribe como el producto de dos `grouping sets` en vez de
--- ocho listas a mano.
+-- The role becomes a dimension, like group and matchday. For each scope the
+-- view returns the whole-champion row and one row per role played; `all_roles`
+-- tells them apart, like `all_groups` and `all_matchdays`. The four scopes
+-- times two are written as the product of two `grouping sets`.
 --
--- POR QUE NO SE PODIA HACER DEL LADO DE LA APLICACION. Los numeros que hacen
--- falta no son sumas que se puedan repartir: `avg_kda` es el promedio del KDA
--- de cada partida y `dpm` el promedio del dano por minuto. De la fila del
--- campeon entero no se puede sacar la del rol —no hay forma de restar un
--- promedio— asi que o lo agrupa la vista o hay que traerse los picks uno por
--- uno y rehacer las cuentas en TypeScript.
+-- This cannot be done in the application: `avg_kda` and `dpm` are per-game
+-- averages, and a role's average cannot be derived from the whole-champion row.
 --
--- LOS BANEOS NO TIENEN ROL. Se banea a un campeon, no a una linea: no existe
--- "las veces que se baneo a Camille de support". Asi que `bans`, `ban_rate` y
--- `presence` vienen en NULL en las filas por rol, y no en cero, que es la misma
--- distincion que la vista ya hace con `win_pct` —un campeon con 0 picks no
--- tiene 0% de winrate, no tiene winrate—. La tabla esconde esas tres columnas
--- cuando hay un rol elegido.
+-- Bans have no role (a champion is banned, not a lane), so `bans`, `ban_rate`
+-- and `presence` are NULL on role rows, not zero, as with `win_pct`. The table
+-- hides those columns when a role is selected. `pick_rate` still applies: picks
+-- in that role over the scope's matches.
 --
--- `pick_rate` SI SIGUE. Es picks sobre partidas del recorte, y el denominador
--- no cambia: "en que porcentaje de las partidas se eligio a Camille de
--- support" es una pregunta con respuesta.
+-- `champion_stats` is not changed: the stat cards have no role filter, and
+-- `positions` from 0029 is enough to name the roles.
 --
--- `champion_stats` NO SE TOCA. Es la de las tarjetas de /estadisticas, que no
--- tienen filtro por rol: agregarle la dimension serian el doble de filas que no
--- lee nadie. Con `positions` de 0029 le alcanza para nombrar los roles.
---
--- `create or replace view` solo deja AGREGAR columnas al final, asi que
--- `all_roles` queda ultima aunque por sentido vaya al lado de `all_groups`, y
--- hay que repetir la definicion entera de 0029_roles_por_campeon.sql.
+-- `create or replace view` only allows appending columns, so `all_roles` goes
+-- last and the definition from 0029_roles_por_campeon.sql is repeated.
 -- ===========================================================================
 
 create or replace view public.champion_meta with (security_invoker = off) as
@@ -52,16 +35,14 @@ with picked as (
     (grouping(s.group_label) = 1)                    as all_groups,
     (grouping(s.round_label) = 1)                    as all_matchdays,
     s.champion,
-    -- El rol como clave de agrupamiento. Es `s.position` a secas: en los
-    -- conjuntos donde no agrupa, viene NULL, y `all_roles` es lo que separa ese
-    -- NULL del de un pick al que no se le resolvio la linea.
+    -- The role as a grouping key. In grouping sets that do not group by it, it is
+    -- NULL, and `all_roles` distinguishes that from a pick with an unresolved
+    -- lane.
     s.position                                       as role,
     (grouping(s.position) = 1)                       as all_roles,
     count(*)                                         as picks,
-    -- Los picks que pasaron por una partida con draft cargado. Es el numerador
-    -- de `presence` y no `picks` a secas: si un campeon se jugo diez veces
-    -- pero solo tres partidas tienen los bans, mezclarlos daria una presencia
-    -- mayor a 1.
+    -- Picks in matches with a draft entered: the numerator of `presence`. Using
+    -- all picks could push presence above 1.
     count(*) filter (where hb.match_id is not null)  as picks_with_bans,
     count(*) filter (where s.win)                    as wins,
     sum(s.kills)                                     as kills,
@@ -70,8 +51,8 @@ with picked as (
     round((sum(s.kills) + sum(s.assists))::numeric / greatest(sum(s.deaths), 1), 2) as kda,
     round(avg(s.damage_to_champions))                as avg_damage,
     round(avg(s.score), 2)                           as avg_score,
-    -- El KDA de cada partida, promediado, y el dano por minuto. Ver el
-    -- comentario de arriba: `kda` de aca al lado es la razon del total.
+    -- Each game's KDA, averaged, and damage per minute. `kda` next to it is the
+    -- ratio of totals.
     round(avg(s.kda), 2)                             as avg_kda,
     round(avg(s.dpm))                                as dpm,
     mode() within group (order by s.position)        as position,
@@ -84,9 +65,8 @@ with picked as (
     (s.tournament_id, s.phase, s.champion, s.group_label),
     (s.tournament_id, s.phase, s.champion, s.group_label, s.matchday, s.round_label)
   ),
-  -- Y cada uno de esos cuatro, dos veces: el campeon entero y el campeon en
-  -- cada rol. Postgres multiplica los dos `grouping sets`, asi que son ocho
-  -- escrito una vez.
+  -- Each of the four scopes twice: whole champion and per role. Postgres
+  -- multiplies the two `grouping sets`.
   grouping sets ((), (s.position))
 ),
 banned as (
@@ -109,8 +89,7 @@ banned as (
     (c.tournament_id, c.phase, b.champion, c.group_label, c.matchday, c.round_label)
   )
 ),
--- El denominador de las tres tasas: cuantas partidas tiene el recorte, y de
--- esas cuantas tienen el draft cargado.
+-- The rates' denominators: matches in the scope, and how many have a draft.
 scope as (
   select
     c.tournament_id,
@@ -131,15 +110,13 @@ scope as (
     (c.tournament_id, c.phase, c.group_label, c.matchday, c.round_label)
   )
 ),
--- La union es lo que hace que un campeon que se baneo siempre y no se jugo
--- nunca aparezca igual en la tabla. Sin esto el meta diria que no existe,
--- cuando en realidad es el mas respetado del torneo.
+-- The union makes a champion that was always banned and never played still
+-- appear in the table.
 keys as (
   select tournament_id, phase, group_label, matchday, round_label,
          all_groups, all_matchdays, champion, role, all_roles from picked
   union
-  -- Un baneo no tiene rol: se banea al campeon. Sus filas entran solo del lado
-  -- de `all_roles`, que es donde la pregunta "cuanto se baneo" tiene sentido.
+  -- Bans have no role, so they only feed the `all_roles` rows.
   select tournament_id, phase, group_label, matchday, round_label,
          all_groups, all_matchdays, champion, null::text, true from banned
 )
@@ -166,8 +143,8 @@ select
   case when k.all_roles then coalesce(b.bans, 0) end as bans,
   sc.matches,
   coalesce(sc.matches_with_bans, 0)                  as matches_with_bans,
-  -- Las tres tasas, todas NULL cuando su denominador es cero. Un campeon con
-  -- 0 picks no tiene 0% de winrate: no tiene winrate.
+  -- All three rates are NULL when their denominator is zero: a champion with 0
+  -- picks has no win rate, not 0%.
   round(coalesce(p.picks, 0)::numeric / nullif(sc.matches, 0), 3) as pick_rate,
   case
     when k.all_roles and coalesce(sc.matches_with_bans, 0) > 0
@@ -178,7 +155,7 @@ select
     then round(
       (coalesce(p.picks_with_bans, 0) + coalesce(b.bans, 0))::numeric / sc.matches_with_bans, 3)
   end                                                as presence,
-  -- Al final porque `create or replace view` solo deja agregar ahi.
+  -- At the end, since `create or replace view` only allows appending there.
   coalesce(p.avg_kda, 0)                             as avg_kda,
   coalesce(p.dpm, 0)                                 as dpm,
   coalesce(p.positions, '{}')                        as positions,

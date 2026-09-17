@@ -1,44 +1,28 @@
 -- ===========================================================================
--- El desempate de la tabla es el enfrentamiento directo, no la diferencia de
--- kills.
+-- Group standings break ties by head to head, not kill difference.
 --
--- El reglamento (2.2) dice: clasifican los dos equipos de mayor puntaje
--- acumulado por grupo, y los empatados se separan por el enfrentamiento
--- directo; lo que eso no resuelve lo define la organización. La diferencia de
--- kills NO está en el reglamento: entró en 0007 como un criterio razonable
--- cuando no había uno escrito, y se quedó.
+-- The rulebook (2.2): the two teams with the most points in each group qualify,
+-- level teams are separated by head to head, and anything unresolved is decided
+-- by the organizers. Kill difference is not in the rulebook; it was a stand-in
+-- since 0007. The home page projects the bracket with head to head, so the
+-- table must use the same rule or the page contradicts itself on ties.
 --
--- No es un detalle de presentación. La tabla es lo que decide quién va a
--- cuartos y en qué puesto, y la portada ya proyecta el bracket desde acá: con
--- dos criterios distintos —la tabla ordenando por kills y el bracket por el
--- mano a mano— la misma pantalla se contradice a sí misma en cuanto dos
--- equipos terminan igualados, que es justo cuando el desempate importa.
+-- How: for each team, wins against the teams level with it. With two teams that
+-- is the game between them; with three or more, a mini league of their mutual
+-- games.
 --
--- CÓMO SE CALCULA. Para cada equipo, las victorias contra los equipos que
--- están igualados con él. Entre dos es exactamente el partido entre ellos, que
--- es lo que dice el reglamento. Entre tres o más es la mini liga de los
--- partidos entre ellos, que es la lectura natural de "enfrentamiento directo"
--- cuando son más de dos y se reduce al mano a mano cuando son dos.
+-- Unresolved: three teams each beating the next get one win each. The rulebook
+-- leaves that to the organizers; the view still needs an order, so the name is
+-- the last criterion (a display order, not a ruling). The bracket projection
+-- leaves such slots open.
 --
--- LO QUE SIGUE SIN RESOLVERSE. Tres equipos donde cada uno le ganó al
--- siguiente se llevan una victoria cada uno y la mini liga no los separa. Ese
--- es el caso que el reglamento le pasa a la organización y no hay forma de
--- resolverlo acá. La vista igual tiene que devolver filas en algún orden, así
--- que el último criterio sigue siendo el nombre: es un orden de impresión y no
--- un fallo. El bracket de la portada, que sí puede callarse, se calla.
---
--- POR QUÉ NO SE BORRA `kill_diff`. Sigue siendo la columna que la tabla
--- muestra y es información de verdad sobre cómo juega un equipo. Lo que deja
--- de ser es el criterio que decide, que era lo que estaba mal.
---
--- `team_standings` (0005) no se toca, por el mismo motivo que en 0024: es la
--- tabla vieja, anterior al calendario, que agrupa por `stage_label` y que no
--- lee nadie. Esa no tiene grupos ni reglamento detrás.
+-- `kill_diff` stays as a displayed column; it just no longer decides the order.
+-- `team_standings` (0005) is not changed, as in 0024.
 -- ===========================================================================
 
 create or replace view public.group_standings with (security_invoker = on) as
 with resultados as (
-  -- Lo que se jugó. Igual que en 0024.
+  -- Played results, as in 0024.
   select r.team_id,
          r.match_id,
          r.win,
@@ -74,12 +58,11 @@ with resultados as (
     ) w
 ),
 
--- NUEVO: quién le ganó a quién. Sólo las victorias: la derrota del otro es la
--- misma fila leída al revés y contarla no agrega nada.
+-- New: who beat whom. Only wins; the loss is the same row seen from the other
+-- side.
 --
--- El W.O. entra igual que una partida. El equipo que no se presentó perdió el
--- cruce para todo efecto, y el mano a mano es uno de ellos: si después terminan
--- igualados, el que se presentó está arriba.
+-- Walkovers count like played games: the absent team lost the matchup, head to
+-- head included.
 duelos as (
   select r.team_id,
          r.opponent_team_id,
@@ -97,9 +80,8 @@ duelos as (
    where f.walkover_team_id is not null
 ),
 
--- La tabla de siempre, sin el puesto. Se parte en dos porque el desempate
--- necesita los récords ya sumados para saber quiénes están igualados, y eso no
--- se puede mirar desde adentro del mismo agregado.
+-- The standings without positions. Split in two because the tiebreak needs the
+-- summed records to know which teams are level.
 tabla as (
   select
     t.tournament_id,
@@ -131,17 +113,14 @@ tabla as (
            u.id, u.name, u.tag, u.logo_url
 ),
 
--- El desempate: victorias contra los que están igualados en victorias Y
--- derrotas.
+-- The tiebreak: wins against teams level on both wins AND losses.
 --
--- Las derrotas van en la igualdad y no sólo las victorias porque a mitad de
--- fase dos equipos pueden tener las mismas victorias con distinta cantidad de
--- partidos jugados, y ahí ya los separa el criterio anterior: no están
--- empatados y no hay nada que desempatar entre ellos.
+-- Losses are included because mid-phase two teams can have equal wins with
+-- different games played, and then the earlier criterion already separates
+-- them.
 --
--- Los dos equipos de un empate cuentan contra el MISMO conjunto —el de los que
--- comparten ese récord— así que los dos números son comparables, que es lo que
--- permite usarlos como una columna más del `order by`.
+-- Tied teams count against the same set (those sharing the record), so their
+-- numbers are comparable and usable as an `order by` column.
 mano_a_mano as (
   select tb.team_id,
          (select count(*)

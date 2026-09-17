@@ -1,28 +1,24 @@
 -- ===========================================================================
--- La estructura del torneo pasa a vivir en la base.
+-- Tournament structure in the database.
 --
--- Hasta ahora la etapa y la fecha eran solo texto en matches.stage_label /
--- round_label, y el bracket no existia. La LIDE 2 son 20 equipos de 13
--- universidades en 4 grupos de 5, tres fechas de grupos y despues cuartos y
--- semis a BO3 y final a BO5, asi que hacen falta tres cosas que no estaban:
+-- LIDE 2 has 20 teams from 13 universities in 4 groups of 5, three group
+-- matchdays, then BO3 quarter-finals and semi-finals and a BO5 final. This adds:
 --
---   1. La universidad, que no existia en ningun lado.
---   2. El grupo de cada equipo, para poder mostrar la tabla ANTES de que se
---      juegue la primera fecha (con las partidas solas, un equipo sin partidas
---      no existe).
---   3. Un bracket que avance solo: al subir el .rofl de una serie, el ganador
---      tiene que aparecer en la ronda siguiente sin que nadie lo cargue.
+--   1. Universities.
+--   2. Each team's group, so standings show every team before anyone plays.
+--   3. A bracket that advances itself: uploading a series' .rofl moves the
+--      winner to the next round.
 --
--- Ademas se agrega la dimension torneo a las vistas de acumulados: sin eso las
--- partidas de una edicion contaminan las estadisticas de la otra.
+-- It also adds the tournament dimension to the aggregate views, so editions do
+-- not mix.
 -- ===========================================================================
 
--- --- Universidades ---------------------------------------------------------
+-- --- Universities ----------------------------------------------------------
 
 create table public.universities (
   id          uuid primary key default gen_random_uuid(),
   name        text not null,
-  -- Sigla para mostrar en tablas y cards ("UNLP", "UTN FRLP").
+  -- Short tag for tables and cards ("UNLP").
   tag         text not null,
   logo_url    text,
   created_at  timestamptz not null default now()
@@ -32,8 +28,8 @@ create unique index universities_tag_key on public.universities (lower(tag));
 
 alter table public.teams
   add column university_id uuid references public.universities(id) on delete set null,
-  -- Grupo dentro de la fase de grupos: "Grupo A". Es lo que hace que un equipo
-  -- aparezca en la tabla con 0-0 antes de jugar.
+  -- Group within the group phase: "Grupo A". Lets a team appear in the
+  -- standings at 0-0 before playing.
   add column group_label text;
 
 create index teams_university_idx on public.teams (university_id);
@@ -41,9 +37,9 @@ create index teams_group_idx on public.teams (tournament_id, group_label);
 
 -- --- Bracket ---------------------------------------------------------------
 --
--- next_series_id + next_slot es lo que encadena las llaves: el ganador de
--- cuartos 1 va al slot A de la semifinal 1. Los slot_label describen de donde
--- sale cada lado mientras todavia no se sepa ("1o A", "Ganador C1-D2").
+-- next_series_id + next_slot chain the series: the winner of quarter-final 1
+-- goes to slot A of semi-final 1. slot_label describes where each side comes
+-- from while it is unknown ("1º A", "Ganador C1-D2").
 
 alter table public.series
   add column next_series_id uuid references public.series(id) on delete set null,
@@ -56,16 +52,15 @@ create index series_next_idx on public.series (next_series_id);
 
 -- --- Bans ------------------------------------------------------------------
 --
--- El .rofl no guarda el draft: los bans hay que pedirselos a los equipos y
--- cargarlos a mano, asi que esta tabla puede quedar vacia o llenarse tarde.
--- Las estadisticas de bans se calculan solo sobre las partidas que los tengan.
+-- The .rofl has no draft: bans are entered by hand, so this table may stay
+-- empty or fill in late. Ban stats only use matches that have them.
 
 create table public.match_bans (
   id           uuid primary key default gen_random_uuid(),
   match_id     uuid not null references public.matches(id) on delete cascade,
   side         smallint not null check (side in (100, 200)),
   champion     text not null,
-  -- Orden del ban en el draft (1 a 5 por lado).
+  -- Ban order in the draft (1 to 5 per side).
   order_index  smallint not null,
   created_by   uuid references auth.users(id) on delete set null,
   created_at   timestamptz not null default now(),
@@ -75,7 +70,7 @@ create table public.match_bans (
 create index match_bans_match_idx on public.match_bans (match_id);
 create index match_bans_champion_idx on public.match_bans (champion);
 
--- --- Avance del bracket ----------------------------------------------------
+-- --- Bracket advancement ---------------------------------------------------
 
 create or replace function public.advance_series(p_series_id uuid)
 returns void
@@ -93,7 +88,7 @@ begin
     return;
   end if;
 
-  -- BO3 se gana con 2, BO5 con 3.
+  -- A BO3 is won with 2, a BO5 with 3.
   v_needed := v_series.best_of / 2 + 1;
 
   select
@@ -122,9 +117,8 @@ begin
                   end
    where id = p_series_id;
 
-  -- El ganador ocupa su lugar en la ronda siguiente. Se escribe siempre (no
-  -- solo cuando esta vacio) para que corregir una partida mal cargada arregle
-  -- tambien el bracket.
+  -- The winner takes its place in the next round. Always written (not only
+  -- when empty), so correcting a match also fixes the bracket.
   if v_winner is not null and v_series.next_series_id is not null then
     if v_series.next_slot = 'a' then
       update public.series set team_a_id = v_winner where id = v_series.next_series_id;
@@ -138,9 +132,9 @@ end;
 $$;
 
 /*
- * La ingesta no sabe de series: engancha por trigger para no tener que
- * redefinir ingest_match() entera, y ademas cubre el caso de asignarle la serie
- * a una partida ya subida desde el panel.
+ * Ingestion does not know about series: a trigger links them instead of
+ * redefining ingest_match(), and also covers assigning a series to an already
+ * uploaded match from the panel.
  */
 create or replace function public.trg_advance_series()
 returns trigger
@@ -151,7 +145,7 @@ begin
     perform public.advance_series(new.series_id);
   end if;
 
-  -- Si la partida se saca de una serie, esa serie tambien se recalcula.
+  -- If the match is moved out of a series, that series is recomputed too.
   if tg_op = 'UPDATE' and old.series_id is not null and old.series_id is distinct from new.series_id then
     perform public.advance_series(old.series_id);
   end if;
@@ -166,11 +160,10 @@ create trigger matches_advance_series
   for each row
   execute function public.trg_advance_series();
 
--- --- Torneo en las vistas de acumulados ------------------------------------
+-- --- Tournament in the aggregate views -------------------------------------
 --
--- Se agregan columnas al final a proposito: create or replace view solo admite
--- sumar columnas despues de las existentes, y asi no hay que tocar las vistas
--- que dependen de estas.
+-- New columns go at the end: create or replace view only allows appending
+-- columns, and dependent views need no changes.
 
 create or replace view public.team_match_results with (security_invoker = on) as
 with sides as (
@@ -205,7 +198,7 @@ select
   coalesce(own.dragons, 0)   as dragons,
   coalesce(own.barons, 0)    as barons,
   coalesce(own.turrets, 0)   as turrets,
-  -- Nuevas: scope por torneo y por serie de playoffs.
+  -- New: tournament and playoff series scope.
   m.tournament_id,
   m.series_id,
   coalesce(own.heralds, 0)   as heralds,
@@ -243,7 +236,7 @@ select
   mvp.assists            as mvp_assists,
   mvp.score              as mvp_score,
   (select count(*) from public.match_files mf where mf.match_id = m.id) as file_count,
-  -- Nuevas.
+  -- New.
   m.tournament_id,
   m.series_id,
   m.game_number,
@@ -288,7 +281,7 @@ select
   sum(mp.quadra_kills)                               as quadra_kills,
   round(avg(s.score), 2)                             as avg_score,
   count(*) filter (where s.match_rank = 1)           as mvp_count,
-  -- Nueva: los acumulados son por torneo.
+  -- New: totals are per tournament.
   m.tournament_id
 from public.match_players mp
 join public.matches m on m.id = mp.match_id
@@ -333,7 +326,7 @@ select
   sum(ts.dragons)                             as dragons,
   sum(ts.barons)                              as barons,
   sum(ts.turrets)                             as turrets,
-  -- Nuevas.
+  -- New.
   t.tournament_id,
   t.group_label,
   t.logo_url,
@@ -343,11 +336,10 @@ left join team_games g on g.team_id = t.id
 left join public.match_team_stats ts on ts.match_id = g.match_id and ts.side = g.side
 group by t.id, t.name, t.tag, t.tournament_id, t.group_label, t.logo_url, t.university_id;
 
--- --- Tabla de la fase de grupos --------------------------------------------
+-- --- Group phase standings -------------------------------------------------
 --
--- A diferencia de team_standings (que sale de las partidas y por eso solo
--- muestra equipos que ya jugaron), esta arranca desde teams: los 5 equipos del
--- grupo estan en la tabla desde el dia cero, en 0-0.
+-- Unlike team_standings (built from matches, so only teams that have played),
+-- this starts from teams: every team in the group appears from day one at 0-0.
 
 create view public.group_standings with (security_invoker = on) as
 select
@@ -383,8 +375,8 @@ from public.teams t
 left join public.universities u on u.id = t.university_id
 left join public.team_match_results r
        on r.team_id = t.id
-      -- Solo fase de grupos: la etiqueta de la partida tiene que ser el grupo
-      -- del equipo, asi los playoffs no suman en la tabla.
+      -- Group phase only: the match label must be the team's group, so playoff
+      -- matches do not count.
       and r.stage_label = t.group_label
       and r.win is not null
       and r.opponent_team_id is not null
@@ -392,7 +384,7 @@ where t.group_label is not null
 group by t.tournament_id, t.group_label, t.id, t.name, t.tag, t.logo_url,
          u.id, u.name, u.tag, u.logo_url;
 
--- --- Bracket ----------------------------------------------------------------
+-- --- Bracket view ----------------------------------------------------------
 
 create view public.series_results with (security_invoker = on) as
 select
@@ -434,10 +426,10 @@ left join public.matches m on m.series_id = s.id
 group by s.id, st.tournament_id, st.name, st.order_index,
          ta.name, ta.logo_url, tb.name, tb.logo_url;
 
--- --- Storage de logos -------------------------------------------------------
+-- --- Logo storage ----------------------------------------------------------
 --
--- Publico y chico: son escudos de equipos y universidades que se muestran en el
--- sitio abierto. Los .rofl siguen en su bucket privado.
+-- Public and small: team and university crests shown on the public site. The
+-- .rofl files stay in their private bucket.
 
 insert into storage.buckets (id, name, public, file_size_limit)
 values ('branding', 'branding', true, 2097152)  -- 2 MB
@@ -447,7 +439,7 @@ create policy "branding lectura publica"
   on storage.objects for select to anon, authenticated
   using (bucket_id = 'branding');
 
--- --- RLS de las tablas nuevas -----------------------------------------------
+-- --- RLS for the new tables ------------------------------------------------
 
 alter table public.universities enable row level security;
 alter table public.match_bans   enable row level security;

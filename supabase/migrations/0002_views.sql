@@ -1,12 +1,11 @@
 -- ===========================================================================
--- Vistas de agregacion: alimentan el listado, el detalle, los leaderboards y
--- las cards de Instagram.
+-- Aggregation views for the match list, match detail, leaderboards and cards.
 --
--- Todas van con security_invoker para que respeten el RLS de las tablas de
--- abajo (por defecto una vista corre con los permisos del owner y lo saltea).
+-- All use security_invoker so they respect the underlying tables' RLS (by
+-- default a view runs with its owner's permissions and bypasses it).
 -- ===========================================================================
 
--- --- Totales por lado dentro de una partida --------------------------------
+-- --- Per-side totals within a match ----------------------------------------
 
 create view public.match_team_stats with (security_invoker = on) as
 select
@@ -29,17 +28,17 @@ select
   sum(mp.herald_kills)               as heralds,
   sum(mp.atakhan_kills)              as atakhans,
   sum(mp.void_grub_kills)            as void_grubs,
-  -- Los 5 jugadores del lado comparten team_id (o es null): sin max() para uuid,
-  -- se agrega por texto.
+  -- All five players on a side share team_id (or null). There is no max() for
+  -- uuid, so it is aggregated as text.
   max(mp.team_id::text)::uuid        as team_id
 from public.match_players mp
 group by mp.match_id, mp.side;
 
--- --- Score de MVP por jugador dentro de la partida --------------------------
+-- --- MVP score per player within a match -----------------------------------
 --
--- Los pesos estan todos aca a proposito: es el unico lugar a tocar para
--- recalibrar el MVP. La escala no importa, lo que importa es el orden; por eso
--- ademas se expone `score_pct`, normalizado contra el mejor de esa partida.
+-- All weights live here, so this is the only place to recalibrate the MVP. The
+-- scale does not matter, only the order; `score_pct` normalizes against the
+-- match's best score.
 
 create view public.match_player_scores with (security_invoker = on) as
 with team_agg as (
@@ -115,7 +114,7 @@ select
   rank() over (partition by scored.match_id order by scored.score desc)    as match_rank
 from scored;
 
--- --- Resumen de partida para el listado y las cards ------------------------
+-- --- Match summary for the list and the cards ------------------------------
 
 create view public.match_summaries with (security_invoker = on) as
 select
@@ -155,16 +154,16 @@ left join lateral (
   limit 1
 ) mvp on true;
 
--- --- Acumulados por jugador -------------------------------------------------
+-- --- Per-player totals -----------------------------------------------------
 --
--- Se agrupa por PUUID y no por player_id para que sirva incluso antes de que
--- exista el roster: las partidas se suben antes de cargar los equipos.
+-- Grouped by PUUID rather than player_id, so it works before rosters exist:
+-- matches are uploaded before teams are loaded.
 
 create view public.player_totals with (security_invoker = on) as
 select
   mp.puuid,
-  -- Postgres no tiene max() para uuid; el group by es por puuid, que es unico
-  -- en players, asi que cualquiera de los dos casts devuelve el unico valor.
+  -- There is no max() for uuid; grouping is by puuid, unique in players, so the
+  -- cast returns the single value.
   max(p.id::text)::uuid                              as player_id,
   max(mp.riot_game_name)                             as riot_game_name,
   max(mp.riot_tag_line)                              as riot_tag_line,
@@ -206,7 +205,7 @@ select
 from public.match_players mp
 group by mp.puuid, mp.champion;
 
--- --- Acumulados por equipo --------------------------------------------------
+-- --- Per-team totals -------------------------------------------------------
 
 create view public.team_totals with (security_invoker = on) as
 with team_games as (

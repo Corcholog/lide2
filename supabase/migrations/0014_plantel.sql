@@ -1,50 +1,30 @@
 -- ===========================================================================
--- El plantel de cada equipo, con los casilleros vacios a la vista.
+-- Team lineups with empty slots visible.
 --
--- Hasta ahora la ficha de un equipo mostraba "roster detectado": las cuentas de
--- Riot que la ingesta fue encontrando, en el orden en que salieran. Sirve para
--- el panel, pero para un visitante no dice nada. Un equipo del que todavia no
--- se subio ningun replay se ve vacio, y uno con tres partidas se ve incompleto
--- sin que se entienda que falta.
+-- Team pages show the lineup: five fixed slots (Top, Jungla, Mid, ADC,
+-- Soporte) plus bench slots. Each slot shows the nick of whoever plays it when
+-- known, otherwise the role name, and fills in as replays arrive.
 --
--- Lo que se muestra ahora es la formacion: cinco lugares fijos —Top, Jungla,
--- Mid, ADC, Soporte— mas los suplentes que tenga anotados el equipo. Cada lugar
--- trae el nick de quien lo juega si ya se sabe, y si no queda el lugar con el
--- nombre del rol. El plantel se completa solo a medida que entran los replays.
---
--- QUE SALE DE team_roster Y QUE NO. La vista corre como su dueno (definer) y
--- toca team_roster, que es privada porque son nombres legales de personas
--- reales. Lo unico que le pide es COUNT(*): cuantos anoto el equipo, para saber
--- cuantos lugares de suplente dibujar. Sale un numero por equipo y nada mas —
--- ni un nombre, ni cuales estan emparejados. Lo mismo que ya hace
--- player_university_id() en 0010_stats.sql, que lee la tabla y devuelve un uuid
--- de universidad.
+-- The view runs as its owner and reads team_roster, which is private (legal
+-- names), but only COUNT(*) per team, to know how many bench slots to draw. No
+-- names leave the view, as with player_university_id() in 0010_stats.sql.
 -- ===========================================================================
 
--- --- 1. El soporte se llama SUPPORT ------------------------------------------
+-- --- 1. Support is called SUPPORT ------------------------------------------
 --
--- El .rofl escribe UTILITY en TEAM_POSITION, que es como Riot nombra al soporte
--- ahi adentro. En el resto de Riot —y en como habla cualquiera que juegue— ese
--- rol es el support. Tener el mismo rol con dos nombres es una fuente de bugs
--- silenciosos: `mode() within group (order by position)` los cuenta como roles
--- distintos, el quinteto de la pagina de estadisticas los busca por igualdad de
--- texto y un rotulo que no este en la tabla de traduccion sale crudo en la web.
---
--- Adentro del proyecto hay un solo nombre, SUPPORT, y entra normalizado desde
--- el parser (ver normalizePosition en src/lib/rofl/normalize.ts). Esto arregla
--- lo que ya estaba cargado. `match_players.raw` no se toca: ahi sigue el JSON
--- del replay tal cual, con UTILITY incluido.
+-- The .rofl writes UTILITY in TEAM_POSITION. One role with two names causes
+-- silent bugs (`mode()` counts them as different roles, equality lookups miss
+-- them), so the project uses SUPPORT only, normalized in the parser (see
+-- normalizePosition in src/lib/rofl/normalize.ts). This fixes rows already
+-- loaded; `match_players.raw` keeps the original JSON.
 
 update public.match_players
    set position = 'SUPPORT'
  where position is not null
    and upper(btrim(position)) = 'UTILITY';
 
--- Y que no vuelva a entrar. La normalizacion de verdad esta en el parser, pero
--- el parser no es el unico que escribe aca: estan los scripts de seed, un
--- backfill a mano desde el SQL editor y cualquier cosa que se agregue despues.
--- Un trigger de una linea deja la regla en el unico lugar por el que pasan
--- todas las filas.
+-- And keep it out. The parser normalizes, but seeds, manual backfills and future
+-- code also write here; a one-line trigger covers every row.
 
 create or replace function public.normalize_position()
 returns trigger
@@ -65,22 +45,20 @@ create trigger match_players_normalize_position
 comment on function public.normalize_position() is
   'El soporte se guarda siempre como SUPPORT. El .rofl lo llama UTILITY.';
 
--- --- 2. La formacion ---------------------------------------------------------
+-- --- 2. The lineup ---------------------------------------------------------
 --
--- Se arma en cuatro pasos:
+-- Built in four steps:
 --
---   1. Cuanto jugo cada cuenta en cada rol, con la camiseta de ese equipo.
---   2. El rol de cada cuenta es el que mas repitio. Un jugador que rota queda
---      en la linea que mas jugo, que es la misma regla que usan las vistas de
---      estadisticas.
---   3. En cada rol, el titular es el que mas veces lo jugo. El resto —y los que
---      todavia no jugaron nunca, que no tienen rol— van al banco.
---   4. Los lugares: cinco fijos siempre, y tantos suplentes como haga falta
---      para que entren todos los anotados y todas las cuentas que sobraron.
+--   1. Games per role for each account, with this team.
+--   2. Each account's role is the one it played most (the same rule the stats
+--      views use).
+--   3. Each role's starter is whoever played it most; the rest, and accounts
+--      that have not played, go to the bench.
+--   4. Slots: always five, plus enough bench slots for every signup and every
+--      extra account.
 --
--- Los lugares existen aunque no haya nadie: es una vista de casilleros, no de
--- jugadores. Un equipo sin un solo replay subido devuelve igual sus cinco
--- filas, con player_id en null.
+-- Slots exist even when empty: a team without replays still returns five rows
+-- with player_id null.
 
 create view public.team_lineup with (security_invoker = off) as
 with partidas as (
@@ -95,9 +73,8 @@ por_rol as (
    where mp.team_id is not null and mp.player_id is not null and mp.position is not null
    group by mp.team_id, mp.player_id, mp.position
 ),
--- El rol de cada cuenta. El desempate por nombre de rol no significa nada, pero
--- que sea estable si: sin el, un jugador con dos lineas empatadas cambiaria de
--- casillero en cada consulta.
+-- Each account's role. Tiebreaking by role name is arbitrary but stable, so a
+-- player with two tied lanes does not switch slots between queries.
 rol as (
   select distinct on (team_id, player_id) team_id, player_id, role, games as role_games
     from por_rol
@@ -114,15 +91,12 @@ cuentas as (
     left join rol      r  on r.team_id  = tm.team_id and r.player_id  = tm.player_id
    where tm.left_at is null
 ),
--- El titular de un rol es el que mas veces lo jugo. Por partidas en ese rol y no
--- por partidas totales: entre un mid que ademas cubrio tres veces el top y un
--- top que jugo cinco de top, el top es el otro.
+-- A role's starter is whoever played that role most (games in the role, not
+-- total games).
 --
--- Cuando dos jugadores se turnan las mismas dos lineas y quedan empatados, los
--- dos apuntan al mismo rol, uno se lo lleva y el otro cae al banco: el rol que
--- soltaron queda vacio. Es raro y no se pierde a nadie —sigue en el plantel,
--- abajo—, pero es el precio de resolver cada cuenta por separado en vez de
--- repartir los cinco lugares de una.
+-- If two players swap the same two lanes and tie, both point to the same role,
+-- one gets it and the other goes to the bench, leaving a role empty. Rare, and
+-- nobody is lost, but that is the cost of resolving each account separately.
 ordenadas as (
   select c.*,
          row_number() over (
@@ -134,8 +108,8 @@ ordenadas as (
 titulares as (
   select * from ordenadas where role is not null and en_rol = 1
 ),
--- Al banco van los que quedaron segundos en su rol y los que no tienen rol
--- porque todavia no jugaron. Se ordenan por partidas: el que mas entro, primero.
+-- The bench: second-best players in their role and accounts that have not
+-- played yet, ordered by games.
 suplentes as (
   select o.team_id,
          o.player_id,
@@ -147,9 +121,8 @@ suplentes as (
 roles (role, slot) as (
   values ('TOP', 1), ('JUNGLE', 2), ('MIDDLE', 3), ('BOTTOM', 4), ('SUPPORT', 5)
 ),
--- Cuantos lugares de banco dibujar. De la planilla salen los anotados que no
--- entran en los cinco titulares; si ademas aparecieron mas cuentas que esas,
--- mandan las cuentas: una cuenta que jugo no se puede quedar sin lugar.
+-- How many bench slots: signups beyond the five starters, or more if more
+-- accounts have played; an account that played always gets a slot.
 banco as (
   select t.id as team_id,
          greatest(

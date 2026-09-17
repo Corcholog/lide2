@@ -1,19 +1,18 @@
 -- ===========================================================================
--- Ingesta atomica de una partida.
+-- Atomic ingestion of a match.
 --
--- supabase-js no puede correr varias sentencias en una transaccion, y aca hay
--- que insertar la partida, sus 10 jugadores y el archivo todo junto (o nada).
--- Por eso va como funcion: el route handler la llama por RPC con la service key.
+-- supabase-js cannot run several statements in one transaction, and the match,
+-- its ten players and its file must be inserted together or not at all. Hence a
+-- function, called over RPC by the route handler with the secret key.
 --
--- El payload usa exactamente los nombres de columna de las tablas, asi que las
--- filas se arman con jsonb_populate_record y agregar una columna nueva no
--- obliga a tocar esta funcion.
+-- The payload uses the tables' column names, so rows are built with
+-- jsonb_populate_record and new columns need no change here.
 -- ===========================================================================
 
--- --- Vinculacion de equipos por PUUID --------------------------------------
+-- --- Team linking by PUUID -------------------------------------------------
 --
--- Las partidas se suben antes de que existan los rosters, asi que esto tiene
--- que poder correrse de nuevo sobre partidas ya guardadas.
+-- Matches are uploaded before rosters exist, so this must be re-runnable over
+-- stored matches.
 
 create or replace function public.link_match_teams(p_match_id uuid)
 returns void
@@ -23,8 +22,8 @@ declare
   v_blue uuid;
   v_red  uuid;
 begin
-  -- Un equipo se asigna a un lado cuando al menos 3 de los 5 jugadores figuran
-  -- en su roster: tolera suplentes y jugadores todavia no cargados.
+  -- A team is assigned to a side when at least 3 of the 5 players are on its
+  -- roster: this tolerates substitutes and players not yet loaded.
   select team_id into v_blue from (
     select tm.team_id, count(*) as n
     from public.match_players mp
@@ -47,8 +46,8 @@ begin
     limit 1
   ) best where best.n >= 3;
 
-  -- Si los dos lados resuelven al mismo equipo, algo esta mal cargado: no se
-  -- asigna ninguno en vez de inventar un enfrentamiento contra si mismo.
+  -- If both sides resolve to the same team, something is misconfigured: neither
+  -- is assigned rather than inventing a team playing itself.
   if v_blue is not null and v_blue = v_red then
     v_blue := null;
     v_red := null;
@@ -81,7 +80,7 @@ begin
 end;
 $$;
 
--- --- Ingesta ---------------------------------------------------------------
+-- --- Ingestion -------------------------------------------------------------
 
 create or replace function public.ingest_match(payload jsonb)
 returns jsonb
@@ -93,8 +92,8 @@ declare
   v_file      jsonb := payload->'file';
   v_match     jsonb := payload - 'players' - 'file';
 begin
-  -- La huella identifica la partida, no al archivo: los dos equipos suben su
-  -- propio .rofl del mismo juego y son bytes distintos.
+  -- The fingerprint identifies the match, not the file: both teams upload their
+  -- own .rofl of the same game, with different bytes.
   select id into v_match_id
     from public.matches
    where fingerprint = payload->>'fingerprint';
@@ -119,8 +118,8 @@ begin
     v_status := 'duplicate';
   end if;
 
-  -- El archivo se guarda siempre: si la partida ya existia queda como prueba
-  -- adicional (el .rofl del otro equipo).
+  -- The file is always stored: if the match already existed it is kept as extra
+  -- evidence (the other team's .rofl).
   if v_file is not null then
     insert into public.match_files (
       match_id, storage_provider, storage_path, file_name, file_size, sha256,
@@ -139,8 +138,8 @@ begin
     on conflict (sha256) do nothing;
   end if;
 
-  -- Alta o actualizacion de los jugadores detectados. El Riot ID cambia con el
-  -- tiempo; el PUUID no, asi que es la clave.
+  -- Insert or update the detected players, keyed by PUUID (Riot IDs change over
+  -- time).
   insert into public.players (puuid, riot_game_name, riot_tag_line, last_seen_at)
   select
     p->>'puuid',
@@ -169,8 +168,8 @@ begin
 end;
 $$;
 
--- Solo el servidor (service key) puede escribir. Postgres otorga execute a
--- PUBLIC por defecto, hay que sacarlo explicitamente.
+-- Only the server (secret key) may write. Postgres grants execute to PUBLIC by
+-- default, so it is revoked explicitly.
 revoke execute on function public.ingest_match(jsonb) from public, anon, authenticated;
 revoke execute on function public.link_match_teams(uuid) from public, anon, authenticated;
 revoke execute on function public.relink_all_matches() from public, anon, authenticated;

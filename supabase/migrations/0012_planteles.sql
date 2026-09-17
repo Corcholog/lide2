@@ -1,36 +1,29 @@
 -- ===========================================================================
--- Emparejar inscriptos con cuentas de Riot.
+-- Linking signups to Riot accounts.
 --
--- El .rofl trae el Riot ID y nada mas; la planilla trae el nombre legal y nada
--- mas. No hay dato que una las dos cosas: lo tiene que decir una persona, o
--- mandarlo la organizacion junto con las inscripciones.
+-- The .rofl has the Riot ID; the signup sheet has the legal name. Nothing links
+-- them except a person or a list from the organizers. This migration prepares
+-- for that list:
 --
--- Esta migracion prepara el terreno para cuando llegue esa lista:
+--   1. `team_roster` stores the Riot ID declared on the sheet, as text: the
+--      account may not exist in `players` yet (it is created when the person
+--      first plays, since the PUUID only exists in the .rofl).
+--   2. `link_roster_accounts()` links the account to the signup once it appears.
 --
---   1. `team_roster` guarda el Riot ID DECLARADO en la planilla. Es texto, no
---      una referencia: la cuenta puede no existir todavia en `players`, porque
---      esa fila se crea recien cuando la persona juega y sube el replay (el
---      PUUID solo existe adentro del .rofl).
---   2. `link_roster_accounts()` cierra el circulo solo: cuando aparece la
---      cuenta, la empareja con el inscripto que la declaro.
+-- The list can be loaded before anything is played, and links resolve on
+-- ingest.
 --
--- O sea que se puede cargar la lista ANTES de que se juegue nada y el vinculo
--- se resuelve en la primera ingesta, sin que nadie vuelva a tocar el panel.
---
--- Para que sirve el vinculo: la universidad. Dieciseis de los 20 equipos son
--- de una sola casa y ahi el respaldo (la universidad del equipo) ya es exacto.
--- Los cuatro mezclados (13, 15, 16 y 17) tienen 2 de cada 5 mal atribuidos, y
--- sobre todo: UADE y UNCuyo tienen un solo inscripto cada una, los dos adentro
--- de equipos mezclados. Sin este vinculo, esas dos universidades no aparecen en
--- la tabla; de 13 se ven 11.
+-- The link decides the university for mixed teams (13, 15, 16 and 17), and some
+-- universities only have players on those teams, so without it they would not
+-- appear in the university table.
 -- ===========================================================================
 
--- --- El Riot ID declarado en la planilla -------------------------------------
+-- --- Riot ID declared on the sheet -----------------------------------------
 
 alter table public.team_roster
   add column riot_game_name text,
-  -- Sin el '#'. Puede quedar null: si la organizacion manda solo el nombre, se
-  -- busca entre las cuentas del equipo, que son cinco.
+  -- Without the '#'. May be null: with only a name, the search is limited to the
+  -- team's accounts.
   add column riot_tag_line  text;
 
 comment on column public.team_roster.riot_game_name is
@@ -40,23 +33,18 @@ create index team_roster_riot_idx
   on public.team_roster (lower(riot_game_name))
   where riot_game_name is not null;
 
--- --- El emparejado automatico ------------------------------------------------
+-- --- Automatic linking -----------------------------------------------------
 --
--- Dos reglas distintas segun cuanto se sepa:
+-- Two rules depending on what is known:
 --
---   * Con Riot ID completo (nombre + tag) se busca en todo `players`: un Riot ID
---     es unico en todo Riot, asi que no hace falta acotar por equipo y encima
---     funciona aunque el inscripto haya terminado jugando en otro lado.
---   * Con el nombre solo se busca entre las cuentas que juegan en ese equipo.
---     Un game name suelto se puede repetir entre desconocidos; adentro de cinco
---     personas, no.
+--   * With a full Riot ID (name + tag), search all of `players`: a Riot ID is
+--     unique, so it works even if the person ended up playing elsewhere.
+--   * With only a name, search the accounts playing for that team, where a
+--     name is unlikely to repeat.
 --
--- Se empareja SOLO cuando hay exactamente un candidato. Ante la duda no se hace
--- nada y queda para el panel: emparejar mal es peor que no emparejar, porque
--- despues le atribuye las partidas de alguien a otra universidad y nadie lo ve.
---
--- Va con un loop y no con un update masivo a proposito: son 113 filas y corre
--- pocas veces, y asi la regla se lee de arriba abajo.
+-- Link only when there is exactly one candidate. A wrong link is worse than
+-- none, since it credits someone's matches to another university unnoticed.
+-- A loop rather than a bulk update, so the rule reads top to bottom.
 
 create or replace function public.link_roster_accounts(p_team_id uuid default null)
 returns integer
@@ -91,9 +79,8 @@ begin
          and lower(btrim(p.riot_game_name)) = lower(btrim(v_row.riot_game_name));
     end if;
 
-    -- Y que esa cuenta no sea ya de otro inscripto: hay un indice unico que lo
-    -- impide, pero fallar con un error de constraint a mitad del loop dejaria
-    -- el resto sin emparejar.
+    -- And the account must not already belong to another signup: a unique
+    -- index prevents it, but a constraint error mid-loop would skip the rest.
     if v_matches = 1
        and v_player is not null
        and not exists (select 1 from public.team_roster x where x.player_id = v_player)
@@ -110,12 +97,11 @@ $$;
 comment on function public.link_roster_accounts(uuid) is
   'Empareja inscriptos con cuentas de Riot por el Riot ID declarado. Solo cuando es inequivoco.';
 
--- --- Asignar un cruce tambien intenta emparejar -------------------------------
+-- --- Assigning a matchup also tries to link --------------------------------
 --
--- Es el momento exacto en que la base se entera de que cinco cuentas nuevas
--- juegan en tal equipo, o sea el momento en que el emparejado por nombre suelto
--- se vuelve posible. Se re-declara la funcion entera porque plpgsql no tiene
--- forma de agregarle un pedazo; lo unico que cambia esta al final.
+-- That is when the database learns that five accounts play for a team, which
+-- enables linking by name alone. The function is redeclared in full; only the
+-- end changes.
 
 create or replace function public.assign_match_to_fixture(
   p_match_id      uuid,
@@ -211,8 +197,8 @@ begin
    where mp.match_id = p_match_id
      and tm.team_id <> (case when mp.side = 100 then v_blue else v_red end);
 
-  -- Nuevo: recien ahora se sabe que estas cuentas juegan en estos dos equipos,
-  -- que es lo que habilita emparejar por nombre suelto.
+  -- New: these accounts are now known to play for these teams, which enables
+  -- linking by name alone.
   v_matched := public.link_roster_accounts(v_blue) + public.link_roster_accounts(v_red);
 
   return jsonb_build_object(
@@ -228,11 +214,10 @@ begin
 end;
 $$;
 
--- --- Las dos listas, para el panel -------------------------------------------
+-- --- Both lists, for the panel ---------------------------------------------
 --
--- roster_status trae NOMBRES LEGALES, asi que hereda el RLS de team_roster:
--- security_invoker y la policy `to authenticated`. Cuando la fase 4 abra el
--- sitio, esta vista se queda adentro igual que la tabla.
+-- roster_status includes legal names, so it inherits team_roster's RLS:
+-- security_invoker and the `to authenticated` policy.
 
 create view public.roster_status with (security_invoker = on) as
 select
@@ -261,8 +246,8 @@ left join public.players p on p.id = r.player_id;
 comment on view public.roster_status is
   'Inscriptos con su cuenta de Riot, emparejada o declarada. Lleva nombres legales: no sale del login.';
 
--- Las cuentas que juegan en cada equipo. Esta NO tiene nombres legales: son
--- Riot IDs, que ya se ven en las partidas.
+-- Accounts playing for each team. No legal names: only Riot IDs, already
+-- visible in matches.
 
 create view public.team_accounts with (security_invoker = on) as
 select

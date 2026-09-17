@@ -1,33 +1,21 @@
 -- ===========================================================================
--- El KDA promedio: el de cada partida, promediado.
+-- Average KDA: each game's KDA, averaged.
 --
--- QUE LE FALTABA A `kda`. La columna que ya estaba es la razon del total del
--- recorte: (todas las kills + todas las asistencias) / todas las muertes. Es
--- la cuenta correcta para "cuanto rindio en las cuatro fechas", y es la unica
--- que hay: la tarjeta "Mejor KDA" de /estadisticas sale de ahi.
+-- The existing `kda` is the ratio of totals: (kills + assists) / deaths over the
+-- whole scope. It hides individual games: 10/0/10 then 0/10/0 gives 20/10 = 2.00,
+-- the same as 5/5/5 twice. Averaged per game, the first is (20 + 0) / 2 = 10.00,
+-- because `match_player_scores` divides by `greatest(deaths, 1)`.
 --
--- Pero esa cuenta borra las partidas. Un jugador que hace 10/0/10 y despues
--- 0/10/0 termina con 20/10 = 2.00, el mismo numero que uno que hizo 5/5/5 dos
--- veces, y no jugaron parecido. Promediando partida por partida el primero da
--- (20 + 0) / 2 = 10.00 y el segundo 2.00, porque `match_player_scores` divide
--- por `greatest(deaths, 1)` y una partida sin morir cobra entera.
+-- Neither is "the right one": totals reward consistency, averages reward peaks.
+-- So `avg_kda` is added next to `kda`, and each stat card says which one it
+-- shows.
 --
--- Ninguna de las dos es "la buena": la del total premia al que sostuvo el
--- rendimiento y la del promedio al que tuvo picos. Por eso se agrega al lado y
--- no en lugar de la otra, y por eso cada tarjeta dice en el subtitulo cual de
--- las dos esta mirando; dos numeros distintos bajo el mismo nombre "KDA" es
--- exactamente lo que hay que evitar.
+-- Computed here rather than in TypeScript: `loadStats()` reads one aggregated
+-- row per player, so per-game KDAs never reach the site.
 --
--- POR QUE ACA Y NO EN TYPESCRIPT. `loadStats()` lee totales agregados, una
--- fila por jugador: el KDA de cada partida no viaja, asi que no hay forma de
--- promediarlo del lado del sitio sin traerse `player_match_stats` entera. La
--- vista ya esta parada sobre esas filas y hacer un `avg` mas no cuesta nada.
---
--- `create or replace view` solo deja AGREGAR columnas al final —no sacar, ni
--- renombrar, ni reordenar—, asi que `avg_kda` va ultima, despues de
--- `mvp_count`, y hay que repetir la definicion completa de 0013_publico.sql.
--- `tournament_mvp` cuelga de esta vista y no se toca: agregar al final no le
--- mueve nada.
+-- `create or replace view` only allows appending columns, so `avg_kda` goes
+-- after `mvp_count` and the definition from 0013_publico.sql is repeated.
+-- `tournament_mvp` depends on this view and is unaffected.
 -- ===========================================================================
 
 create or replace view public.player_phase_totals with (security_invoker = off) as
@@ -83,8 +71,7 @@ select
   round(avg(s.score), 2)                             as avg_score,
   count(*) filter (where s.match_rank = 1)           as mvp_count,
 
-  -- El KDA de cada partida, promediado. La otra columna, `kda`, es la razon
-  -- del total; esta es el promedio de las razones, que no es lo mismo.
+  -- Each game's KDA, averaged; `kda` is the ratio of totals.
   round(avg(s.kda), 2)                               as avg_kda
 from public.player_match_stats s
 where s.player_id is not null
