@@ -3,8 +3,8 @@
  *
  * Kill difference, gold difference and objectives rank per game: teams play a
  * different number of games per matchday, so totals would favour whoever played
- * more. Win percentage and average duration are already rates. Objective
- * totals remain in the detail line.
+ * more. Win percentage is already a rate. Objective totals remain in the detail
+ * line.
  */
 
 import { formatGold, formatPercent } from '@/lib/format'
@@ -96,17 +96,5 @@ export function topObjectives(data: StatsData): StatBlock | null {
   })
   return block('objetivos', 'Más objetivos', rows, {
     subtitle: 'Dragones, barones y heraldos por partida',
-  })
-}
-
-/** Average duration, shortest first. */
-export function fastestTeams(data: StatsData): StatBlock | null {
-  const rows = teamRanking(data, {
-    value: (row) => row.avg_minutes,
-    display: (value) => `${value.toFixed(1)} min`,
-    order: 'asc',
-  })
-  return block('duracion-equipo', 'Partidas más cortas', rows, {
-    subtitle: 'Menor duración promedio',
   })
 }
