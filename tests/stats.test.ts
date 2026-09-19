@@ -268,7 +268,10 @@ describe('stats', () => {
 
     it('the MVP takes in whoever played, in both cuts', async () => {
       const min = await db.query<{ total: string; matchday: string }>(
-        `select public.mvp_min_games(true) as total, public.mvp_min_games(false) as matchday`,
+        // Both inside a phase, which is this suite's scope; 0032 added the
+        // second argument for the tournament, where the minimum is higher.
+        `select public.mvp_min_games(true, false)  as total,
+                public.mvp_min_games(false, false) as matchday`,
       )
 
       expect(Number(min.rows[0].total)).toBe(1)

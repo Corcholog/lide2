@@ -66,6 +66,11 @@ describe('entering bans', () => {
     matchId = await playScoreboard(db, {
       tournamentId: tournament.rows[0].id,
       winner: 'blue',
+      // Placed in the group phase, as every real match is. Since 0032 the stats
+      // views drop rows whose phase cannot be resolved, so a match with no
+      // labels would not reach `champion_meta` at all.
+      stageLabel: 'Grupo A',
+      roundLabel: 'Fecha 1',
       // "FiddleSticks" is the .rofl spelling (ddragon writes "Fiddlesticks"),
       // used by the normalization test below.
       blue: ['a', 'b', 'c', 'd', 'e'].map((p, i) => ({
@@ -126,11 +131,17 @@ describe('entering bans', () => {
     const stored = await savedBans()
     expect(stored[0].champion).toBe('FiddleSticks')
 
-    // `all_roles`: since 0030 the view also has per-role rows, and this checks
-    // the whole champion is a single row.
+    /*
+      One scope at a time: since 0030 the view has per-role rows (`all_roles`)
+      and since 0032 a row for the whole tournament (`all_phases`), so a query
+      that does not pin every dimension gets one row per scope. This one asks
+      for the whole champion over the group phase, and checks it is a single
+      row rather than one per spelling.
+    */
     const { rows } = await db.query<{ picks: number; bans: number }>(
       `select picks, bans from public.champion_meta
-        where all_groups and all_matchdays and all_roles and champion = 'FiddleSticks'`,
+        where not all_phases and all_groups and all_matchdays and all_roles
+          and champion = 'FiddleSticks'`,
     )
 
     expect(rows).toHaveLength(1)
