@@ -40,6 +40,15 @@
 --      phase, so the totals would not add up. No query ever read those rows:
 --      every scope filter pins a phase.
 --
+-- It also fixes something these views got wrong before: `champion_meta` and
+-- `champion_stats` count the matches of a scope straight from `match_context`,
+-- which is where `annulled` is defined but not applied. Their `picked` CTEs
+-- read `player_match_stats` and so inherited 0031's filter, but the `scope` and
+-- `banned` ones did not, so an annulled match still padded the denominator of
+-- `pick_rate`, `ban_rate` and `presence`, and the two stats pages disagreed on
+-- how many matches had been played. 0031 says nothing in an annulled match
+-- counts for any stat; now nothing does.
+--
 -- `create or replace view` only allows appending columns, so `all_phases` goes
 -- last everywhere and the definitions are repeated from 0025_kda_promedio.sql,
 -- 0010_stats.sql, 0013_publico.sql, 0029_roles_por_campeon.sql and
@@ -248,7 +257,10 @@ banned as (
     count(*)                                         as bans
   from public.match_bans b
   join public.match_context c on c.match_id = b.match_id
-  where c.phase is not null
+  -- Annulled matches are excluded here too: unlike `picked`, this reads
+  -- `match_context` directly, so it does not inherit the filter
+  -- `player_match_stats` applies (0031).
+  where c.phase is not null and not coalesce(c.annulled, false)
   group by grouping sets (
     (c.tournament_id, c.phase, b.champion, c.matchday, c.round_label),
     (c.tournament_id, c.phase, b.champion),
@@ -267,7 +279,10 @@ scope as (
     count(*) filter (where hb.match_id is not null)  as matches_with_bans
   from public.match_context c
   left join (select distinct match_id from public.match_bans) hb on hb.match_id = c.match_id
-  where c.phase is not null
+  -- Annulled matches are excluded here too: unlike `picked`, this reads
+  -- `match_context` directly, so it does not inherit the filter
+  -- `player_match_stats` applies (0031).
+  where c.phase is not null and not coalesce(c.annulled, false)
   group by grouping sets (
     (c.tournament_id, c.phase, c.matchday, c.round_label),
     (c.tournament_id, c.phase),
@@ -392,7 +407,10 @@ banned as (
     count(*)                                         as bans
   from public.match_bans b
   join public.match_context c on c.match_id = b.match_id
-  where c.phase is not null
+  -- Annulled matches are excluded here too: unlike `picked`, this reads
+  -- `match_context` directly, so it does not inherit the filter
+  -- `player_match_stats` applies (0031).
+  where c.phase is not null and not coalesce(c.annulled, false)
   group by grouping sets (
     (c.tournament_id, c.phase, b.champion),
     (c.tournament_id, c.phase, b.champion, c.matchday, c.round_label),
@@ -415,7 +433,10 @@ scope as (
     count(*) filter (where hb.match_id is not null)  as matches_with_bans
   from public.match_context c
   left join (select distinct match_id from public.match_bans) hb on hb.match_id = c.match_id
-  where c.phase is not null
+  -- Annulled matches are excluded here too: unlike `picked`, this reads
+  -- `match_context` directly, so it does not inherit the filter
+  -- `player_match_stats` applies (0031).
+  where c.phase is not null and not coalesce(c.annulled, false)
   group by grouping sets (
     (c.tournament_id, c.phase),
     (c.tournament_id, c.phase, c.matchday, c.round_label),

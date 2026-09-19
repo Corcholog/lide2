@@ -103,6 +103,32 @@ describe('the tournament scope', () => {
     })
 
     /*
+      A fourth group game, annulled by the organizers for an improper lineup
+      (0031). It is played and linked to its matchup, so it has a phase, but
+      nothing in it counts for any stat. b-mid scores 50 in it, a number that
+      would be impossible to miss in any average.
+    */
+    const annulled = await playScoreboard(db, {
+      tournamentId,
+      blueTeamId: team.get('Equipo 01'),
+      redTeamId: team.get('Equipo 15'),
+      winner: 'blue',
+      blue: [at(BLUE[2], 50), ...rest([BLUE[0], BLUE[1], BLUE[3], BLUE[4]])],
+      red: rest(RED),
+    })
+
+    const matchup = await db.query<{ id: string }>(
+      `insert into public.fixtures
+         (tournament_id, group_label, matchday, slot, kickoff, team_a_id, team_b_id, match_id)
+       values ($1, 'Grupo A', 1, 2, '2026-09-05T18:00:00Z', $2, $3, $4) returning id`,
+      [tournamentId, team.get('Equipo 01'), team.get('Equipo 15'), annulled],
+    )
+    await db.query('select public.set_fixture_ruling($1, $2)', [
+      matchup.rows[0].id,
+      team.get('Equipo 15'),
+    ])
+
+    /*
       An uploaded .rofl that nobody has assigned yet: it carries the tournament
       but no fixture, series or labels, so `match_context` leaves its phase
       NULL. It must not reach any scope.
@@ -182,6 +208,37 @@ describe('the tournament scope', () => {
       [tournamentId],
     )
     expect(orphans.rows).toHaveLength(0)
+  })
+
+  /*
+   * 0031 rules that nothing in an annulled match counts for any stat, and it
+   * enforces that in `player_match_stats`, which every aggregate here is built
+   * on. 0032 rewrote those aggregates in full, so this checks the rewrite did
+   * not quietly let annulled games back in: the annulled game is a 50 KDA, so
+   * it could not hide inside an average.
+   */
+  it('still leaves an annulled match out, as 0031 requires', async () => {
+    const all = await totals('all_phases')
+
+    expect(all?.games).toBe(4)
+    expect(Number(all?.avg_kda)).toBe(3)
+  })
+
+  /*
+   * The denominator of `pick_rate`, `ban_rate` and `presence`. It is counted
+   * from `match_context` rather than from `player_match_stats`, so it does not
+   * inherit that view's filters and has to exclude annulled matches itself.
+   * Four matches count here: three group games and one playoff game.
+   */
+  it('counts the same matches in the meta as everywhere else', async () => {
+    const { rows } = await db.query<{ matches: number }>(
+      `select matches from public.champion_meta
+        where tournament_id = $1 and all_phases and all_groups and all_matchdays
+        limit 1`,
+      [tournamentId],
+    )
+
+    expect(Number(rows[0].matches)).toBe(4)
   })
 
   it('ranks the tournament MVP among the tournament rows', async () => {
