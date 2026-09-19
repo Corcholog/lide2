@@ -3,7 +3,6 @@ import { getUser } from '@/lib/auth'
 import { formatPercent } from '@/lib/format'
 import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
-import { tournamentStartDate } from '@/lib/lide2/tournament'
 import { UniversityLogos } from '@/components/tournament/UniversityLogo'
 import { TeamOrderPicker } from '@/components/tournament/TeamOrderPicker'
 import { parseTeamOrder, sortTeams } from '@/lib/teams/order'
@@ -130,7 +129,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
           <p className="mt-1 text-sm text-faint">
             {user
               ? 'Probá con “Detectar desde las partidas”: agrupa a los jugadores por quiénes jugaron juntos.'
-              : `Los equipos se publican antes del arranque, el ${tournamentStartDate()}.`}
+              : 'Los equipos se publican antes del arranque.'}
           </p>
         </div>
       ) : (

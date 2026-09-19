@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import Link from 'next/link'
 import { Tabs } from '@/components/nav/Tabs'
+import { currentTab } from '@/components/nav/current'
 import { UniversityLogos } from '@/components/tournament/UniversityLogo'
 import { dayAndMonth } from '@/lib/lide2/dates'
 import { forSlot, type SlotCandidate, type SlotProjection } from '@/lib/lide2/projection'
@@ -71,6 +72,15 @@ export function Playoffs({
 }) {
   const inRound = (round: string) => series.filter((item) => item.round === round)
 
+  /*
+   * A round is over once every one of its series has a winner. A round with no
+   * series yet is not over: it is what the bracket is waiting for.
+   */
+  const played = ROUNDS.map(({ round }) => {
+    const items = inRound(round)
+    return items.length > 0 && items.every((item) => item.winner_team_id !== null)
+  })
+
   return (
     <section
       id="playoffs"
@@ -111,6 +121,7 @@ export function Playoffs({
       <div className="flex flex-col gap-4 md:hidden">
         <Tabs
           label="Rondas de playoffs"
+          defaultIndex={currentTab(played)}
           tabs={ROUNDS.map(({ round, short }) => {
             const when = inRound(round)[0]?.scheduled_at
             return {

@@ -69,7 +69,7 @@ export default async function CardsPage({ searchParams }: PageProps<'/admin/card
           title="Todavía no hay nada para publicar"
           detail={
             scope.matchday === null
-              ? `La ${TOURNAMENT.name} arranca el 5 de septiembre. En cuanto se asigne el primer replay a su cruce, el lote se arma solo.`
+              ? 'En cuanto se asigne el primer replay a su cruce, el lote se arma solo.'
               : 'Ninguna partida de esta fecha tiene el replay cargado y asignado todavía.'
           }
         />

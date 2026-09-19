@@ -10,7 +10,7 @@
  */
 import { writeFileSync } from 'node:fs'
 import sharp from 'sharp'
-import { TOURNAMENT, SLOGAN_PARTS, tournamentStartDate } from '../src/lib/lide2/tournament'
+import { TOURNAMENT, SLOGAN_PARTS } from '../src/lib/lide2/tournament'
 
 /** The size link previews use: 1200 x 630. */
 const WIDTH = 1200
@@ -81,7 +81,13 @@ const textLayer = Buffer.from(`
     <text x="72" y="546" font-size="27" font-weight="bold" fill="${LIGHT}">
       ${TOURNAMENT.teams} equipos · ${TOURNAMENT.universities} universidades · ${TOURNAMENT.players} jugadores
     </text>
-    <text x="72" y="580" font-size="22" fill="#8f8f9c">Arranca el ${tournamentStartDate({ year: true })}</text>
+    <!--
+      The channel rather than a date: the image is generated once and then
+      travels for months, so anything that goes stale on its own is baked in
+      wrong. This stays true for the whole tournament and is what someone
+      finding the card actually wants.
+    -->
+    <text x="72" y="580" font-size="22" fill="#8f8f9c">${xml(TOURNAMENT.broadcast.channel)}</text>
   </g>
 
   <!--
