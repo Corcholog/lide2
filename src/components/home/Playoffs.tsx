@@ -1,5 +1,7 @@
+import type { CSSProperties } from 'react'
 import Link from 'next/link'
 import { Tabs } from '@/components/nav/Tabs'
+import { UniversityLogos } from '@/components/tournament/UniversityLogo'
 import { dayAndMonth } from '@/lib/lide2/dates'
 import { forSlot, type SlotCandidate, type SlotProjection } from '@/lib/lide2/projection'
 import { FINAL_ROUND, seriesWinner } from '@/lib/lide2/winner'
@@ -39,18 +41,43 @@ function preview(
   return settled?.finished ? settled : null
 }
 
+/**
+ * How wide the name column is, so the crests line up down the bracket instead
+ * of following each name's length.
+ *
+ * In `ch` units, taken from the longest name shown (`ch` is the width of a
+ * digit, and team names end in numbers). Capped so one long name cannot push
+ * the crests off a narrow card; anything longer is truncated as before.
+ */
+function nameWidth(series: SeriesResultRow[], slots: SlotProjection[]): number {
+  const names = series.flatMap((item) => [
+    item.team_a_name ?? preview(slots, item.team_a_id, item.slot_a_label)?.teamName,
+    item.team_b_name ?? preview(slots, item.team_b_id, item.slot_b_label)?.teamName,
+  ])
+
+  return Math.min(Math.max(0, ...names.map((name) => name?.length ?? 0)), 18)
+}
+
 export function Playoffs({
   series,
   slots = [],
+  universities = new Map(),
 }: {
   series: SeriesResultRow[]
   /** Group slot projections, for quarter-final slots not yet filled in. */
   slots?: SlotProjection[]
+  /** Each team's universities by id, for the crests beside the names. */
+  universities?: Map<string, string[]>
 }) {
   const inRound = (round: string) => series.filter((item) => item.round === round)
 
   return (
-    <section id="playoffs" className="flex flex-col gap-4">
+    <section
+      id="playoffs"
+      className="flex flex-col gap-4"
+      // Read by every team row, so all the crests share one column.
+      style={{ '--bracket-name': `${nameWidth(series, slots)}ch` } as CSSProperties}
+    >
       <div className="flex items-end justify-between gap-4">
         <h2 className="border-b-4 border-accent pb-1 text-lg uppercase tracking-tight">Playoffs</h2>
         <p className="text-xs text-faint">Cuartos y semis BO3 · final BO5 presencial</p>
@@ -74,6 +101,7 @@ export function Playoffs({
             title={round}
             series={inRound(round)}
             slots={slots}
+            universities={universities}
             champion={round === FINAL_ROUND}
           />
         ))}
@@ -97,6 +125,7 @@ export function Playoffs({
               key={round}
               series={inRound(round)}
               slots={slots}
+              universities={universities}
               champion={round === FINAL_ROUND}
             />
           ))}
@@ -111,11 +140,13 @@ function RoundColumn({
   title,
   series,
   slots,
+  universities,
   champion = false,
 }: {
   title: string
   series: SeriesResultRow[]
   slots: SlotProjection[]
+  universities: Map<string, string[]>
   champion?: boolean
 }) {
   const date = series[0]?.scheduled_at
@@ -131,7 +162,7 @@ function RoundColumn({
           previous round. */}
       <div className="flex flex-1 flex-col justify-around gap-3">
         {series.map((item) => (
-          <SeriesCard key={item.id} series={item} slots={slots} />
+          <SeriesCard key={item.id} series={item} slots={slots} universities={universities} />
         ))}
         {champion && <Champion final={series[0]} />}
       </div>
@@ -146,16 +177,18 @@ function RoundColumn({
 function Round({
   series,
   slots,
+  universities,
   champion = false,
 }: {
   series: SeriesResultRow[]
   slots: SlotProjection[]
+  universities: Map<string, string[]>
   champion?: boolean
 }) {
   return (
     <div className="flex flex-col gap-3">
       {series.map((item) => (
-        <SeriesCard key={item.id} series={item} slots={slots} />
+        <SeriesCard key={item.id} series={item} slots={slots} universities={universities} />
       ))}
       {champion && <Champion final={series[0]} />}
     </div>
@@ -182,7 +215,15 @@ function Champion({ final }: { final: SeriesResultRow | undefined }) {
   )
 }
 
-function SeriesCard({ series, slots }: { series: SeriesResultRow; slots: SlotProjection[] }) {
+function SeriesCard({
+  series,
+  slots,
+  universities,
+}: {
+  series: SeriesResultRow
+  slots: SlotProjection[]
+  universities: Map<string, string[]>
+}) {
   const decided = series.winner_team_id !== null
 
   return (
@@ -197,6 +238,7 @@ function SeriesCard({ series, slots }: { series: SeriesResultRow; slots: SlotPro
         name={series.team_a_name}
         slot={series.slot_a_label}
         settled={preview(slots, series.team_a_id, series.slot_a_label)}
+        universities={universities}
         wins={series.wins_a}
         won={decided && series.winner_team_id === series.team_a_id}
         pending={!decided}
@@ -206,6 +248,7 @@ function SeriesCard({ series, slots }: { series: SeriesResultRow; slots: SlotPro
         name={series.team_b_name}
         slot={series.slot_b_label}
         settled={preview(slots, series.team_b_id, series.slot_b_label)}
+        universities={universities}
         wins={series.wins_b}
         won={decided && series.winner_team_id === series.team_b_id}
         pending={!decided}
@@ -230,6 +273,7 @@ function SeriesTeam({
   name,
   slot,
   settled,
+  universities,
   wins,
   won,
   pending,
@@ -238,12 +282,14 @@ function SeriesTeam({
   name: string | null
   slot: string | null
   settled: SlotCandidate | null
+  universities: Map<string, string[]>
   wins: number
   won: boolean
   pending: boolean
 }) {
   const shown = name ?? settled?.teamName ?? null
   const teamId = id ?? settled?.teamId ?? null
+  const tags = teamId ? universities.get(teamId) : null
 
   // Projected: not in the database yet, derived from the group table.
   const projected = !name && settled !== null
@@ -254,7 +300,9 @@ function SeriesTeam({
       : pending
         ? 'text-fg-soft'
         : 'text-faint'
-  const label = `min-w-0 flex-1 truncate text-sm ${tone}`
+  // The name column is as wide as the longest name in the bracket, so the
+  // crests line up; the slot and score are pushed to the right edge below.
+  const label = `min-w-[var(--bracket-name)] truncate text-sm ${tone}`
 
   return (
     <div className={`border-l-2 py-1 pl-2 ${won ? 'border-accent' : 'border-transparent'}`}>
@@ -277,9 +325,14 @@ function SeriesTeam({
             {shown ?? <span className="text-dim">{slot ?? 'por definir'}</span>}
           </span>
         )}
-        {shown && slot && <span className="shrink-0 text-[10px] text-dim">{slot}</span>}
-        <span className={`tabular w-4 text-right text-sm ${won ? 'font-bold' : 'text-faint'}`}>
-          {wins}
+        {/* The same size as the fixture's crests. Mixed teams show every
+            university, as there too. */}
+        {shown && <UniversityLogos tags={tags} size="fixture" />}
+        <span className="ml-auto flex shrink-0 items-center gap-2">
+          {shown && slot && <span className="text-[10px] text-dim">{slot}</span>}
+          <span className={`tabular w-4 text-right text-sm ${won ? 'font-bold' : 'text-faint'}`}>
+            {wins}
+          </span>
         </span>
       </div>
     </div>

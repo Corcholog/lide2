@@ -103,6 +103,9 @@ export default async function Lide2Page() {
   const champion = championOf(series)
   // Who can still take each group slot of the bracket, from the rows above.
   const slots = projectBracketSlots(standings, fixture)
+  // The bracket shows each team's crests, which `series_results` does not
+  // carry; every playoff team played the group phase, so the table has them.
+  const teamUniversities = new Map(standings.map((row) => [row.team_id, row.university_tags]))
 
   return (
     <TeamFocus teams={focusTeams(fixture)} className="flex flex-col gap-10">
@@ -127,7 +130,7 @@ export default async function Lide2Page() {
 
       <Fixture rounds={fixture} />
 
-      <Playoffs series={series} slots={slots} />
+      <Playoffs series={series} slots={slots} universities={teamUniversities} />
 
       <GrandFinal />
 
