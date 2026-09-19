@@ -5,7 +5,7 @@ import { assetVersion, championName, championNames } from '@/lib/ddragon'
 import { tournamentStartDate, TOURNAMENT } from '@/lib/lide2/tournament'
 import { playerName } from '@/lib/format'
 import { resolveTournamentId } from '@/lib/stats/query'
-import { parseScope } from '@/lib/stats/scope'
+import { hasGroups, parseScope, scopeLabel, scopeValue } from '@/lib/stats/scope'
 import {
   byRole,
   championsInRole,
@@ -102,12 +102,18 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
 
   const params = await searchParams
   const scope = parseScope(params.fecha, tournamentId)
-  const group = parseGroup(params.grupo)
   const role = parseRole(params.rol)
+  /*
+    Only inside the group phase: a playoff series belongs to no group, so the
+    tournament and playoff scopes have no rows split by group at all (0032).
+    Dropped rather than carried, so switching to the playoffs with `?grupo=B`
+    in the URL shows the playoffs instead of an empty table.
+  */
+  const group = hasGroups(scope) ? parseGroup(params.grupo) : null
 
   // The scope each nav carries along so it does not wipe the others' filters.
   const filters = {
-    fecha: scope.matchday,
+    fecha: scopeValue(scope),
     grupo: group?.slice(-1) ?? null,
     rol: role?.id ?? null,
   }
@@ -219,17 +225,20 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
       <header className="flex flex-col gap-1">
         <h1 className="font-display text-3xl uppercase tracking-tight">Estadísticas</h1>
         <p className="text-sm text-muted">
-          {group ?? 'Todos los grupos'} · {role?.label ?? 'todos los roles'} ·{' '}
-          {scope.matchday === null ? 'toda la fase' : `fecha ${scope.matchday}`}
+          {scopeLabel(scope)} · {hasGroups(scope) ? `${group ?? 'todos los grupos'} · ` : ''}
+          {role?.label ?? 'todos los roles'}
           {matches > 0 && ` · ${matches} ${matches === 1 ? 'partida' : 'partidas'}`}
         </p>
       </header>
 
       <div className="flex flex-col gap-2">
-        {/* The other tab does not filter by group: it only gets the matchday. */}
-        <ViewNav active="tablas" query={{ fecha: scope.matchday }} />
-        <ScopeNav base="/estadisticas/tablas" matchday={scope.matchday} query={filters} />
-        <GroupNav base="/estadisticas/tablas" group={group} query={filters} />
+        {/* The other tab does not filter by group or role: it only gets the scope. */}
+        <ViewNav active="tablas" query={{ fecha: filters.fecha }} />
+        <ScopeNav base="/estadisticas/tablas" scope={scope} query={filters} />
+        {/* Hidden outside the group phase, where there is nothing to split. */}
+        {hasGroups(scope) && (
+          <GroupNav base="/estadisticas/tablas" group={group} query={filters} />
+        )}
         <RoleNav base="/estadisticas/tablas" role={role} query={filters} />
       </div>
 
@@ -238,9 +247,9 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
           title="Todavía no se jugó nada acá"
           detail={
             // The role does not change `matches`, so it cannot make a scope empty.
-            group || scope.matchday !== null
+            group || scope.kind !== 'torneo'
               ? 'Probá con otro recorte: ninguna partida de este grupo y esta fecha tiene el replay cargado.'
-              : `La ${TOURNAMENT.name} arranca el ${tournamentStartDate()}. En cuanto se suba el primer replay, esta página se llena sola.`
+              : 'En cuanto se suba el primer replay, esta página se llena sola.'
           }
         />
       ) : (

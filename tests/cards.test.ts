@@ -4,6 +4,7 @@ import { ACCUMULATED, buildPosters, kickerFor, BY_MATCHDAY } from '@/lib/cards/b
 import { toCsv, toPlainText } from '@/lib/cards/export'
 import { groupTables, matchdayNumbers } from '@/lib/cards/summary'
 import { STATS } from '@/lib/stats/registry'
+import { matchFilter, scopeFilter } from '@/lib/stats/filters'
 import type { StatBlock, StatScope, StatsData } from '@/lib/stats/types'
 import type { GroupStandingRow, MatchRecordRow } from '@/types/db'
 import { createTestDb } from './helpers/db'
@@ -36,17 +37,28 @@ const AS_POSTGREST = {
 }
 
 /**
+ * A PostgREST `.match()` filter as a WHERE clause.
+ *
+ * Built from the real `scopeFilter` and `matchFilter` rather than written out
+ * again, so this reimplementation cannot drift from the one the site uses: a
+ * wrong filter here would be the same wrong filter in production.
+ */
+function sqlFor(filter: Record<string, unknown>): { where: string; params: unknown[] } {
+  const entries = Object.entries(filter)
+
+  return {
+    where: entries.map(([column], index) => `${column} = $${index + 1}`).join(' and '),
+    params: entries.map(([, value]) => value),
+  }
+}
+
+/**
  * `loadStats` reimplemented against PGlite (the real one uses PostgREST). If the
  * filters drift apart, the final test fails with an empty batch.
  */
 async function loadFromDb(db: PGlite, scope: StatScope): Promise<StatsData> {
-  const total = scope.matchday === null
-  const where = total
-    ? 'tournament_id = $1 and phase = $2 and is_total'
-    : 'tournament_id = $1 and phase = $2 and not is_total and matchday = $3'
-  const params = total
-    ? [scope.tournamentId, scope.phase]
-    : [scope.tournamentId, scope.phase, scope.matchday]
+  const { where, params } = sqlFor(scopeFilter(scope))
+  const records = sqlFor(matchFilter(scope))
 
   // Sequential, not Promise.all: PGlite is a single connection and concurrent
   // queries hang without an error.
@@ -54,22 +66,20 @@ async function loadFromDb(db: PGlite, scope: StatScope): Promise<StatsData> {
     (await db.query<T>(`select * from public.${name} where ${where}`, params, { parsers: AS_POSTGREST }))
       .rows
 
-  const recordsWhere = total
-    ? 'tournament_id = $1 and phase = $2'
-    : 'tournament_id = $1 and phase = $2 and matchday = $3'
-
   const players = await view<StatsData['players'][number]>('player_phase_totals')
   const teams = await view<StatsData['teams'][number]>('team_phase_totals')
   const universities = await view<StatsData['universities'][number]>('university_totals')
   const champions = await view<StatsData['champions'][number]>('champion_stats')
   const mvp = await view<StatsData['mvp'][number]>('tournament_mvp')
-  const records = await db.query<MatchRecordRow>(
-    `select * from public.match_records where ${recordsWhere}`,
-    params,
+  const recordRows = await db.query<MatchRecordRow>(
+    // `phase is not null` as in `loadStats`: this view has a row per match, so
+    // an upload nobody has assigned yet would reach the tournament scope.
+    `select * from public.match_records where ${records.where} and phase is not null`,
+    records.params,
     { parsers: AS_POSTGREST },
   )
 
-  return { scope, players, teams, universities, champions, records: records.rows, mvp }
+  return { scope, players, teams, universities, champions, records: recordRows.rows, mvp }
 }
 
 async function standingsFromDb(db: PGlite, tournamentId: string): Promise<GroupStandingRow[]> {
@@ -81,11 +91,11 @@ async function standingsFromDb(db: PGlite, tournamentId: string): Promise<GroupS
   return rows
 }
 
-const scope = (matchday: number | null): StatScope => ({
-  tournamentId: 't1',
-  phase: 'grupos',
-  matchday,
-})
+/** A group-phase scope: one matchday, or the whole phase when null. */
+const scope = (matchday: number | null): StatScope =>
+  matchday === null
+    ? { kind: 'fase', tournamentId: 't1', phase: 'grupos' }
+    : { kind: 'fecha', tournamentId: 't1', phase: 'grupos', matchday }
 
 function record(overrides: Partial<MatchRecordRow> = {}): MatchRecordRow {
   return {
@@ -396,11 +406,10 @@ describe('the batch against the real database', () => {
   let tournamentId: string
 
   /** The same scope with the real tournament id (`scope()` uses a placeholder). */
-  const dbScope = (matchday: number | null): StatScope => ({
-    tournamentId,
-    phase: 'grupos',
-    matchday,
-  })
+  const dbScope = (matchday: number | null): StatScope =>
+    matchday === null
+      ? { kind: 'fase', tournamentId, phase: 'grupos' }
+      : { kind: 'fecha', tournamentId, phase: 'grupos', matchday }
 
   beforeAll(async () => {
     db = await createTestDb()

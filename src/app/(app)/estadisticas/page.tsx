@@ -9,12 +9,12 @@ import { ScopeNav } from '@/components/stats/ScopeNav'
 import { ViewNav } from '@/components/stats/ViewNav'
 import { SectionNav } from '@/components/tournament/SectionNav'
 import { Empty } from '@/components/stats/Empty'
-import { parseScope } from '@/lib/stats/scope'
+import { parseScope, scopeSubtitle, scopeValue } from '@/lib/stats/scope'
 
 export const metadata = {
   title: 'Estadísticas',
   description:
-    'Los rankings de la fase de grupos, fecha por fecha y acumulados: MVP, el quinteto, el meta y los récords.',
+    'Los rankings del torneo entero, de los playoffs y de la fase de grupos fecha por fecha: MVP, el quinteto, el meta y los récords.',
 }
 
 export const dynamic = 'force-dynamic'
@@ -54,25 +54,21 @@ export default async function StatsPage({ searchParams }: PageProps<'/estadistic
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-1">
         <h1 className="font-display text-3xl uppercase tracking-tight">Estadísticas</h1>
-        <p className="text-sm text-muted">
-          {scope.matchday === null
-            ? 'Acumulado de toda la fase de grupos'
-            : `Fecha ${scope.matchday} de la fase de grupos`}
-        </p>
+        <p className="text-sm text-muted">{scopeSubtitle(scope)}</p>
       </header>
 
       <div className="flex flex-col gap-2">
-        <ViewNav active="rankings" query={{ fecha: scope.matchday }} />
-        <ScopeNav base="/estadisticas" matchday={scope.matchday} />
+        <ViewNav active="rankings" query={{ fecha: scopeValue(scope) }} />
+        <ScopeNav base="/estadisticas" scope={scope} />
       </div>
 
       {played === 0 ? (
         <Empty
           title="Todavía no se jugó nada acá"
           detail={
-            scope.matchday === null
-              ? `La ${TOURNAMENT.name} arranca el 5 de septiembre. En cuanto se suba el primer replay, esta página se llena sola.`
-              : 'Ninguna partida de esta fecha tiene el replay cargado todavía.'
+            scope.kind === 'torneo'
+              ? 'En cuanto se suba el primer replay, esta página se llena sola.'
+              : 'Ninguna partida de este recorte tiene el replay cargado todavía.'
           }
         />
       ) : (

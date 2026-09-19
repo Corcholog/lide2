@@ -6,6 +6,7 @@
  * edited.
  */
 
+import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { STATS } from '@/lib/stats/registry'
 import type { StatScope, StatsData } from '@/lib/stats/types'
 import type { GroupStandingRow } from '@/types/db'
@@ -40,13 +41,27 @@ export const ACCUMULATED = [
 
 /** "Fecha 2 · Fase de grupos", the line at the top of every piece. */
 export function kickerFor(scope: StatScope): string {
-  const phase = scope.phase === 'grupos' ? 'Fase de grupos' : 'Playoffs'
-  return scope.matchday === null ? `Acumulado · ${phase}` : `Fecha ${scope.matchday} · ${phase}`
+  switch (scope.kind) {
+    case 'torneo':
+      return `Acumulado · ${TOURNAMENT.name}`
+    case 'fase':
+      return `Acumulado · ${scope.phase === 'grupos' ? 'Fase de grupos' : 'Playoffs'}`
+    case 'fecha':
+      return `Fecha ${scope.matchday} · Fase de grupos`
+    case 'ronda':
+      return `${scope.round} · Playoffs`
+  }
 }
 
 export function buildPosters(data: StatsData, standings: GroupStandingRow[] = []): Poster[] {
   const kicker = kickerFor(data.scope)
-  const wanted = data.scope.matchday === null ? ACCUMULATED : BY_MATCHDAY
+  /*
+    One matchday or one round gets the short batch; anything accumulated gets
+    the long one, which includes the pieces that only make sense over several
+    matches (the starting five, the meta).
+  */
+  const wanted =
+    data.scope.kind === 'fecha' || data.scope.kind === 'ronda' ? BY_MATCHDAY : ACCUMULATED
 
   // The numbers go first: they need no review and can be posted right away.
   const numbers = matchdayNumbers(data)

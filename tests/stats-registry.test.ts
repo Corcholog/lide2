@@ -19,7 +19,7 @@ import type {
  * are tested in tests/stats.test.ts.
  */
 
-const SCOPE: StatScope = { tournamentId: 't1', phase: 'grupos', matchday: null }
+const SCOPE: StatScope = { kind: 'fase', tournamentId: 't1', phase: 'grupos' }
 
 function player(over: Partial<PlayerPhaseTotalsRow>): PlayerPhaseTotalsRow {
   return {
@@ -198,8 +198,13 @@ describe('stats presentation', () => {
     expect(new Set(STATS.map((stat) => stat.id)).size).toBe(STATS.length)
   })
 
-  it('having played is enough to enter a ranking of averages', () => {
-    expect(minGamesForAverages()).toBe(1)
+  it('having played is enough to enter a ranking of averages inside a phase', () => {
+    expect(minGamesForAverages(SCOPE)).toBe(1)
+  })
+
+  /* Over the whole tournament a single game is too thin a sample to lead. */
+  it('asks for two games over the whole tournament', () => {
+    expect(minGamesForAverages({ kind: 'torneo', tournamentId: 't1' })).toBe(2)
   })
 
   it('the two KDA rankings can disagree, which is the point of having both', () => {

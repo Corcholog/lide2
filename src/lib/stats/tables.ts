@@ -115,12 +115,38 @@ export function scopeCounts<T extends { all_roles?: boolean; matches: number; ma
  * group could not be resolved.
  */
 export function metaFilter(scope: StatScope, group: string | null): Record<string, unknown> {
-  return {
+  /*
+    `champion_meta` keys every dimension with its own flag, so each one has to
+    be pinned or the query gets one row per scope. `all_phases` is the one
+    added by 0032; the tournament scope exists only with `all_groups`, which is
+    why `hasGroups` hides the group filter outside the group phase.
+  */
+  const base = {
     tournament_id: scope.tournamentId,
-    phase: scope.phase,
     all_groups: group === null,
     ...(group === null ? {} : { group_label: group }),
-    all_matchdays: scope.matchday === null,
-    ...(scope.matchday === null ? {} : { matchday: scope.matchday }),
+  }
+
+  switch (scope.kind) {
+    case 'torneo':
+      return { ...base, all_phases: true, all_matchdays: true }
+    case 'fase':
+      return { ...base, all_phases: false, phase: scope.phase, all_matchdays: true }
+    case 'fecha':
+      return {
+        ...base,
+        all_phases: false,
+        phase: scope.phase,
+        all_matchdays: false,
+        matchday: scope.matchday,
+      }
+    case 'ronda':
+      return {
+        ...base,
+        all_phases: false,
+        phase: scope.phase,
+        all_matchdays: false,
+        round_label: scope.round,
+      }
   }
 }

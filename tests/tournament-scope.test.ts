@@ -2,6 +2,7 @@ import type { PGlite } from '@electric-sql/pglite'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createTestDb } from './helpers/db'
 import { playScoreboard } from './helpers/matches'
+import { scopeFilter } from '@/lib/stats/filters'
 
 /**
  * The tournament scope added in 0032: the rows with `all_phases`, which hold
@@ -285,6 +286,27 @@ describe('the tournament scope', () => {
     )
 
     expect(rows[0].n).toBe(champions.rows[0].n)
+  })
+
+  /*
+   * The bridge between the migration and the site: the filter the pages send
+   * has to land on the rows this migration added. Both halves passing their
+   * own tests while disagreeing would show up as an empty page, not an error.
+   */
+  it('is what `scopeFilter` reaches for', async () => {
+    const filter = scopeFilter({ kind: 'torneo', tournamentId })
+    const entries = Object.entries(filter)
+
+    const { rows } = await db.query<{ games: number; phase: string | null }>(
+      `select games, phase from public.player_phase_totals
+        where ${entries.map(([column], i) => `${column} = $${i + 1}`).join(' and ')}
+          and player_name = $${entries.length + 1}`,
+      [...entries.map(([, value]) => value), BLUE[2]],
+    )
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0].phase).toBeNull()
+    expect(Number(rows[0].games)).toBe(4)
   })
 
   /*

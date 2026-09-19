@@ -41,7 +41,13 @@ export async function loadStats(supabase: Supabase, scope: StatScope): Promise<S
     supabase.from('team_phase_totals').select('*').match(filter),
     supabase.from('university_totals').select('*').match(filter),
     supabase.from('champion_stats').select('*').match(filter),
-    supabase.from('match_records').select('*').match(matchFilter(scope)),
+    /*
+      `not null` on the phase as well: unlike the accumulated views, which drop
+      unresolved rows when they aggregate (0032), this one has a row per match,
+      so an upload nobody has assigned yet would show up in the tournament
+      scope, which pins no phase.
+    */
+    supabase.from('match_records').select('*').match(matchFilter(scope)).not('phase', 'is', null),
     supabase.from('tournament_mvp').select('*').match(filter),
     // Names do not change between patches, so the latest version is enough.
     // This is the one request that does not go to the database.

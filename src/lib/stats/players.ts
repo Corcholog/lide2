@@ -165,7 +165,7 @@ export function topAssists(data: StatsData): StatBlock | null {
 }
 
 export function bestKda(data: StatsData): StatBlock | null {
-  const min = minGamesForAverages()
+  const min = minGamesForAverages(data.scope)
   const rows = playerRanking(data, {
     value: (row) => row.kda,
     display: (value) => value.toFixed(2),
@@ -187,7 +187,7 @@ export function bestKda(data: StatsData): StatBlock | null {
  * other averages.
  */
 export function bestAverageKda(data: StatsData): StatBlock | null {
-  const min = minGamesForAverages()
+  const min = minGamesForAverages(data.scope)
   const rows = playerRanking(data, {
     value: (row) => row.avg_kda,
     display: (value) => value.toFixed(2),
@@ -202,7 +202,7 @@ export function bestAverageKda(data: StatsData): StatBlock | null {
 }
 
 export function fewestDeaths(data: StatsData): StatBlock | null {
-  const min = minGamesForAverages()
+  const min = minGamesForAverages(data.scope)
   const rows = playerRanking(data, {
     value: (row) => row.avg_deaths,
     display: (value) => `${value.toFixed(2)} por partida`,
@@ -238,7 +238,7 @@ export function topDamage(data: StatsData): StatBlock | null {
 }
 
 export function topDpm(data: StatsData): StatBlock | null {
-  const min = minGamesForAverages()
+  const min = minGamesForAverages(data.scope)
   const rows = playerRanking(data, {
     value: (row) => row.dpm,
     display: (value) => `${formatNumber(value)} por minuto`,
@@ -248,7 +248,7 @@ export function topDpm(data: StatsData): StatBlock | null {
 }
 
 export function topCsPerMin(data: StatsData): StatBlock | null {
-  const min = minGamesForAverages()
+  const min = minGamesForAverages(data.scope)
   const rows = playerRanking(data, {
     value: (row) => row.csm,
     display: (value) => `${value.toFixed(1)} por minuto`,
@@ -258,7 +258,7 @@ export function topCsPerMin(data: StatsData): StatBlock | null {
 }
 
 export function topGpm(data: StatsData): StatBlock | null {
-  const min = minGamesForAverages()
+  const min = minGamesForAverages(data.scope)
   const rows = playerRanking(data, {
     value: (row) => row.gpm,
     display: (value) => `${formatNumber(value)} por minuto`,
@@ -268,7 +268,7 @@ export function topGpm(data: StatsData): StatBlock | null {
 }
 
 export function topVision(data: StatsData): StatBlock | null {
-  const min = minGamesForAverages()
+  const min = minGamesForAverages(data.scope)
   const rows = playerRanking(data, {
     value: (row) => row.avg_vision,
     display: (value) => `${value.toFixed(1)} por partida`,

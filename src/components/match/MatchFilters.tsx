@@ -1,10 +1,11 @@
 'use client'
 
+import type { MouseEvent } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { countCut, type MatchCut } from '@/components/match/cut'
 import { markRule } from '@/components/match/mark'
-import { ScopeNav } from '@/components/stats/ScopeNav'
-import { parseMatchday, parseTeamFilter } from '@/lib/stats/scope'
+import { Chip } from '@/components/nav/Chip'
+import { MATCHDAYS, parseMatchday, parseTeamFilter } from '@/lib/stats/scope'
 import { GROUP_OPTIONS } from '@/lib/stats/tables'
 import { withQuery } from '@/lib/url'
 
@@ -52,16 +53,38 @@ export function MatchFilters({
     )
   }
 
+  // Modified clicks (ctrl, cmd, shift, middle button) are left to the browser.
+  const pick = (fecha: number | null) => (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+    event.preventDefault()
+    go({ fecha })
+  }
+
   return (
     <div className="flex flex-col gap-3">
       {rules !== '' && <style>{rules}</style>}
 
-      <ScopeNav
-        base="/partidas"
-        matchday={matchday}
-        query={{ equipo: team }}
-        onPick={(fecha) => go({ fecha })}
-      />
+      {/*
+        Its own row rather than the stats pages' `ScopeNav`: this one filters
+        in the browser by matchday, and playoff matches have no matchday (their
+        scope is the round). Chips stay real links so new tabs, sharing and
+        no-JavaScript use keep working; a plain click only rewrites the URL.
+      */}
+      <nav
+        aria-label="Fecha"
+        className="flex gap-1 overflow-x-auto pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible sm:pb-0"
+      >
+        {[{ matchday: null, label: 'Todas' }, ...MATCHDAYS].map((entry) => (
+          <Chip
+            key={entry.matchday ?? 'todas'}
+            label={entry.label}
+            href={withQuery('/partidas', { equipo: team, fecha: entry.matchday })}
+            active={matchday === entry.matchday}
+            prefetch={false}
+            onClick={pick(entry.matchday)}
+          />
+        ))}
+      </nav>
 
       <form method="get" action="/partidas" className="flex flex-wrap items-center gap-2">
         {matchday !== null && <input type="hidden" name="fecha" value={matchday} />}
