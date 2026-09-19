@@ -1,7 +1,7 @@
 import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { formatDuration, formatNumber } from '@/lib/format'
-import { tournamentStartDate, TOURNAMENT } from '@/lib/lide2/tournament'
+import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { loadStats, resolveTournamentId } from '@/lib/stats/query'
 import { buildStats } from '@/lib/stats/registry'
 import { StatCard } from '@/components/stats/StatCard'
@@ -37,7 +37,7 @@ export default async function StatsPage({ searchParams }: PageProps<'/estadistic
     ) : (
       <Empty
         title="Todavía no hay estadísticas"
-        detail={`La ${TOURNAMENT.name} arranca el ${tournamentStartDate()}. En cuanto se juegue la primera fecha, esta página se llena sola.`}
+        detail="En cuanto se publiquen, esta página se llena sola."
       />
     )
   }
@@ -71,7 +71,7 @@ export default async function StatsPage({ searchParams }: PageProps<'/estadistic
           title="Todavía no se jugó nada acá"
           detail={
             scope.matchday === null
-              ? `La ${TOURNAMENT.name} arranca el 5 de septiembre. En cuanto se suba el primer replay, esta página se llena sola.`
+              ? 'En cuanto se suba el primer replay, esta página se llena sola.'
               : 'Ninguna partida de esta fecha tiene el replay cargado todavía.'
           }
         />

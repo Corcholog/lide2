@@ -31,15 +31,21 @@ export interface Tab {
 export function Tabs({
   tabs,
   label,
+  defaultIndex = 0,
   children,
 }: {
   tabs: Tab[]
   /** Accessible name of the tab list. */
   label: string
+  /** The tab open on load, usually from `currentTab` in `./current`. */
+  defaultIndex?: number
   /** One panel per tab, in the same order. */
   children: ReactNode[]
 }) {
-  const [current, setCurrent] = useState(0)
+  // Clamped once on mount: later renders must not move a tab the visitor picked.
+  const [current, setCurrent] = useState(() =>
+    Math.max(0, Math.min(tabs.length - 1, defaultIndex)),
+  )
   // Direction the new panel enters from: from the right when moving forward.
   const [forward, setForward] = useState(true)
   /*

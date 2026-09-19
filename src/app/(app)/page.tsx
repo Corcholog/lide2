@@ -2,9 +2,9 @@ import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
 import { resolveTournamentId } from '@/lib/stats/query'
-import { daysUntil } from '@/lib/lide2/dates'
+import { nextMilestone } from '@/lib/lide2/dates'
+import { groupsFinished } from '@/lib/lide2/fixture'
 import { projectBracketSlots } from '@/lib/lide2/projection'
-import { CALENDAR } from '@/lib/lide2/tournament'
 import { championOf } from '@/lib/lide2/winner'
 import { TeamFocus, type FocusTeam } from '@/components/tournament/TeamFocus'
 import { Hero, UniversityStrip } from '@/components/home/Hero'
@@ -25,12 +25,17 @@ export const dynamic = 'force-dynamic'
  * highlight a team with CSS.
  */
 
+/**
+ * The section bar, in the page's own order: what is being played first, what
+ * has been played after it. Must be moved together with the sections below,
+ * which are what it scrolls to.
+ */
 const SECTIONS = [
-  { id: 'calendario', label: 'Calendario' },
-  { id: 'grupos', label: 'Fase de grupos' },
-  { id: 'fixture', label: 'Fixture' },
   { id: 'playoffs', label: 'Playoffs' },
   { id: 'final', label: 'La final' },
+  { id: 'grupos', label: 'Fase de grupos' },
+  { id: 'calendario', label: 'Calendario' },
+  { id: 'fixture', label: 'Fixture' },
 ]
 
 /**
@@ -98,7 +103,13 @@ export default async function Lide2Page() {
   const standings = rows<GroupStandingRow>(standingsRes, 'the standings table')
   const series = rows<SeriesResultRow>(seriesRes, 'the bracket')
   const fixture = rows<FixtureResultRow>(fixtureRes, 'the fixture')
-  const next = CALENDAR.find((milestone) => daysUntil(milestone.date) >= 0)
+  /*
+    Read once and passed down: the hero's countdown, the calendar and the group
+    tables all change wording when the group phase is over, and they must not
+    disagree about when that happened.
+  */
+  const groupsDone = groupsFinished(fixture)
+  const next = nextMilestone(groupsDone)
   // Shown in the hero once the final is played.
   const champion = championOf(series)
   // Who can still take each group slot of the bracket, from the rows above.
@@ -124,15 +135,21 @@ export default async function Lide2Page() {
         </p>
       )}
 
-      <Calendar next={next} />
-
-      <GroupPhase standings={standings} />
-
-      <Fixture rounds={fixture} />
-
+      {/*
+        The bracket and the final lead: they are what is being played, and the
+        final is the only date the public travels to. Then the group table,
+        which says who reached that bracket. The calendar and the fixture are
+        reference by now, and the hero already counts down to the next date.
+      */}
       <Playoffs series={series} slots={slots} universities={teamUniversities} />
 
       <GrandFinal />
+
+      <GroupPhase standings={standings} finished={groupsDone} />
+
+      <Calendar next={next} groupsDone={groupsDone} />
+
+      <Fixture rounds={fixture} />
 
       <WhereToWatch />
     </TeamFocus>

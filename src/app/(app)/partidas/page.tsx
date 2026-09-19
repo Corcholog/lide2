@@ -3,7 +3,6 @@ import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
 import { assetVersion, championNames } from '@/lib/ddragon'
-import { tournamentStartDate, TOURNAMENT } from '@/lib/lide2/tournament'
 import { loadMatchDetails } from '@/lib/matches'
 import { resolveTournamentId } from '@/lib/stats/query'
 import type { MatchCut } from '@/components/match/cut'
@@ -107,7 +106,7 @@ export default async function MatchesPage() {
           <p className="text-fg-soft">
             {user
               ? 'Subí los .rofl de las partidas jugadas para empezar.'
-              : `Todavía no se jugó ninguna partida. La ${TOURNAMENT.name} arranca el ${tournamentStartDate()}.`}
+              : 'Todavía no se jugó ninguna partida.'}
           </p>
         </div>
       ) : (

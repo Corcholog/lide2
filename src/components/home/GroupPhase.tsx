@@ -7,7 +7,14 @@ import type { GroupStandingRow } from '@/types/db'
  * The group phase: four tables, two qualifying places each. The view returns
  * rows already ordered with the rulebook's tiebreaks; this only groups them.
  */
-export function GroupPhase({ standings }: { standings: GroupStandingRow[] }) {
+export function GroupPhase({
+  standings,
+  finished = false,
+}: {
+  standings: GroupStandingRow[]
+  /** Whether the phase is over, which is all that changes is how it is worded. */
+  finished?: boolean
+}) {
   const groups = byGroup(standings)
 
   return (
@@ -17,7 +24,8 @@ export function GroupPhase({ standings }: { standings: GroupStandingRow[] }) {
           Fase de grupos
         </h2>
         <p className="text-xs text-faint">
-          Todos contra todos · clasifican los dos primeros de cada grupo
+          Todos contra todos · {finished ? 'clasificaron' : 'clasifican'} los dos primeros de cada
+          grupo
         </p>
       </div>
 

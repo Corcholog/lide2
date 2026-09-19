@@ -2,7 +2,7 @@ import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
 import { assetVersion, championName, championNames } from '@/lib/ddragon'
-import { tournamentStartDate, TOURNAMENT } from '@/lib/lide2/tournament'
+import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { playerName } from '@/lib/format'
 import { resolveTournamentId } from '@/lib/stats/query'
 import { parseScope } from '@/lib/stats/scope'
@@ -95,7 +95,7 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
     ) : (
       <Empty
         title="Todavía no hay estadísticas"
-        detail={`La ${TOURNAMENT.name} arranca el ${tournamentStartDate()}. En cuanto se juegue la primera fecha, esta página se llena sola.`}
+        detail="En cuanto se publiquen, esta página se llena sola."
       />
     )
   }
@@ -240,7 +240,7 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
             // The role does not change `matches`, so it cannot make a scope empty.
             group || scope.matchday !== null
               ? 'Probá con otro recorte: ninguna partida de este grupo y esta fecha tiene el replay cargado.'
-              : `La ${TOURNAMENT.name} arranca el ${tournamentStartDate()}. En cuanto se suba el primer replay, esta página se llena sola.`
+              : 'En cuanto se suba el primer replay, esta página se llena sola.'
           }
         />
       ) : (

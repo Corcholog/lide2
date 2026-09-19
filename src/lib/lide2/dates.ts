@@ -1,4 +1,4 @@
-import { AR_TIME_ZONE } from './tournament'
+import { AR_TIME_ZONE, CALENDAR, type Milestone } from './tournament'
 
 /**
  * Date formatting for the tournament, on Argentine time unless noted.
@@ -40,6 +40,24 @@ export function daysUntil(iso: string): number {
   }
 
   return Math.round((day(new Date(iso)) - day(new Date())) / 86_400_000)
+}
+
+/**
+ * Whether a date of the calendar is behind us.
+ *
+ * The date alone is not enough for the group phase: its last matchday is over
+ * the moment its games are in, hours before the day itself ends. Without
+ * `groupsDone` the page spends that evening counting down to a matchday that
+ * has already been played. Playoff rounds go by their date, which is the only
+ * thing the calendar knows about them.
+ */
+export function milestonePlayed(milestone: Milestone, groupsDone: boolean): boolean {
+  return daysUntil(milestone.date) < 0 || (groupsDone && milestone.phase === 'grupos')
+}
+
+/** The date the tournament is heading to: the first one not behind us. */
+export function nextMilestone(groupsDone: boolean): Milestone | undefined {
+  return CALENDAR.find((milestone) => !milestonePlayed(milestone, groupsDone))
 }
 
 /**
