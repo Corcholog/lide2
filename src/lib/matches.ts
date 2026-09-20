@@ -6,7 +6,7 @@
 import type { Supabase } from '@/lib/supabase/server'
 import { ROLES } from '@/lib/format'
 import { rows } from '@/lib/supabase/query'
-import type { MatchPlayerScoreRow, MatchTeamStatsRow } from '@/types/db'
+import type { MatchPlayerScoreRow, MatchTeamStatsRow, StatPhase } from '@/types/db'
 
 /**
  * The scoreboard columns the detail uses (no items or spells).
@@ -135,4 +135,39 @@ function laneOrder(position: string | null): number {
   const index = ROLES.indexOf((position ?? '') as (typeof ROLES)[number])
   // Players without a position go last.
   return index === -1 ? ROLES.length : index
+}
+
+/**
+ * Where a match sits in the tournament, for the line under its date.
+ *
+ * "Grupo A · Fecha 1" in the group phase and "Cuartos de final · Partida 2" in
+ * the playoffs: the round, and inside it which one of the series it was. The
+ * two phases key it differently — a playoff match has no group and no matchday
+ * — so this reads the phase rather than trying one pair of columns and falling
+ * through to another.
+ *
+ * A match nobody has assigned yet has neither, and keeps whatever labels the
+ * .rofl carried, which is all there is to say about it.
+ */
+export function matchPlace(match: {
+  phase: StatPhase | null
+  group_label: string | null
+  matchday: number | null
+  round_label: string | null
+  stage_label: string | null
+  game_number: number | null
+}): string[] {
+  if (match.phase === 'playoffs') {
+    return [match.round_label, match.game_number && `Partida ${match.game_number}`].filter(
+      (part): part is string => Boolean(part),
+    )
+  }
+
+  if (match.phase === 'grupos') {
+    return [match.group_label, match.matchday && `Fecha ${match.matchday}`].filter(
+      (part): part is string => Boolean(part),
+    )
+  }
+
+  return [match.stage_label, match.round_label].filter((part): part is string => Boolean(part))
 }
