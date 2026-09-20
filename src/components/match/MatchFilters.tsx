@@ -5,12 +5,13 @@ import { useSearchParams } from 'next/navigation'
 import { countCut, type MatchCut } from '@/components/match/cut'
 import { markRule } from '@/components/match/mark'
 import { Chip } from '@/components/nav/Chip'
-import { MATCHDAYS, parseMatchday, parseTeamFilter } from '@/lib/stats/scope'
+import { ROW } from '@/components/stats/ScopeNav'
+import { parseScope, parseTeamFilter, scopeRows, scopeValue } from '@/lib/stats/scope'
 import { GROUP_OPTIONS } from '@/lib/stats/tables'
 import { withQuery } from '@/lib/url'
 
 /**
- * The match listing's filters: matchday and team.
+ * The match listing's filters: the tournament cut and the team.
  *
  * Neither goes to the server. The page already renders every match of the
  * phase with its detail, so filtering writes the choice to the URL with
@@ -33,28 +34,28 @@ export function MatchFilters({
 }) {
   const params = useSearchParams()
 
-  // The same parsers the server uses, so an invalid `?fecha=` or unknown
-  // `?equipo=` is ignored the same way on both sides.
-  const matchday = parseMatchday(params.get('fecha') ?? undefined)
+  /*
+    The same parsers the stats pages use, so `?fecha=` means one thing across
+    the site and a link carries between them. An unreadable value is ignored
+    the same way on both sides.
+  */
+  const scope = parseScope(params.get('fecha') ?? undefined)
+  const cut = scopeValue(scope)
   const team = parseTeamFilter(
     params.get('equipo') ?? undefined,
     teams.map((entry) => entry.id),
   )
 
-  const shown = countCut(matches, matchday, team)
-  const rules = cutRules(matchday, team)
+  const shown = countCut(matches, cut, team)
+  const rules = cutRules(cut, team)
 
   // Both filters always travel together, so changing one keeps the other.
-  const go = (next: { fecha?: number | null; equipo?: string | null }) => {
-    window.history.pushState(
-      null,
-      '',
-      withQuery('/partidas', { fecha: matchday, equipo: team, ...next }),
-    )
+  const go = (next: { fecha?: string | null; equipo?: string | null }) => {
+    window.history.pushState(null, '', withQuery('/partidas', { fecha: cut, equipo: team, ...next }))
   }
 
   // Modified clicks (ctrl, cmd, shift, middle button) are left to the browser.
-  const pick = (fecha: number | null) => (event: MouseEvent<HTMLAnchorElement>) => {
+  const pick = (fecha: string | null) => (event: MouseEvent<HTMLAnchorElement>) => {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
     event.preventDefault()
     go({ fecha })
@@ -65,29 +66,29 @@ export function MatchFilters({
       {rules !== '' && <style>{rules}</style>}
 
       {/*
-        Its own row rather than the stats pages' `ScopeNav`: this one filters
-        in the browser by matchday, and playoff matches have no matchday (their
-        scope is the round). Chips stay real links so new tabs, sharing and
-        no-JavaScript use keep working; a plain click only rewrites the URL.
+        The same picker as the stats pages, drawn from `scopeRows`, but wired
+        to filter here instead of navigating: the page already holds every
+        match. Chips stay real links so new tabs, sharing and no-JavaScript use
+        keep working; a plain click only rewrites the URL. Nothing is
+        prefetched, since nothing is fetched.
       */}
-      <nav
-        aria-label="Fecha"
-        className="flex gap-1 overflow-x-auto pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible sm:pb-0"
-      >
-        {[{ matchday: null, label: 'Todas' }, ...MATCHDAYS].map((entry) => (
-          <Chip
-            key={entry.matchday ?? 'todas'}
-            label={entry.label}
-            href={withQuery('/partidas', { equipo: team, fecha: entry.matchday })}
-            active={matchday === entry.matchday}
-            prefetch={false}
-            onClick={pick(entry.matchday)}
-          />
-        ))}
-      </nav>
+      {scopeRows(scope, 'Todas').map((row) => (
+        <nav key={row.label} aria-label={row.label} className={ROW}>
+          {row.chips.map((chip) => (
+            <Chip
+              key={chip.value ?? 'todas'}
+              label={chip.label}
+              href={withQuery('/partidas', { equipo: team, fecha: chip.value })}
+              active={cut === chip.value}
+              prefetch={false}
+              onClick={pick(chip.value)}
+            />
+          ))}
+        </nav>
+      ))}
 
       <form method="get" action="/partidas" className="flex flex-wrap items-center gap-2">
-        {matchday !== null && <input type="hidden" name="fecha" value={matchday} />}
+        {cut !== null && <input type="hidden" name="fecha" value={cut} />}
 
         <label
           htmlFor="filtro-equipo"
@@ -154,11 +155,11 @@ export function MatchFilters({
       {matches.length > 0 && shown === 0 && (
         <div className="rounded-lg border border-dashed border-line-strong px-6 py-14 text-center">
           <p className="text-fg-soft">
-            {team !== null && matchday !== null
-              ? 'Este equipo no jugó ninguna partida en esta fecha. Probá con otra.'
+            {team !== null && cut !== null
+              ? 'Este equipo no jugó ninguna partida en este recorte. Probá con otro.'
               : team !== null
                 ? 'Este equipo todavía no tiene ninguna partida cargada.'
-                : 'Ninguna partida en esta fecha. Probá con otra.'}
+                : 'Ninguna partida en este recorte. Probá con otro.'}
           </p>
         </div>
       )}
@@ -169,16 +170,20 @@ export function MatchFilters({
 /**
  * The filters as CSS: hides the rows outside the cut and marks the team.
  *
- * Safe to interpolate: the matchday comes from a fixed list and the team id was
- * checked against the tournament's teams. `~=` matches one of the two team ids
- * in `data-equipos`; matches without a matchday have no `data-fecha` and are
- * hidden under any matchday filter.
+ * Safe to interpolate: the cut comes from `parseScope`, which only ever returns
+ * values from a fixed list, and the team id was checked against the
+ * tournament's teams.
+ *
+ * Both rules use `~=`, which matches one word of a space-separated attribute:
+ * one of the two ids in `data-equipos`, and one of the values in
+ * `data-recorte`. A match whose phase is unresolved carries no `data-recorte`
+ * at all, so any cut hides it.
  */
-function cutRules(matchday: number | null, teamId: string | null): string {
+function cutRules(cut: string | null, teamId: string | null): string {
   const rules: string[] = []
 
-  if (matchday !== null) {
-    rules.push(`#partidas > li:not([data-fecha="${matchday}"]) { display: none }`)
+  if (cut !== null) {
+    rules.push(`#partidas > li:not([data-recorte~="${cut}"]) { display: none }`)
   }
 
   if (teamId !== null) {
