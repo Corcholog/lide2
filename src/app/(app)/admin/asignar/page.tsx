@@ -7,7 +7,7 @@ import { formatDate } from '@/lib/format'
 import { TOURNAMENT } from '@/lib/lide2/tournament'
 import {
   AssignMatch,
-  type FixtureOption,
+  type MatchupOption,
   type SidePlayer,
   type UnassignedMatch,
 } from '@/components/admin/AssignMatch'
@@ -15,7 +15,7 @@ import { Walkover } from '@/components/admin/Walkover'
 import { Ruling } from '@/components/admin/Ruling'
 import { Stat } from '@/components/admin/Stat'
 import { rulingLabel } from '@/lib/lide2/rulings'
-import type { FixtureResultRow } from '@/types/db'
+import type { FixtureResultRow, SeriesResultRow } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,7 +49,7 @@ export default async function AssignMatchesPage() {
 
   const tournamentId = (tournament?.id as string) ?? null
 
-  const [pendingRes, fixtureRes, reviewRes] = await Promise.all([
+  const [pendingRes, fixtureRes, reviewRes, seriesRes] = await Promise.all([
     supabase.from('unassigned_matches').select('*').order('played_at', { ascending: true }),
     tournamentId
       ? supabase
@@ -64,6 +64,21 @@ export default async function AssignMatchesPage() {
     // Roster issues across every team. Only counted here: resolving them needs
     // the whole roster, which is on each team page.
     supabase.from('roster_review').select('team_id,team_name,kind'),
+    /*
+      Playoff series that can take a replay: both teams known, and room left in
+      the BO. A series with no teams is waiting for the draw (/admin/cruces) or
+      for the round before it.
+    */
+    tournamentId
+      ? supabase
+          .from('series_results')
+          .select('*')
+          .eq('tournament_id', tournamentId)
+          .not('team_a_id', 'is', null)
+          .not('team_b_id', 'is', null)
+          .order('stage_order')
+          .order('order_index')
+      : Promise.resolve({ data: [], error: null }),
   ])
 
   // Champion names do not change between patches, so the latest catalog is
@@ -108,12 +123,31 @@ export default async function AssignMatchesPage() {
   const walkovers = fixture.filter((row) => row.walkover_team_id !== null)
   const pending = fixture.filter((row) => row.match_id === null && row.walkover_team_id === null)
 
-  const options: FixtureOption[] = pending.map((row) => ({
-    id: row.id,
-    label: `Fecha ${row.matchday} · Turno ${row.slot} · ${row.group_label}`,
-    teamA: { id: row.team_a_id, name: label(row.team_a_name, row.team_a_universities) },
-    teamB: { id: row.team_b_id, name: label(row.team_b_name, row.team_b_universities) },
-  }))
+  const openSeries = rows<SeriesResultRow>(seriesRes, 'the playoff series').filter(
+    (row) => row.games_played < row.best_of,
+  )
+
+  /*
+    Both kinds in one list, the group phase first: a replay is filed the same
+    way whichever it belongs to, and the queue mixes them once the playoffs
+    start.
+  */
+  const options: MatchupOption[] = [
+    ...pending.map((row) => ({
+      id: row.id,
+      kind: 'fixture' as const,
+      label: `Fecha ${row.matchday} · Turno ${row.slot} · ${row.group_label}`,
+      teamA: { id: row.team_a_id, name: label(row.team_a_name, row.team_a_universities) },
+      teamB: { id: row.team_b_id, name: label(row.team_b_name, row.team_b_universities) },
+    })),
+    ...openSeries.map((row) => ({
+      id: row.id,
+      kind: 'serie' as const,
+      label: `${row.round} · Cruce ${row.order_index} · BO${row.best_of} (${row.games_played} jugadas)`,
+      teamA: { id: row.team_a_id!, name: row.team_a_name ?? 'Equipo A' },
+      teamB: { id: row.team_b_id!, name: row.team_b_name ?? 'Equipo B' },
+    })),
+  ]
 
   return (
     <div className="flex flex-col gap-8">
@@ -235,7 +269,7 @@ export default async function AssignMatchesPage() {
       ) : (
         <ul className="flex flex-col gap-4">
           {matches.map((match) => (
-            <AssignMatch key={match.matchId} match={match} fixtures={options} />
+            <AssignMatch key={match.matchId} match={match} matchups={options} />
           ))}
         </ul>
       )}

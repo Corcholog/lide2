@@ -52,17 +52,29 @@ export async function assignMatchAction(
   await requireUser()
 
   const matchId = String(formData.get('matchId') ?? '')
-  const fixtureId = String(formData.get('fixtureId') ?? '')
+  const matchupId = String(formData.get('matchupId') ?? '')
+  const kind = String(formData.get('kind') ?? 'fixture')
   const blueTeamId = String(formData.get('blueTeamId') ?? '')
 
-  if (!matchId || !fixtureId) return { ok: false, error: 'Falta elegir el cruce.' }
+  if (!matchId || !matchupId) return { ok: false, error: 'Falta elegir el cruce.' }
   if (!blueTeamId) return { ok: false, error: 'Falta decir quién jugó de azul.' }
 
-  const { data, error } = await createAdminClient().rpc('assign_match_to_fixture', {
-    p_match_id: matchId,
-    p_fixture_id: fixtureId,
-    p_blue_team_id: blueTeamId,
-  })
+  /*
+    A group matchup and a playoff series are different tables, so they have a
+    function each (0033). Both answer the same shape, so the panel does not
+    care which one ran.
+  */
+  const { data, error } = await (kind === 'serie'
+    ? createAdminClient().rpc('assign_match_to_series', {
+        p_match_id: matchId,
+        p_series_id: matchupId,
+        p_blue_team_id: blueTeamId,
+      })
+    : createAdminClient().rpc('assign_match_to_fixture', {
+        p_match_id: matchId,
+        p_fixture_id: matchupId,
+        p_blue_team_id: blueTeamId,
+      }))
 
   if (error) return { ok: false, error: error.message }
 
