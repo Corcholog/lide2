@@ -30,6 +30,11 @@ export interface MatchupOption {
   label: string
   teamA: { id: string; name: string }
   teamB: { id: string; name: string }
+  /**
+   * For a series, the games of the best-of that nobody has filed yet. A group
+   * matchup is a single game and has none.
+   */
+  freeGames?: number[]
 }
 
 export interface UnassignedMatch {
@@ -75,10 +80,13 @@ export function AssignMatch({
 
   const [matchupId, setMatchupId] = useState(suggested?.id ?? '')
   const matchup = matchups.find((entry) => entry.id === matchupId)
+  const [gameNumber, setGameNumber] = useState('')
   const [blueTeamId, setBlueTeamId] = useState(orientationFor(suggested, match))
 
   function pickMatchup(id: string) {
     setMatchupId(id)
+    // The game number belongs to the series that was picked, not the next one.
+    setGameNumber('')
     setBlueTeamId(orientationFor(matchups.find((entry) => entry.id === id), match))
   }
 
@@ -132,6 +140,30 @@ export function AssignMatch({
         {/* Which table the chosen option lives in, so the action knows. */}
         <input type="hidden" name="kind" value={matchup?.kind ?? 'fixture'} />
 
+        {/*
+          Only a series has games to tell apart: a group matchup is one game.
+          The numbers already filed are left out, so the same one cannot be
+          claimed twice from here.
+        */}
+        {matchup?.kind === 'serie' && (
+          <label className="flex flex-col gap-1">
+            <span className="text-xs uppercase tracking-wide text-faint">¿Qué partida de la serie?</span>
+            <select
+              name="gameNumber"
+              value={gameNumber}
+              onChange={(event) => setGameNumber(event.target.value)}
+              className="border-2 border-line-strong bg-raised px-3 py-2 text-sm focus:border-accent"
+            >
+              <option value="">Elegir…</option>
+              {(matchup.freeGames ?? []).map((number) => (
+                <option key={number} value={number}>
+                  Partida {number}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
         {matchup && (
           <fieldset className="flex flex-col gap-1">
             <legend className="text-xs uppercase tracking-wide text-faint">
@@ -160,7 +192,9 @@ export function AssignMatch({
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="submit"
-            disabled={pending || !matchupId || !blueTeamId}
+            disabled={
+              pending || !matchupId || !blueTeamId || (matchup?.kind === 'serie' && !gameNumber)
+            }
             className="bg-accent-strong px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:bg-line-strong disabled:text-muted"
           >
             {pending ? 'Asignando…' : 'Asignar'}

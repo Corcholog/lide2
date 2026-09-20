@@ -41,10 +41,35 @@ describe('a playoff match', () => {
   const five = (prefix: string) =>
     [1, 2, 3, 4, 5].map((n) => ({ puuid: `${prefix}-${n}`, position: 'MIDDLE' }))
 
-  async function assign(matchId: string, seriesId: string, blue?: string): Promise<Answer> {
+  async function assign(
+    matchId: string,
+    seriesId: string,
+    blue?: string,
+    game?: number,
+  ): Promise<Answer> {
     const { rows } = await db.query<{ result: Answer }>(
-      'select public.assign_match_to_series($1, $2, $3) as result',
-      [matchId, seriesId, blue ?? null],
+      'select public.assign_match_to_series($1, $2, $3, $4) as result',
+      [matchId, seriesId, blue ?? null, game ?? null],
+    )
+    return rows[0].result
+  }
+
+  /** A replay of the series' two teams, not yet filed. */
+  async function replay(winner: 'blue' | 'red' = 'blue') {
+    return playScoreboard(db, {
+      tournamentId,
+      blueTeamId: team.get('Equipo 01'),
+      redTeamId: team.get('Equipo 15'),
+      winner,
+      blue: five('Equipo 01'),
+      red: five('Equipo 15'),
+    })
+  }
+
+  async function award(seriesKey: string, teamName: string | null): Promise<Answer> {
+    const { rows } = await db.query<{ result: Answer }>(
+      'select public.set_series_walkover($1, $2) as result',
+      [series.get(seriesKey), teamName ? team.get(teamName) : null],
     )
     return rows[0].result
   }
@@ -127,6 +152,28 @@ describe('a playoff match', () => {
       [quarterStage],
     )
     series.set('undrawn', undrawn.rows[0].id)
+
+    // One to fill game by game, and one nobody turns up to. The second feeds
+    // the semifinal's other side, so the award can be seen advancing.
+    for (const [key, order, slot] of [
+      ['taken', 3, null],
+      ['walkover', 4, 'b'],
+    ] as const) {
+      const { rows } = await db.query<{ id: string }>(
+        `insert into public.series
+           (stage_id, round, best_of, order_index, team_a_id, team_b_id, next_series_id, next_slot)
+         values ($1, 'Cuartos de final', 3, $2, $3, $4, $5, $6) returning id`,
+        [
+          quarterStage,
+          order,
+          team.get('Equipo 01'),
+          team.get('Equipo 15'),
+          slot ? semi.rows[0].id : null,
+          slot,
+        ],
+      )
+      series.set(key, rows[0].id)
+    }
   })
 
   afterAll(async () => db?.close())
@@ -212,6 +259,87 @@ describe('a playoff match', () => {
     expect(rows).toHaveLength(1)
     expect(rows[0].round_label).toBe('Cuartos de final')
     expect(rows[0].n).toBe(2)
+  })
+
+  describe('its place in the series', () => {
+    /* A BO3 is three games; asking for a fourth is a slip of the select. */
+    it('refuses a game number outside the best-of', () => {
+      return replay().then(async (matchId) => {
+        const answer = await assign(matchId, series.get('quarter')!, team.get('Equipo 01'), 4)
+
+        expect(answer.ok).toBe(false)
+        expect(answer.error).toContain('BO3')
+      })
+    })
+
+    /*
+     * Two replays claiming the same game are a duplicate or the wrong series,
+     * and either one changes who advances.
+     */
+    it('refuses a game the series already has', async () => {
+      const first = await replay()
+      expect((await assign(first, series.get('taken')!, team.get('Equipo 01'), 1)).ok).toBe(true)
+
+      const again = await replay('red')
+      const answer = await assign(again, series.get('taken')!, team.get('Equipo 01'), 1)
+
+      expect(answer.ok).toBe(false)
+      expect(answer.error).toContain('ya esta cargada')
+    })
+
+    it('records the number it was given', async () => {
+      const matchId = await replay()
+      expect((await assign(matchId, series.get('taken')!, team.get('Equipo 01'), 2)).ok).toBe(true)
+
+      const { rows } = await db.query<{ game_number: number }>(
+        'select game_number from public.matches where id = $1',
+        [matchId],
+      )
+      expect(rows[0].game_number).toBe(2)
+    })
+  })
+
+  describe('a series nobody played', () => {
+    it('goes to the team that turned up, with no games', async () => {
+      expect((await award('walkover', 'Equipo 01')).ok).toBe(true)
+
+      const row = (await bracket()).find((entry) => entry.round === 'Cuartos de final' && entry.status === 'w.o.')
+
+      expect(row?.winner).toBe(team.get('Equipo 01'))
+      // The point of an award: it is not a 2-0, it is no games at all.
+      expect(Number(row?.wins_a)).toBe(0)
+      expect(Number(row?.wins_b)).toBe(0)
+    })
+
+    it('carries that team into the next round, like a played one', async () => {
+      const semi = (await bracket()).find((entry) => entry.round === 'Semifinales' && entry.team_b)
+
+      expect(semi?.team_b).toBe('Equipo 01')
+    })
+
+    it('refuses to award a series that has games', async () => {
+      const answer = await award('taken', 'Equipo 01')
+
+      expect(answer.ok).toBe(false)
+      expect(answer.error).toContain('partidas cargadas')
+    })
+
+    it('refuses a replay while the award stands', async () => {
+      const matchId = await replay()
+      const answer = await assign(matchId, series.get('walkover')!, team.get('Equipo 01'), 1)
+
+      expect(answer.ok).toBe(false)
+      expect(answer.error).toContain('no presentada')
+    })
+
+    /* Taking it back leaves the series open again, not decided for nobody. */
+    it('can be undone', async () => {
+      expect((await award('walkover', null)).ok).toBe(true)
+
+      const row = (await bracket()).find((entry) => entry.round === 'Cuartos de final' && entry.status === 'pending')
+
+      expect(row?.winner).toBeNull()
+    })
   })
 
   /* Three games is a whole BO3; a fourth would be the same replay twice. */

@@ -34,6 +34,7 @@ function series(fields: Partial<SeriesResultRow>): SeriesResultRow {
     games_played: 0,
     wins_a: 0,
     wins_b: 0,
+    walkover_team_id: null,
     ...fields,
   }
 }

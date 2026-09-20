@@ -219,6 +219,11 @@ export interface SeriesResultRow {
   games_played: number
   wins_a: number
   wins_b: number
+  /**
+   * The team given the series on a no-show (0034). An awarded series has no
+   * games, so the bracket shows W.O. rather than a score.
+   */
+  walkover_team_id: string | null
 }
 
 /** A `fixture_results` row: a published matchup, with its result once played. */

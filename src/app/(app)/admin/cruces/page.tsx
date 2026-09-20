@@ -5,6 +5,7 @@ import { rows } from '@/lib/supabase/query'
 import { qualifiedTeams } from '@/app/(app)/admin/actions'
 import { resolveTournamentId } from '@/lib/stats/query'
 import { DrawQuarters } from '@/components/admin/DrawQuarters'
+import { SeriesWalkover } from '@/components/admin/SeriesWalkover'
 import type { Pairing } from '@/lib/lide2/draw'
 import type { SeriesResultRow } from '@/types/db'
 
@@ -25,17 +26,24 @@ export default async function DrawPage() {
   const supabase = await createClient()
   const tournamentId = await resolveTournamentId(supabase)
 
-  const series = tournamentId
+  const all = tournamentId
     ? rows<SeriesResultRow>(
         await supabase
           .from('series_results')
           .select('*')
           .eq('tournament_id', tournamentId)
-          .eq('round', 'Cuartos de final')
+          .order('stage_order')
           .order('order_index'),
-        'the quarter-finals',
+        'the bracket',
       )
     : []
+
+  const series = all.filter((item) => item.round === 'Cuartos de final')
+  /*
+    A no-show can happen in any round, not only the drawn one, and there is no
+    other way to move the bracket past one.
+  */
+  const awardable = all.filter((item) => item.team_a_id && item.team_b_id)
 
   const qualified = await qualifiedTeams()
 
@@ -76,6 +84,39 @@ export default async function DrawPage() {
           qualified={qualified}
           current={current}
         />
+      )}
+
+      {awardable.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <div className="flex flex-col gap-1 border-t border-line pt-6">
+            <h2 className="font-display text-lg uppercase tracking-wide">No presentaciones</h2>
+            <p className="max-w-2xl text-sm text-muted">
+              Si un equipo no se presenta, la serie se le da al otro y pasa de ronda. Una serie
+              otorgada no tiene partidas: el bracket muestra W.O. en vez de un resultado que nadie
+              jugó.
+            </p>
+          </div>
+
+          <ul className="flex flex-col gap-3">
+            {awardable.map((item) => (
+              <li
+                key={item.id}
+                className="flex flex-col gap-2 border-2 border-line bg-surface px-4 py-3"
+              >
+                <p className="text-[11px] font-bold uppercase tracking-wide text-faint">
+                  {item.round} · Cruce {item.order_index}
+                </p>
+                <SeriesWalkover
+                  seriesId={item.id}
+                  teamA={{ id: item.team_a_id!, name: item.team_a_name ?? 'Equipo A' }}
+                  teamB={{ id: item.team_b_id!, name: item.team_b_name ?? 'Equipo B' }}
+                  current={item.walkover_team_id}
+                  hasGames={item.games_played > 0}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   )

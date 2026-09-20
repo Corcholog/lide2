@@ -124,8 +124,29 @@ export default async function AssignMatchesPage() {
   const pending = fixture.filter((row) => row.match_id === null && row.walkover_team_id === null)
 
   const openSeries = rows<SeriesResultRow>(seriesRes, 'the playoff series').filter(
-    (row) => row.games_played < row.best_of,
+    // A series given on a no-show was not played, so no replay belongs to it.
+    (row) => row.games_played < row.best_of && row.walkover_team_id === null,
   )
+
+  /*
+    Which game of each series is already filed, so the form offers only the
+    ones left. The unique index refuses a repeat anyway; this keeps it from
+    being offered in the first place.
+  */
+  const takenGames = new Map<string, number[]>()
+  if (openSeries.length > 0) {
+    const { data: filed } = await supabase
+      .from('matches')
+      .select('series_id,game_number')
+      .in('series_id', openSeries.map((row) => row.id))
+
+    for (const row of filed ?? []) {
+      const seriesId = row.series_id as string
+      const number = row.game_number as number | null
+      if (number === null) continue
+      takenGames.set(seriesId, [...(takenGames.get(seriesId) ?? []), number])
+    }
+  }
 
   /*
     Both kinds in one list, the group phase first: a replay is filed the same
@@ -146,6 +167,9 @@ export default async function AssignMatchesPage() {
       label: `${row.round} · Cruce ${row.order_index} · BO${row.best_of} (${row.games_played} jugadas)`,
       teamA: { id: row.team_a_id!, name: row.team_a_name ?? 'Equipo A' },
       teamB: { id: row.team_b_id!, name: row.team_b_name ?? 'Equipo B' },
+      freeGames: Array.from({ length: row.best_of }, (_, index) => index + 1).filter(
+        (number) => !(takenGames.get(row.id) ?? []).includes(number),
+      ),
     })),
   ]
 
