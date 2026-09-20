@@ -23,7 +23,7 @@ export default async function AdminPage() {
 
   const tournamentId = (tournament?.id as string) ?? null
 
-  const [pendingRes, fixtureRes, rosterRes, draftRes] = await Promise.all([
+  const [pendingRes, fixtureRes, rosterRes, draftRes, quarterRes] = await Promise.all([
     supabase.from('unassigned_matches').select('*', { count: 'exact', head: true }),
     tournamentId
       ? supabase
@@ -41,11 +41,25 @@ export default async function AdminPage() {
           .eq('tournament_id', tournamentId)
           .eq('ban_count', 0)
       : Promise.resolve({ count: 0 }),
+    // Quarter-finals still without both teams: the draw has not been entered.
+    tournamentId
+      ? supabase
+          .from('series')
+          .select('team_a_id,team_b_id')
+          .eq('round', 'Cuartos de final')
+      : Promise.resolve({ data: [] }),
   ])
 
   const roster = rows<{ player_id: string | null }>(rosterRes, 'the signups')
   const sinEmparejar = roster.filter((row) => row.player_id === null).length
   const sinDraft = draftRes.count ?? 0
+
+  const quarters = rows<{ team_a_id: string | null; team_b_id: string | null }>(
+    quarterRes as never,
+    'the quarter-finals',
+  )
+  const sinSortear = quarters.filter((row) => !row.team_a_id || !row.team_b_id).length
+  const cruces = sinSortear === 0 && quarters.length > 0 ? 'cargados' : 'a sortear'
 
   return (
     <div className="flex flex-col gap-8">
@@ -93,6 +107,14 @@ export default async function AdminPage() {
         />
         <Step
           n={5}
+          href="/admin/cruces"
+          title="Cruces"
+          detail="El sorteo de cuartos, a mano: el reglamento cruza 1º contra 2º y el sitio no puede deducirlo."
+          badge={cruces}
+          alert={cruces === 'a sortear'}
+        />
+        <Step
+          n={6}
           href="/admin/cards"
           title="Cards"
           detail="El lote de la fecha para redes. El PNG, o los números para pasárselos a alguien."

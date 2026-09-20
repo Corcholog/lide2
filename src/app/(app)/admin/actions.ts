@@ -6,7 +6,12 @@ import { setMatchBans, type BanInput, type SaveBansResult } from '@/lib/bans/ser
 import { championIndex, resolveChampion } from '@/lib/champions/catalog'
 import { assetVersion, championCatalog, roflKey } from '@/lib/ddragon'
 import { getStorage } from '@/lib/storage'
+import { drawProblems, type Pairing, type Qualified } from '@/lib/lide2/draw'
+import { QUALIFYING_PLACES } from '@/lib/lide2/projection'
 import { createAdminClient } from '@/lib/supabase/admin'
+
+/** The round the draw fills, as `series.round` stores it. */
+const QUARTER_FINALS = 'Cuartos de final'
 
 /**
  * Links an uploaded match to its fixture matchup.
@@ -270,4 +275,83 @@ export async function deleteMatchAction(
   if (result.ok) refresh()
 
   return result
+}
+
+export interface DrawResult {
+  ok: boolean
+  /** Every problem at once, so eight selects are not fixed one reload at a time. */
+  problems?: string[]
+}
+
+/**
+ * Records the drawn quarter-finals.
+ *
+ * The draw is made by the organizers (rule 2.3), so this only writes what they
+ * enter, after `drawProblems` rules out a draw that cannot be right. Nothing is
+ * written unless the whole draw checks out: half a bracket is worse than none.
+ *
+ * `series` has no write policy, so the admin client does the update, as
+ * everywhere else in the panel; `requireUser` is what guards it.
+ */
+export async function setQuarterFinalsAction(
+  _prev: DrawResult | null,
+  formData: FormData,
+): Promise<DrawResult> {
+  await requireUser()
+
+  const supabase = createAdminClient()
+
+  const { data: quarters, error: quartersError } = await supabase
+    .from('series')
+    .select('id,order_index')
+    .eq('round', QUARTER_FINALS)
+    .order('order_index')
+
+  if (quartersError) return { ok: false, problems: [quartersError.message] }
+
+  const pairings: Pairing[] = (quarters ?? []).map((quarter) => ({
+    teamAId: String(formData.get(`a-${quarter.order_index}`) ?? '') || null,
+    teamBId: String(formData.get(`b-${quarter.order_index}`) ?? '') || null,
+  }))
+
+  const problems = drawProblems(pairings, await qualifiedTeams(supabase))
+  if (problems.length > 0) return { ok: false, problems }
+
+  for (const [index, quarter] of (quarters ?? []).entries()) {
+    const { error } = await supabase
+      .from('series')
+      .update({ team_a_id: pairings[index].teamAId, team_b_id: pairings[index].teamBId })
+      .eq('id', quarter.id)
+
+    if (error) return { ok: false, problems: [error.message] }
+  }
+
+  refresh()
+  revalidatePath('/admin/cruces')
+
+  return { ok: true }
+}
+
+/**
+ * The eight that reached the bracket, from the group table. Exported because
+ * the panel lists them in the selects and this is where their shape is
+ * decided.
+ */
+export async function qualifiedTeams(
+  supabase = createAdminClient(),
+): Promise<Qualified[]> {
+  const { data } = await supabase
+    .from('group_standings')
+    .select('team_id,team_name,group_label,position,university_tags')
+    .lte('position', QUALIFYING_PLACES)
+    .order('group_label')
+    .order('position')
+
+  return (data ?? []).map((row) => ({
+    teamId: row.team_id as string,
+    teamName: row.team_name as string,
+    group: (row.group_label as string).trim().slice(-1).toUpperCase(),
+    position: row.position as number,
+    universities: (row.university_tags as string[] | null) ?? [],
+  }))
 }
