@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { GameIcon } from '@/components/match/GameIcon'
 import { MatchDetail } from '@/components/match/MatchDetail'
 import { markRule } from '@/components/match/mark'
+import { matchPlace } from '@/lib/matches'
 import { scopesOf } from '@/lib/stats/scope'
 import { championIcon, championName } from '@/lib/ddragon'
 import { formatDate, formatDuration, formatKda } from '@/lib/format'
@@ -26,7 +27,7 @@ import type { MatchSummaryRow, MatchTeamStatsRow } from '@/types/db'
  * `string`.
  */
 export const LIST_COLUMNS =
-  'id,played_at,patch,phase,matchday,group_label,stage_label,round_label,game_length_ms,winning_side,blue_team_id,blue_team_name,red_team_id,red_team_name,blue_kills,red_kills,mvp_name,mvp_champion,mvp_kills,mvp_deaths,mvp_assists,annulled,ruling,ruling_winner_team_id'
+  'id,played_at,patch,phase,game_number,matchday,group_label,stage_label,round_label,game_length_ms,winning_side,blue_team_id,blue_team_name,red_team_id,red_team_name,blue_kills,red_kills,mvp_name,mvp_champion,mvp_kills,mvp_deaths,mvp_assists,annulled,ruling,ruling_winner_team_id'
 
 export type ListMatch = Pick<
   MatchSummaryRow,
@@ -34,6 +35,7 @@ export type ListMatch = Pick<
   | 'played_at'
   | 'patch'
   | 'phase'
+  | 'game_number'
   | 'matchday'
   | 'group_label'
   | 'stage_label'
@@ -114,11 +116,7 @@ export function MatchList({
                 <div className="w-28 shrink-0 text-xs text-faint">
                   <p className="tabular">{formatDate(match.played_at)}</p>
                   <p>
-                    {[match.group_label, match.matchday && `Fecha ${match.matchday}`]
-                      .filter(Boolean)
-                      .join(' · ') ||
-                      [match.stage_label, match.round_label].filter(Boolean).join(' · ') ||
-                      `parche ${match.patch ?? '?'}`}
+                    {matchPlace(match).join(' · ') || `parche ${match.patch ?? '?'}`}
                   </p>
                 </div>
 
