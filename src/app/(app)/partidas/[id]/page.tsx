@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { maybeRow, rows } from '@/lib/supabase/query'
 import { assetVersion, championNames, summonerSpellNames } from '@/lib/ddragon'
 import { formatDate, formatDuration, ROLES } from '@/lib/format'
+import { matchPlace } from '@/lib/matches'
 import { Scoreboard, type ScoreboardPlayer } from '@/components/match/Scoreboard'
 import { matchOrigin, teamPath } from '@/lib/routes'
 import { rulingLabel } from '@/lib/lide2/rulings'
@@ -154,8 +155,7 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
         <p className="mt-3 text-center text-xs text-faint">
           {[
             formatDate(summary.played_at),
-            summary.stage_label,
-            summary.round_label,
+            ...matchPlace(summary),
             `${formatDuration(summary.game_length_ms)} min`,
             `parche ${summary.patch ?? '?'}`,
             summary.ended_in_surrender ? 'terminó por rendición' : null,
