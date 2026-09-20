@@ -2,13 +2,17 @@
  * The /partidas filters, counted in the browser.
  *
  * Filtering happens client-side (see `MatchFilters`), so the match count and
- * the empty state are computed here from each match's matchday and team ids.
+ * the empty state are computed here rather than coming from a query.
  */
 
 /** One match, as the filters see it. */
 export interface MatchCut {
-  /** Its matchday, or null (playoffs or unresolved). */
-  matchday: number | null
+  /**
+   * The `?fecha=` values it belongs to, from `scopesOf`: its phase, and its
+   * matchday or its round. The CSS rule hides rows by the same list, so what
+   * is counted and what is shown cannot disagree.
+   */
+  scopes: string[]
   /** The teams that played it, when known. */
   teams: string[]
 }
@@ -19,12 +23,12 @@ export interface MatchCut {
  */
 export function countCut(
   matches: MatchCut[],
-  matchday: number | null,
+  scope: string | null,
   teamId: string | null,
 ): number {
   return matches.filter(
     (match) =>
-      (matchday === null || match.matchday === matchday) &&
+      (scope === null || match.scopes.includes(scope)) &&
       (teamId === null || match.teams.includes(teamId)),
   ).length
 }

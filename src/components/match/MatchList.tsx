@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { GameIcon } from '@/components/match/GameIcon'
 import { MatchDetail } from '@/components/match/MatchDetail'
 import { markRule } from '@/components/match/mark'
+import { scopesOf } from '@/lib/stats/scope'
 import { championIcon, championName } from '@/lib/ddragon'
 import { formatDate, formatDuration, formatKda } from '@/lib/format'
 import { rulingLabel } from '@/lib/lide2/rulings'
@@ -25,13 +26,14 @@ import type { MatchSummaryRow, MatchTeamStatsRow } from '@/types/db'
  * `string`.
  */
 export const LIST_COLUMNS =
-  'id,played_at,patch,matchday,group_label,stage_label,round_label,game_length_ms,winning_side,blue_team_id,blue_team_name,red_team_id,red_team_name,blue_kills,red_kills,mvp_name,mvp_champion,mvp_kills,mvp_deaths,mvp_assists,annulled,ruling,ruling_winner_team_id'
+  'id,played_at,patch,phase,matchday,group_label,stage_label,round_label,game_length_ms,winning_side,blue_team_id,blue_team_name,red_team_id,red_team_name,blue_kills,red_kills,mvp_name,mvp_champion,mvp_kills,mvp_deaths,mvp_assists,annulled,ruling,ruling_winner_team_id'
 
 export type ListMatch = Pick<
   MatchSummaryRow,
   | 'id'
   | 'played_at'
   | 'patch'
+  | 'phase'
   | 'matchday'
   | 'group_label'
   | 'stage_label'
@@ -92,15 +94,19 @@ export function MatchList({
       {team !== null && <style>{markRule(team)}</style>}
 
       {/*
-        /partidas filters work on these attributes with CSS: `data-fecha` for the
-        matchday, `data-equipos` for the team, and `data-team` on each side for
+        /partidas filters work on these attributes with CSS: `data-recorte` for
+        the scope, `data-equipos` for the team, and `data-team` on each side for
         the underline. Filtering needs no request and no re-render.
+
+        `data-recorte` holds every `?fecha=` value the match answers to, its
+        phase and its matchday or round, so one `~=` rule covers both rows of
+        the picker (see `scopesOf`).
       */}
       <ul id="partidas" className="flex flex-col gap-2">
         {matches.map((match) => (
           <li
             key={match.id}
-            data-fecha={match.matchday ?? undefined}
+            data-recorte={scopesOf(match).join(' ') || undefined}
             data-equipos={[match.blue_team_id, match.red_team_id].filter(Boolean).join(' ')}
           >
             <details className="group rounded-lg border border-line bg-surface open:border-line-strong">
