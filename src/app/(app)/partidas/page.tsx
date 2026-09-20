@@ -5,6 +5,7 @@ import { rows } from '@/lib/supabase/query'
 import { assetVersion, championNames } from '@/lib/ddragon'
 import { loadMatchDetails } from '@/lib/matches'
 import { resolveTournamentId } from '@/lib/stats/query'
+import { scopesOf } from '@/lib/stats/scope'
 import type { MatchCut } from '@/components/match/cut'
 import { MatchCount } from '@/components/match/MatchCount'
 import { MatchFilters } from '@/components/match/MatchFilters'
@@ -60,11 +61,12 @@ export default async function MatchesPage() {
     : []
 
   /*
-    Each match reduced to its matchday and team ids, so the browser can count
-    matches in the current filter (see `cut.ts`).
+    Each match reduced to the cuts it belongs to and its team ids, so the
+    browser can count matches in the current filter (see `cut.ts`). The same
+    `scopesOf` that writes `data-recorte` on the rows.
   */
   const cut: MatchCut[] = matches.map((match) => ({
-    matchday: match.matchday,
+    scopes: scopesOf(match),
     teams: [match.blue_team_id, match.red_team_id].filter((id) => id !== null),
   }))
 

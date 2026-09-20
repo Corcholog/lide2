@@ -2,7 +2,7 @@
 
 import { useSearchParams } from 'next/navigation'
 import { countCut, type MatchCut } from '@/components/match/cut'
-import { parseMatchday, parseTeamFilter } from '@/lib/stats/scope'
+import { parseScope, parseTeamFilter, scopeValue } from '@/lib/stats/scope'
 
 /**
  * How many matches the listing is showing, the line under the title.
@@ -22,17 +22,17 @@ export function MatchCount({
   teamIds: string[]
 }) {
   const params = useSearchParams()
-  const matchday = parseMatchday(params.get('fecha') ?? undefined)
+  const cut = scopeValue(parseScope(params.get('fecha') ?? undefined))
   const team = parseTeamFilter(params.get('equipo') ?? undefined, teamIds)
 
-  const shown = countCut(matches, matchday, team)
+  const shown = countCut(matches, cut, team)
 
   return (
     <p className="mt-1 text-sm text-muted">
       {matches.length === 0
         ? 'Todavía no hay partidas cargadas.'
         : `${shown} partida${shown === 1 ? '' : 's'}${
-            matchday !== null || team !== null ? ' en este recorte' : ' cargadas'
+            cut !== null || team !== null ? ' en este recorte' : ' cargadas'
           }.`}
     </p>
   )

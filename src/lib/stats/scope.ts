@@ -1,5 +1,6 @@
 import { CALENDAR } from '@/lib/lide2/tournament'
 import { firstParam } from '@/lib/url'
+import type { StatPhase } from '@/types/db'
 import type { StatScope } from './types'
 
 /**
@@ -116,6 +117,86 @@ export function scopeSubtitle(scope: StatScope): string {
     case 'ronda':
       return `${scope.round}, partida por partida`
   }
+}
+
+/** One chip of the scope picker. A null value is the whole tournament. */
+export interface ScopeChip {
+  label: string
+  value: string | null
+}
+
+/** A row of chips, with the name a screen reader announces for it. */
+export interface ScopeRow {
+  label: string
+  chips: ScopeChip[]
+}
+
+/**
+ * The picker's chips, in rows: the phases first, then whatever narrows inside
+ * the one being viewed.
+ *
+ * Two rows rather than one, because nine chips side by side read as a wall and
+ * the matchdays and the playoff rounds are not alternatives to each other. The
+ * whole tournament has no second row, which is itself the signal that nothing
+ * is being narrowed.
+ *
+ * Shared by the stats pages, whose chips are links, and by /partidas, which
+ * filters in the browser: the two offer the same cuts or they are not the same
+ * filter.
+ */
+export function scopeRows(scope: StatScope, allLabel = 'Total'): ScopeRow[] {
+  const phases: ScopeRow = {
+    label: 'Recorte',
+    chips: [
+      { label: allLabel, value: null },
+      { label: 'Grupos', value: 'grupos' },
+      { label: 'Playoffs', value: 'playoffs' },
+    ],
+  }
+
+  if (scope.kind === 'torneo') return [phases]
+
+  return [
+    phases,
+    scope.phase === 'grupos'
+      ? {
+          label: 'Fecha',
+          chips: MATCHDAYS.map((entry) => ({
+            label: entry.label,
+            value: String(entry.matchday),
+          })),
+        }
+      : {
+          label: 'Ronda',
+          chips: ROUNDS.map((entry) => ({ label: entry.label, value: entry.id })),
+        },
+  ]
+}
+
+/**
+ * The `?fecha=` values a match belongs to: its phase, and its matchday or its
+ * round.
+ *
+ * /partidas hides a match when the chosen value is not among these, both in
+ * the CSS rule and in the count beside it, so the two cannot disagree about
+ * what is on screen. A match whose phase is unresolved belongs to none of
+ * them, and only shows with no filter at all.
+ */
+export function scopesOf(match: {
+  phase: StatPhase | null
+  matchday: number | null
+  round_label: string | null
+}): string[] {
+  if (match.phase === 'grupos') {
+    return match.matchday === null ? ['grupos'] : ['grupos', String(match.matchday)]
+  }
+
+  if (match.phase === 'playoffs') {
+    const round = ROUNDS.find((entry) => entry.label === match.round_label)
+    return round ? ['playoffs', round.id] : ['playoffs']
+  }
+
+  return []
 }
 
 /**
