@@ -8,7 +8,7 @@ import { buildPosters } from '@/lib/cards/batch'
 import { PosterBatch } from '@/components/cards/PosterBatch'
 import { ScopeNav } from '@/components/stats/ScopeNav'
 import { Empty } from '@/components/stats/Empty'
-import { parseScope } from '@/lib/stats/scope'
+import { parseScope, scopeLabel, scopeValue } from '@/lib/stats/scope'
 import type { GroupStandingRow } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
@@ -34,10 +34,10 @@ export default async function CardsPage({ searchParams }: PageProps<'/admin/card
     )
   }
 
-  const scope = parseScope((await searchParams).fecha, tournamentId)
+  const scope = parseScope((await searchParams).fecha)
 
   const [data, standingsRes] = await Promise.all([
-    loadStats(supabase, scope),
+    loadStats(supabase, scope, tournamentId),
     supabase.from('group_standings').select('*').eq('tournament_id', tournamentId).order('position'),
   ])
 
@@ -46,7 +46,8 @@ export default async function CardsPage({ searchParams }: PageProps<'/admin/card
   const standings = rows<GroupStandingRow>(standingsRes, 'the standings table')
   const posters = buildPosters(data, standings)
 
-  const prefix = scope.matchday === null ? 'lide2-acumulado' : `lide2-fecha-${scope.matchday}`
+  // Goes into every downloaded file name, so it says which cut the batch is.
+  const prefix = `lide2-${scopeValue(scope) ?? 'torneo'}`
 
   return (
     <div className="flex flex-col gap-6">
@@ -56,21 +57,20 @@ export default async function CardsPage({ searchParams }: PageProps<'/admin/card
         </Link>
         <h1 className="font-display text-3xl uppercase tracking-tight">Cards</h1>
         <p className="max-w-2xl text-sm text-muted">
-          El lote de {scope.matchday === null ? 'toda la fase' : `la fecha ${scope.matchday}`}. Cada
-          pieza con sus datos crudos al lado: el PNG para subir directo, el texto o el CSV para
-          pasárselo a quien la arme por su cuenta.
+          El lote de {scopeLabel(scope).toLowerCase()}. Cada pieza con sus datos crudos al lado: el
+          PNG para subir directo, el texto o el CSV para pasárselo a quien la arme por su cuenta.
         </p>
       </header>
 
-      <ScopeNav base="/admin/cards" matchday={scope.matchday} />
+      <ScopeNav base="/admin/cards" scope={scope} />
 
       {posters.length === 0 ? (
         <Empty
           title="Todavía no hay nada para publicar"
           detail={
-            scope.matchday === null
+            scope.kind === 'torneo'
               ? 'En cuanto se asigne el primer replay a su cruce, el lote se arma solo.'
-              : 'Ninguna partida de esta fecha tiene el replay cargado y asignado todavía.'
+              : 'Ninguna partida de este recorte tiene el replay cargado y asignado todavía.'
           }
         />
       ) : (

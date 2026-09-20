@@ -1,60 +1,68 @@
-import type { MouseEvent } from 'react'
 import { Chip } from '@/components/nav/Chip'
-import { MATCHDAYS } from '@/lib/stats/scope'
+import { MATCHDAYS, ROUNDS, scopeValue } from '@/lib/stats/scope'
+import type { StatScope } from '@/lib/stats/types'
 import { withQuery } from '@/lib/url'
 
 /**
- * The matchday picker, shared by /estadisticas, /estadisticas/tablas, /partidas
- * and /admin/cards. `query` holds the page's other filters so every link keeps
- * them.
+ * The scope picker, shared by /estadisticas, /estadisticas/tablas and
+ * /admin/cards. `query` holds the page's other filters so every link keeps them.
  *
- * Without `onPick`, chips are links to server-rendered pages and are prefetched
- * explicitly: these routes are `force-dynamic`, which Next's default prefetch
- * only covers partially. Prefetching only runs in production builds.
+ * Two rows rather than one: nine chips side by side read as a wall, and the
+ * matchdays and the playoff rounds are not alternatives to each other. The
+ * first row picks the phase, the second one narrows inside it and only appears
+ * once there is something to narrow. The whole tournament has no second row,
+ * which is itself the signal that nothing is being narrowed.
  *
- * With `onPick` (/partidas, where every match is already rendered and filtering
- * is CSS), a plain click does not navigate and nothing is prefetched; the
- * handler updates the URL. See `MatchFilters`.
+ * Chips are links to server-rendered pages and are prefetched explicitly:
+ * these routes are `force-dynamic`, which Next's default prefetch only covers
+ * partially. Prefetching only runs in production builds.
  */
 export function ScopeNav({
   base,
-  matchday,
+  scope,
   query = {},
-  onPick,
 }: {
   base: string
-  matchday: number | null
+  scope: StatScope
   query?: Record<string, string | number | null | undefined>
-  /**
-   * Handles plain clicks instead of navigating. Chips stay real links for new
-   * tabs, sharing and no-JavaScript use.
-   */
-  onPick?: (matchday: number | null) => void
 }) {
-  // Modified clicks (ctrl, cmd, shift, middle button) are left to the browser.
-  const pick = onPick
-    ? (value: number | null) => (event: MouseEvent<HTMLAnchorElement>) => {
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
-        event.preventDefault()
-        onPick(value)
-      }
-    : undefined
+  const current = scopeValue(scope)
 
-  const chip = (label: string, value: number | null) => (
+  const chip = (label: string, value: string | null) => (
     <Chip
       key={value ?? 'total'}
       label={label}
       href={withQuery(base, { ...query, fecha: value })}
-      active={matchday === value}
-      prefetch={onPick ? false : true}
-      onClick={pick?.(value)}
+      active={current === value}
+      prefetch
     />
   )
 
+  /*
+    Which phase the second row belongs to. A matchday is inside the groups and
+    a round inside the playoffs, so picking one keeps its row open.
+  */
+  const phase = scope.kind === 'torneo' ? null : scope.phase
+
   return (
-    <nav aria-label="Recorte" className="flex gap-1 overflow-x-auto pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible sm:pb-0">
-      {chip('Toda la fase', null)}
-      {MATCHDAYS.map((entry) => chip(entry.label, entry.matchday))}
-    </nav>
+    <div className="flex flex-col gap-1">
+      <nav aria-label="Recorte" className={ROW}>
+        {chip('Total', null)}
+        {chip('Grupos', 'grupos')}
+        {chip('Playoffs', 'playoffs')}
+      </nav>
+
+      {phase !== null && (
+        <nav aria-label={phase === 'grupos' ? 'Fecha' : 'Ronda'} className={ROW}>
+          {phase === 'grupos'
+            ? MATCHDAYS.map((entry) => chip(entry.label, String(entry.matchday)))
+            : ROUNDS.map((entry) => chip(entry.label, entry.id))}
+        </nav>
+      )}
+    </div>
   )
 }
+
+/** Below `sm` the bar scrolls sideways instead of wrapping. */
+const ROW =
+  'flex gap-1 overflow-x-auto pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible sm:pb-0'

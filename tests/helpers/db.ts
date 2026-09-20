@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { PGlite } from '@electric-sql/pglite'
 
 /**
@@ -34,39 +34,16 @@ create table storage.objects (
 alter table storage.objects enable row level security;
 `
 
-export const MIGRATIONS = [
-  '0001_init.sql',
-  '0002_views.sql',
-  '0003_ingest_match.sql',
-  '0004_storage.sql',
-  '0005_standings.sql',
-  '0006_tournament.sql',
-  '0007_fixture.sql',
-  '0008_rosters.sql',
-  '0009_fixture_detalle.sql',
-  '0010_stats.sql',
-  '0011_asignacion.sql',
-  '0012_planteles.sql',
-  '0013_publico.sql',
-  '0014_plantel.sql',
-  '0015_logos.sql',
-  '0016_borrar_partida.sql',
-  '0017_alta_de_cuenta.sql',
-  '0018_tag_a_la_vista.sql',
-  '0019_asignar_cuenta.sql',
-  '0020_asignar_posicion.sql',
-  '0021_meta_y_bans.sql',
-  '0022_logo_script_path.sql',
-  '0023_plantel_dinamico.sql',
-  '0024_no_presentado.sql',
-  '0025_kda_promedio.sql',
-  '0026_minimo_una_partida.sql',
-  '0027_meta_promedios.sql',
-  '0028_desempate_directo.sql',
-  '0029_roles_por_campeon.sql',
-  '0030_estadisticas_por_rol.sql',
-  '0031_alineacion_indebida.sql',
-]
+/**
+ * Every migration, in order, read from the directory rather than listed here.
+ *
+ * The list used to be written by hand, so a new migration was not applied until
+ * someone remembered to add it: the suite went green while the change under
+ * test had never run. The numeric prefixes make the file order the run order.
+ */
+export const MIGRATIONS = readdirSync('supabase/migrations')
+  .filter((file) => file.endsWith('.sql'))
+  .sort()
 
 /**
  * Supabase's default table grants: `anon` and `authenticated` can SELECT

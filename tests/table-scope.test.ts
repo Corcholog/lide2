@@ -5,11 +5,13 @@ import { withQuery } from '../src/lib/url'
 import { GROUPS } from '../src/lib/lide2/tournament'
 import type { StatScope } from '../src/lib/stats/types'
 
-const scope = (matchday: number | null): StatScope => ({
-  tournamentId: 'torneo-1',
-  phase: 'grupos',
-  matchday,
-})
+/** A group-phase scope: one matchday, or the whole phase when null. */
+const TOURNAMENT_ID = 'torneo-1'
+
+const scope = (matchday: number | null): StatScope =>
+  matchday === null
+    ? { kind: 'fase', phase: 'grupos' }
+    : { kind: 'fecha', phase: 'grupos', matchday }
 
 describe('GROUP_OPTIONS', () => {
   it('comes from the tournament and not from a separate list', () => {
@@ -47,8 +49,9 @@ describe('parseGroup', () => {
 
 describe('metaFilter', () => {
   it('accumulated: every group and the whole phase', () => {
-    expect(metaFilter(scope(null), null)).toEqual({
+    expect(metaFilter(scope(null), TOURNAMENT_ID, null)).toEqual({
       tournament_id: 'torneo-1',
+      all_phases: false,
       phase: 'grupos',
       all_groups: true,
       all_matchdays: true,
@@ -56,8 +59,9 @@ describe('metaFilter', () => {
   })
 
   it('by matchday: every group, one matchday', () => {
-    expect(metaFilter(scope(2), null)).toEqual({
+    expect(metaFilter(scope(2), TOURNAMENT_ID, null)).toEqual({
       tournament_id: 'torneo-1',
+      all_phases: false,
       phase: 'grupos',
       all_groups: true,
       all_matchdays: false,
@@ -66,8 +70,9 @@ describe('metaFilter', () => {
   })
 
   it('by group: one group, the whole phase', () => {
-    expect(metaFilter(scope(null), 'Grupo B')).toEqual({
+    expect(metaFilter(scope(null), TOURNAMENT_ID, 'Grupo B')).toEqual({
       tournament_id: 'torneo-1',
+      all_phases: false,
       phase: 'grupos',
       all_groups: false,
       group_label: 'Grupo B',
@@ -76,8 +81,9 @@ describe('metaFilter', () => {
   })
 
   it('group plus matchday: the intersection of the two', () => {
-    expect(metaFilter(scope(3), 'Grupo A')).toEqual({
+    expect(metaFilter(scope(3), TOURNAMENT_ID, 'Grupo A')).toEqual({
       tournament_id: 'torneo-1',
+      all_phases: false,
       phase: 'grupos',
       all_groups: false,
       group_label: 'Grupo A',
@@ -89,7 +95,7 @@ describe('metaFilter', () => {
   it('never sends group_label or matchday when the scope is the total', () => {
     // Null group and matchday would also match rows whose group is unresolved;
     // the two flags avoid that.
-    const filter = metaFilter(scope(null), null)
+    const filter = metaFilter(scope(null), TOURNAMENT_ID, null)
     expect(filter).not.toHaveProperty('group_label')
     expect(filter).not.toHaveProperty('matchday')
   })

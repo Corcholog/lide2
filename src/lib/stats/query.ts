@@ -30,22 +30,42 @@ export async function resolveTournamentId(supabase: Supabase): Promise<string | 
   return tournament?.id ?? null
 }
 
-export async function loadStats(supabase: Supabase, scope: StatScope): Promise<StatsData> {
-  const filter = scopeFilter(scope)
+export async function loadStats(
+  supabase: Supabase,
+  scope: StatScope,
+  tournamentId: string,
+): Promise<StatsData> {
+  const filter = scopeFilter(scope, tournamentId)
 
-  // Resolved first: champion names and icon URLs both need it.
-  const version = await assetVersion(null)
+  /*
+    ddragon runs alongside the database, not before it.
 
-  const [players, teams, universities, champions, records, mvp, names] = await Promise.all([
+    Only the champion names need the version, so awaiting it up front gated
+    every query on an HTTP call to another service for no reason. Chained
+    inside the same `Promise.all`, its round trip overlaps with the queries and
+    stops counting.
+  */
+  const assets = assetVersion(null).then(async (version) => ({
+    version,
+    // Names do not change between patches, so the latest version is enough.
+    // This is the one request that does not go to the database.
+    names: await championNames(version),
+  }))
+
+  const [players, teams, universities, champions, records, mvp, resolved] = await Promise.all([
     supabase.from('player_phase_totals').select('*').match(filter),
     supabase.from('team_phase_totals').select('*').match(filter),
     supabase.from('university_totals').select('*').match(filter),
     supabase.from('champion_stats').select('*').match(filter),
-    supabase.from('match_records').select('*').match(matchFilter(scope)),
+    /*
+      `not null` on the phase as well: unlike the accumulated views, which drop
+      unresolved rows when they aggregate (0032), this one has a row per match,
+      so an upload nobody has assigned yet would show up in the tournament
+      scope, which pins no phase.
+    */
+    supabase.from('match_records').select('*').match(matchFilter(scope, tournamentId)).not('phase', 'is', null),
     supabase.from('tournament_mvp').select('*').match(filter),
-    // Names do not change between patches, so the latest version is enough.
-    // This is the one request that does not go to the database.
-    championNames(version),
+    assets,
   ])
 
   // If any query fails, the whole load fails: a page silently missing one
@@ -58,7 +78,7 @@ export async function loadStats(supabase: Supabase, scope: StatScope): Promise<S
     champions: rows<ChampionStatRow>(champions, 'the champion stats'),
     records: rows<MatchRecordRow>(records, 'the match records'),
     mvp: rows<TournamentMvpRow>(mvp, 'the tournament MVP'),
-    championNames: names,
-    assetVersion: version,
+    championNames: resolved.names,
+    assetVersion: resolved.version,
   }
 }

@@ -51,7 +51,7 @@ const PER_PLAYER =
  * appearances so a single game cannot top it at 100%.
  */
 export function universityStandings(data: StatsData): StatBlock | null {
-  const min = minGamesForAverages() * 5
+  const min = minGamesForAverages(data.scope) * 5
   const rows = universityRanking(data, {
     value: (row) => row.win_pct,
     display: (value) => formatPercent(value),
@@ -112,7 +112,7 @@ export function universityDamage(data: StatsData): StatBlock | null {
  * not summed, so entering more teams is not an advantage.
  */
 export function universityOfTheDay(data: StatsData): StatBlock | null {
-  const min = minGamesForAverages() * 5
+  const min = minGamesForAverages(data.scope) * 5
   const rows = universityRanking(data, {
     value: (row) => row.avg_score,
     display: (value) => value.toFixed(2),

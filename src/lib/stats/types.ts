@@ -17,15 +17,27 @@ import type {
 } from '@/types/db'
 
 /**
- * The slice of the tournament being shown. A null `matchday` means the whole
- * phase, which the database stores as separate rows (`is_total`).
+ * The slice of the tournament being shown.
+ *
+ * A union rather than one shape with optional fields: a playoff round has no
+ * matchday and a group matchday has no round, and the database keys the four
+ * scopes differently (see `scopeFilter`). Written this way the impossible
+ * combinations cannot be built, so no filter can ask for "matchday 2 of the
+ * playoffs" and quietly come back empty.
+ *
+ * It holds no tournament id. The scope is read from the URL alone, so the
+ * heading and the scope picker render without waiting for the database, and
+ * the rest of the page can stream in behind them. The id is passed to the
+ * filters separately, by whoever already resolved it.
  */
-export interface StatScope {
-  tournamentId: string
-  phase: StatPhase
-  /** Tournament matchday (1 to 3), or null for the accumulated total. */
-  matchday: number | null
-}
+export type StatScope =
+  /** Both phases together: the rows migration 0032 added, `all_phases`. */
+  | { kind: 'torneo' }
+  /** A whole phase, the widest row there was before 0032. */
+  | { kind: 'fase'; phase: StatPhase }
+  | { kind: 'fecha'; phase: 'grupos'; matchday: number }
+  /** One playoff round. `round` is the label the database stores. */
+  | { kind: 'ronda'; phase: 'playoffs'; round: string }
 
 /** Everything `loadStats` returns for one scope. */
 export interface StatsData {

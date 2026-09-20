@@ -289,8 +289,14 @@ interface StatScopeColumns {
   matchday: number | null
   /** "Fecha 2", or the round's name in playoffs. */
   round_label: string | null
-  /** true = the accumulated row; false = that matchday's. */
+  /** true = the row for a whole phase; false = one matchday's or one round's. */
   is_total: boolean
+  /**
+   * true = the row for the whole tournament, with both phases together (0032).
+   * It is the one row that has no phase and no `is_total`, so a scope is picked
+   * by the pair: `is_total` inside a phase, `all_phases` across them.
+   */
+  all_phases: boolean
 }
 
 /** A `player_phase_totals` row. */
@@ -459,6 +465,11 @@ export interface ChampionMetaRow {
    * row, so the view aggregates them separately.
    */
   all_roles: boolean
+  /**
+   * true = the row for the whole tournament (0032). It only exists together
+   * with `all_groups`: a playoff series belongs to no group.
+   */
+  all_phases: boolean
 
   champion: string
   /** The role it was played in most often. */

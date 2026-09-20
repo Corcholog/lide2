@@ -19,7 +19,7 @@ import type {
  * are tested in tests/stats.test.ts.
  */
 
-const SCOPE: StatScope = { tournamentId: 't1', phase: 'grupos', matchday: null }
+const SCOPE: StatScope = { kind: 'fase', phase: 'grupos' }
 
 function player(over: Partial<PlayerPhaseTotalsRow>): PlayerPhaseTotalsRow {
   return {
@@ -28,6 +28,7 @@ function player(over: Partial<PlayerPhaseTotalsRow>): PlayerPhaseTotalsRow {
     matchday: null,
     round_label: null,
     is_total: true,
+    all_phases: false,
     player_id: over.player_name ?? 'p',
     player_name: 'Jugador',
     team_id: 'e1',
@@ -83,6 +84,7 @@ function champion(over: Partial<ChampionStatRow>): ChampionStatRow {
     matchday: null,
     round_label: null,
     is_total: true,
+    all_phases: false,
     champion: 'Ahri',
     position: 'MIDDLE',
     positions: ['MIDDLE'],
@@ -111,6 +113,7 @@ function team(over: Partial<TeamPhaseTotalsRow>): TeamPhaseTotalsRow {
     matchday: null,
     round_label: null,
     is_total: true,
+    all_phases: false,
     team_id: over.team_name ?? 'e1',
     team_name: 'Equipo 01',
     team_tag: null,
@@ -142,6 +145,7 @@ function university(over: Partial<UniversityTotalsRow>): UniversityTotalsRow {
     matchday: null,
     round_label: null,
     is_total: true,
+    all_phases: false,
     university_id: 'u1',
     university_tag: 'UNLP',
     university_name: 'Universidad Nacional de La Plata',
@@ -194,8 +198,13 @@ describe('stats presentation', () => {
     expect(new Set(STATS.map((stat) => stat.id)).size).toBe(STATS.length)
   })
 
-  it('having played is enough to enter a ranking of averages', () => {
-    expect(minGamesForAverages()).toBe(1)
+  it('having played is enough to enter a ranking of averages inside a phase', () => {
+    expect(minGamesForAverages(SCOPE)).toBe(1)
+  })
+
+  /* Over the whole tournament a single game is too thin a sample to lead. */
+  it('asks for two games over the whole tournament', () => {
+    expect(minGamesForAverages({ kind: 'torneo' })).toBe(2)
   })
 
   it('the two KDA rankings can disagree, which is the point of having both', () => {

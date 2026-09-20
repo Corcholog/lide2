@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
@@ -5,7 +6,7 @@ import { assetVersion, championName, championNames } from '@/lib/ddragon'
 import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { playerName } from '@/lib/format'
 import { resolveTournamentId } from '@/lib/stats/query'
-import { parseScope } from '@/lib/stats/scope'
+import { hasGroups, parseScope, scopeLabel, scopeValue } from '@/lib/stats/scope'
 import {
   byRole,
   championsInRole,
@@ -13,10 +14,12 @@ import {
   scopeCounts,
   parseGroup,
   parseRole,
+  type RoleOption,
 } from '@/lib/stats/tables'
 import { scopeFilter } from '@/lib/stats/filters'
 import { parseSortOrder } from '@/lib/table/sort'
 import { Empty } from '@/components/stats/Empty'
+import { TablesSkeleton } from '@/components/stats/Skeleton'
 import { GroupNav } from '@/components/stats/GroupNav'
 import { RoleNav } from '@/components/stats/RoleNav'
 import { ScopeNav } from '@/components/stats/ScopeNav'
@@ -24,6 +27,7 @@ import { ViewNav } from '@/components/stats/ViewNav'
 import { ChampionTable, type ChampionRow } from '@/components/stats/ChampionTable'
 import { TeamTable, type TeamRow } from '@/components/stats/TeamTable'
 import { PlayerTable, type PlayerRow } from '@/components/stats/PlayerTable'
+import type { StatScope } from '@/lib/stats/types'
 import type { ChampionMetaRow, PlayerPhaseTotalsRow, TeamPhaseTotalsRow } from '@/types/db'
 
 export const metadata = {
@@ -83,11 +87,73 @@ const TEAM_COLUMNS = [
 ] as const
 
 export default async function TablesPage({ searchParams }: PageProps<'/estadisticas/tablas'>) {
+  const params = await searchParams
+  const scope = parseScope(params.fecha)
+  const role = parseRole(params.rol)
+  /*
+    Only inside the group phase: a playoff series belongs to no group, so the
+    tournament and playoff scopes have no rows split by group at all (0032).
+    Dropped rather than carried, so switching to the playoffs with `?grupo=B`
+    in the URL shows the playoffs instead of an empty table.
+  */
+  const group = hasGroups(scope) ? parseGroup(params.grupo) : null
+
+  // The scope each nav carries along so it does not wipe the others' filters.
+  const filters = {
+    fecha: scopeValue(scope),
+    grupo: group?.slice(-1) ?? null,
+    rol: role?.id ?? null,
+  }
+
+  return (
+    <div className="flex flex-col gap-8">
+      <header className="flex flex-col gap-1">
+        <h1 className="font-display text-3xl uppercase tracking-tight">Estadísticas</h1>
+        {/* Every part of this line comes from the URL, so it needs no database. */}
+        <p className="text-sm text-muted">
+          {scopeLabel(scope)} · {hasGroups(scope) ? `${group ?? 'todos los grupos'} · ` : ''}
+          {role?.label ?? 'todos los roles'}
+        </p>
+      </header>
+
+      <div className="flex flex-col gap-2">
+        {/* The other tab does not filter by group or role: it only gets the scope. */}
+        <ViewNav active="tablas" query={{ fecha: filters.fecha }} />
+        <ScopeNav base="/estadisticas/tablas" scope={scope} query={filters} />
+        {/* Hidden outside the group phase, where there is nothing to split. */}
+        {hasGroups(scope) && <GroupNav base="/estadisticas/tablas" group={group} query={filters} />}
+        <RoleNav base="/estadisticas/tablas" role={role} query={filters} />
+      </div>
+
+      {/* Keyed on every filter, so switching one shows the skeleton again. */}
+      <Suspense
+        key={[filters.fecha, filters.grupo, filters.rol].join(':')}
+        fallback={<TablesSkeleton />}
+      >
+        <Tables scope={scope} group={group} role={role} params={params} />
+      </Suspense>
+    </div>
+  )
+}
+
+/** Everything that needs the database, so it can suspend on its own. */
+async function Tables({
+  scope,
+  group,
+  role,
+  params,
+}: {
+  scope: StatScope
+  group: string | null
+  role: RoleOption | null
+  params: Awaited<PageProps<'/estadisticas/tablas'>['searchParams']>
+}) {
   const supabase = await createClient()
-  const [user, tournamentId] = await Promise.all([getUser(), resolveTournamentId(supabase)])
+  const tournamentId = await resolveTournamentId(supabase)
 
   if (!tournamentId) {
-    return user ? (
+    // `getUser` is only read here, off the path everyone else takes.
+    return (await getUser()) ? (
       <Empty
         title="Todavía no hay torneo cargado"
         detail={`Corré \`npm run seed:lide2\` para crear la ${TOURNAMENT.name} en la base.`}
@@ -100,26 +166,14 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
     )
   }
 
-  const params = await searchParams
-  const scope = parseScope(params.fecha, tournamentId)
-  const group = parseGroup(params.grupo)
-  const role = parseRole(params.rol)
-
-  // The scope each nav carries along so it does not wipe the others' filters.
-  const filters = {
-    fecha: scope.matchday,
-    grupo: group?.slice(-1) ?? null,
-    rol: role?.id ?? null,
-  }
-
   // Changing a filter remounts the tables, so a sort picked by clicking a
   // header does not outlive the URL that no longer carries it.
-  const tableKey = [filters.fecha, filters.grupo, filters.rol].join(':')
+  const tableKey = [scopeValue(scope), group, role?.id].join(':')
 
   const [metaRes, playersRes, teamsRes, version] = await Promise.all([
-    supabase.from('champion_meta').select('*').match(metaFilter(scope, group)),
-    supabase.from('player_phase_totals').select('*').match(scopeFilter(scope)),
-    supabase.from('team_phase_totals').select('*').match(scopeFilter(scope)),
+    supabase.from('champion_meta').select('*').match(metaFilter(scope, tournamentId, group)),
+    supabase.from('player_phase_totals').select('*').match(scopeFilter(scope, tournamentId)),
+    supabase.from('team_phase_totals').select('*').match(scopeFilter(scope, tournamentId)),
     assetVersion(null),
   ])
 
@@ -214,37 +268,31 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
     avgMinutes: Number(row.avg_minutes),
   }))
 
+  if (matches === 0) {
+    return (
+      <Empty
+        title="Todavía no se jugó nada acá"
+        detail={
+          // The role does not change `matches`, so it cannot make a scope empty.
+          group || scope.kind !== 'torneo'
+            ? 'Probá con otro recorte: ninguna partida de este grupo y esta fecha tiene el replay cargado.'
+            : 'En cuanto se suba el primer replay, esta página se llena sola.'
+        }
+      />
+    )
+  }
+
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex flex-col gap-1">
-        <h1 className="font-display text-3xl uppercase tracking-tight">Estadísticas</h1>
-        <p className="text-sm text-muted">
-          {group ?? 'Todos los grupos'} · {role?.label ?? 'todos los roles'} ·{' '}
-          {scope.matchday === null ? 'toda la fase' : `fecha ${scope.matchday}`}
-          {matches > 0 && ` · ${matches} ${matches === 1 ? 'partida' : 'partidas'}`}
-        </p>
-      </header>
+      {/*
+        The match count lives here and not in the heading: it is the one part
+        of that line the database has to answer for, and the heading is sent
+        before any query runs.
+      */}
+      <p className="text-sm text-muted">
+        {matches} {matches === 1 ? 'partida' : 'partidas'} en este recorte
+      </p>
 
-      <div className="flex flex-col gap-2">
-        {/* The other tab does not filter by group: it only gets the matchday. */}
-        <ViewNav active="tablas" query={{ fecha: scope.matchday }} />
-        <ScopeNav base="/estadisticas/tablas" matchday={scope.matchday} query={filters} />
-        <GroupNav base="/estadisticas/tablas" group={group} query={filters} />
-        <RoleNav base="/estadisticas/tablas" role={role} query={filters} />
-      </div>
-
-      {matches === 0 ? (
-        <Empty
-          title="Todavía no se jugó nada acá"
-          detail={
-            // The role does not change `matches`, so it cannot make a scope empty.
-            group || scope.matchday !== null
-              ? 'Probá con otro recorte: ninguna partida de este grupo y esta fecha tiene el replay cargado.'
-              : 'En cuanto se suba el primer replay, esta página se llena sola.'
-          }
-        />
-      ) : (
-        <>
           <Section
             title="Campeones"
             /*
@@ -328,8 +376,6 @@ export default async function TablesPage({ searchParams }: PageProps<'/estadisti
               })}
             />
           </Section>
-        </>
-      )}
     </div>
   )
 }

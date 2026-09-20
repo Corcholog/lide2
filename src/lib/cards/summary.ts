@@ -6,8 +6,21 @@
 
 import { formatDuration, formatGold, formatNumber } from '@/lib/format'
 import { versus } from '@/lib/stats/records'
-import type { StatBlock, StatRow, StatsData } from '@/lib/stats/types'
+import type { StatBlock, StatRow, StatScope, StatsData } from '@/lib/stats/types'
 import type { GroupStandingRow, MatchRecordRow } from '@/types/db'
+
+/** How far the piece reaches back, for its subtitle. */
+function scopeReach(scope: StatScope): string {
+  switch (scope.kind) {
+    case 'fecha':
+    case 'ronda':
+      return 'Lo que dejó la jornada'
+    case 'fase':
+      return 'Lo que va de la fase'
+    case 'torneo':
+      return 'Lo que va del torneo'
+  }
+}
 
 /** The one with the highest (or lowest) value, or null when there are no matches. */
 function pick(
@@ -94,8 +107,9 @@ export function matchdayNumbers(data: StatsData): StatBlock | null {
   return {
     id: 'numeros',
     title: 'Los números',
-    // With no matchday selected this covers the whole phase.
-    subtitle: data.scope.matchday === null ? 'Lo que va de la fase' : 'Lo que dejó la jornada',
+    // One matchday or one round is a day's work; a phase and the tournament
+    // are running totals, and saying "la jornada" for three of them is wrong.
+    subtitle: scopeReach(data.scope),
     rows,
     note: null,
   }

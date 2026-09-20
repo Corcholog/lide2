@@ -4,19 +4,24 @@
  * written.
  */
 
-import type { StatBlock, StatRow } from './types'
+import type { StatBlock, StatRow, StatScope } from './types'
 import { TOP_ROWS } from './types'
 
 /**
  * Minimum games to appear in a ranking of averages.
  *
- * Must match `mvp_min_games()` (migration 0026): the MVP is ranked in SQL and
+ * Must match `mvp_min_games()` (migration 0032): the MVP is ranked in SQL and
  * the averages here, so changing only one makes the same page apply two rules.
- * It is 1 so that every player who has played shows up from the first matchday,
- * when some teams have played a single game.
+ *
+ * Inside a phase or a matchday it is 1, so everyone who played shows up from
+ * the first matchday, when some teams have played a single game. Over the
+ * whole tournament it is 2: a finalist plays up to fifteen games and a team
+ * knocked out in the groups four, and one game is too thin a sample to lead
+ * that ranking. Every ranking prints how many games back the number, and the
+ * card says the minimum.
  */
-export function minGamesForAverages(): number {
-  return 1
+export function minGamesForAverages(scope: StatScope): number {
+  return scope.kind === 'torneo' ? 2 : 1
 }
 
 export interface RankOptions<T> {
