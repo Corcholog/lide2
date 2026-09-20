@@ -20,48 +20,46 @@ const T = 'torneo-1'
 
 describe('parseScope', () => {
   it('with no parameter it is the whole tournament', () => {
-    expect(parseScope(undefined, T)).toEqual({ kind: 'torneo', tournamentId: T })
-    expect(parseScope('', T)).toEqual({ kind: 'torneo', tournamentId: T })
+    expect(parseScope(undefined)).toEqual({ kind: 'torneo' })
+    expect(parseScope('')).toEqual({ kind: 'torneo' })
   })
 
   /* Links shared while only the group phase existed still mean what they meant. */
   it('still reads a bare matchday number', () => {
-    expect(parseScope('2', T)).toEqual({
+    expect(parseScope('2')).toEqual({
       kind: 'fecha',
-      tournamentId: T,
       phase: 'grupos',
       matchday: 2,
     })
   })
 
   it('reads a whole phase', () => {
-    expect(parseScope('grupos', T)).toEqual({ kind: 'fase', tournamentId: T, phase: 'grupos' })
-    expect(parseScope('playoffs', T)).toEqual({ kind: 'fase', tournamentId: T, phase: 'playoffs' })
+    expect(parseScope('grupos')).toEqual({ kind: 'fase', phase: 'grupos' })
+    expect(parseScope('playoffs')).toEqual({ kind: 'fase', phase: 'playoffs' })
   })
 
   it('reads a playoff round as the label the database stores', () => {
-    expect(parseScope('cuartos', T)).toEqual({
+    expect(parseScope('cuartos')).toEqual({
       kind: 'ronda',
-      tournamentId: T,
       phase: 'playoffs',
       round: 'Cuartos de final',
     })
   })
 
   it('ignores case, as the group filter does', () => {
-    expect(parseScope('PLAYOFFS', T)).toEqual({ kind: 'fase', tournamentId: T, phase: 'playoffs' })
+    expect(parseScope('PLAYOFFS')).toEqual({ kind: 'fase', phase: 'playoffs' })
   })
 
   /* A stale or hand-edited link shows the tournament rather than an error. */
   it('falls back to the whole tournament on anything unreadable', () => {
-    expect(parseScope('9', T)).toEqual({ kind: 'torneo', tournamentId: T })
-    expect(parseScope('semifinales', T)).toEqual({ kind: 'torneo', tournamentId: T })
+    expect(parseScope('9')).toEqual({ kind: 'torneo' })
+    expect(parseScope('semifinales')).toEqual({ kind: 'torneo' })
   })
 })
 
 describe('scopeValue', () => {
   it('the whole tournament needs no parameter, being the default', () => {
-    expect(scopeValue({ kind: 'torneo', tournamentId: T })).toBeNull()
+    expect(scopeValue({ kind: 'torneo' })).toBeNull()
   })
 
   it('round-trips every scope the nav can produce', () => {
@@ -69,7 +67,7 @@ describe('scopeValue', () => {
       ...ROUNDS.map((r) => r.id)]
 
     for (const value of values) {
-      expect(scopeValue(parseScope(value ?? undefined, T))).toBe(value)
+      expect(scopeValue(parseScope(value ?? undefined))).toBe(value)
     }
   })
 })
@@ -97,25 +95,25 @@ describe('ROUNDS', () => {
 describe('hasGroups', () => {
   /* A playoff series belongs to no group, so there is nothing to split. */
   it('is only true inside the group phase', () => {
-    expect(hasGroups(parseScope('grupos', T))).toBe(true)
-    expect(hasGroups(parseScope('3', T))).toBe(true)
-    expect(hasGroups(parseScope('playoffs', T))).toBe(false)
-    expect(hasGroups(parseScope('cuartos', T))).toBe(false)
-    expect(hasGroups(parseScope(undefined, T))).toBe(false)
+    expect(hasGroups(parseScope('grupos'))).toBe(true)
+    expect(hasGroups(parseScope('3'))).toBe(true)
+    expect(hasGroups(parseScope('playoffs'))).toBe(false)
+    expect(hasGroups(parseScope('cuartos'))).toBe(false)
+    expect(hasGroups(parseScope(undefined))).toBe(false)
   })
 })
 
 describe('scopeFilter', () => {
   /* The row 0032 added: the only one with no phase at all. */
   it('asks for the tournament row by `all_phases` alone', () => {
-    expect(scopeFilter(parseScope(undefined, T))).toEqual({
+    expect(scopeFilter(parseScope(undefined), T)).toEqual({
       tournament_id: T,
       all_phases: true,
     })
   })
 
   it('asks for a whole phase by `is_total` with the phase pinned', () => {
-    expect(scopeFilter(parseScope('playoffs', T))).toEqual({
+    expect(scopeFilter(parseScope('playoffs'), T)).toEqual({
       tournament_id: T,
       phase: 'playoffs',
       is_total: true,
@@ -123,7 +121,7 @@ describe('scopeFilter', () => {
   })
 
   it('asks for a playoff round by its label, which has no matchday', () => {
-    const filter = scopeFilter(parseScope('cuartos', T))
+    const filter = scopeFilter(parseScope('cuartos'), T)
 
     expect(filter).toEqual({
       tournament_id: T,
@@ -140,7 +138,7 @@ describe('scopeFilter', () => {
    */
   it('pins the phase on everything except the tournament', () => {
     for (const value of ['grupos', 'playoffs', '1', 'cuartos']) {
-      expect(scopeFilter(parseScope(value, T))).toHaveProperty('phase')
+      expect(scopeFilter(parseScope(value), T)).toHaveProperty('phase')
     }
   })
 })
@@ -148,11 +146,11 @@ describe('scopeFilter', () => {
 describe('matchFilter', () => {
   /* `match_records` has a row per match and no accumulated rows to tell apart. */
   it('sends no flags: the tournament is simply every match', () => {
-    expect(matchFilter(parseScope(undefined, T))).toEqual({ tournament_id: T })
+    expect(matchFilter(parseScope(undefined), T)).toEqual({ tournament_id: T })
   })
 
   it('narrows a round by its label, as the accumulated views do', () => {
-    expect(matchFilter(parseScope('final', T))).toEqual({
+    expect(matchFilter(parseScope('final'), T)).toEqual({
       tournament_id: T,
       phase: 'playoffs',
       round_label: FINAL_ROUND,
@@ -162,10 +160,10 @@ describe('matchFilter', () => {
 
 describe('scopeLabel', () => {
   it('names each scope the way the page does', () => {
-    expect(scopeLabel(parseScope(undefined, T))).toBe('Todo el torneo')
-    expect(scopeLabel(parseScope('grupos', T))).toBe('Fase de grupos')
-    expect(scopeLabel(parseScope('playoffs', T))).toBe('Playoffs')
-    expect(scopeLabel(parseScope('2', T))).toBe('Fecha 2')
-    expect(scopeLabel(parseScope('semis', T))).toBe('Semifinales')
+    expect(scopeLabel(parseScope(undefined))).toBe('Todo el torneo')
+    expect(scopeLabel(parseScope('grupos'))).toBe('Fase de grupos')
+    expect(scopeLabel(parseScope('playoffs'))).toBe('Playoffs')
+    expect(scopeLabel(parseScope('2'))).toBe('Fecha 2')
+    expect(scopeLabel(parseScope('semis'))).toBe('Semifinales')
   })
 })

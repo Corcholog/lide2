@@ -19,8 +19,8 @@ import type { StatScope } from './types'
  * Pinning the phase is what keeps the last three away from the tournament row,
  * whose phase is NULL and so matches no equality.
  */
-export function scopeFilter(scope: StatScope): Record<string, unknown> {
-  const base = { tournament_id: scope.tournamentId }
+export function scopeFilter(scope: StatScope, tournamentId: string): Record<string, unknown> {
+  const base = { tournament_id: tournamentId }
 
   switch (scope.kind) {
     case 'torneo':
@@ -41,8 +41,8 @@ export function scopeFilter(scope: StatScope): Record<string, unknown> {
  * `loadStats` also drops rows with no phase, which are uploads nobody has
  * assigned to a matchup or a series yet.
  */
-export function matchFilter(scope: StatScope): Record<string, unknown> {
-  const base = { tournament_id: scope.tournamentId }
+export function matchFilter(scope: StatScope, tournamentId: string): Record<string, unknown> {
+  const base = { tournament_id: tournamentId }
 
   switch (scope.kind) {
     case 'torneo':

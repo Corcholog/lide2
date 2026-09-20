@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { MouseEventHandler } from 'react'
+import { Pending } from './Pending'
 
 /**
  * The site's filter chip.
@@ -32,13 +33,15 @@ export function Chip({
       // py-2 gives a 38px tap target (WCAG 2.5.8 asks for at least 24px).
       // shrink-0 and whitespace-nowrap: below `sm` the bar scrolls sideways,
       // and chips must not shrink or wrap their text.
-      className={`shrink-0 whitespace-nowrap border-2 px-3 py-2 text-xs font-bold uppercase tracking-wide transition-colors ${
+      // `relative` anchors the loading bar `Pending` draws along the bottom.
+      className={`relative shrink-0 whitespace-nowrap border-2 px-3 py-2 text-xs font-bold uppercase tracking-wide transition-colors ${
         active
           ? 'border-accent bg-accent-dim text-accent'
           : 'border-line text-muted hover:border-line-strong hover:text-accent'
       }`}
     >
       {label}
+      <Pending />
     </Link>
   )
 }

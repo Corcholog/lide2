@@ -34,10 +34,10 @@ export default async function CardsPage({ searchParams }: PageProps<'/admin/card
     )
   }
 
-  const scope = parseScope((await searchParams).fecha, tournamentId)
+  const scope = parseScope((await searchParams).fecha)
 
   const [data, standingsRes] = await Promise.all([
-    loadStats(supabase, scope),
+    loadStats(supabase, scope, tournamentId),
     supabase.from('group_standings').select('*').eq('tournament_id', tournamentId).order('position'),
   ])
 

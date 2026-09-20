@@ -114,7 +114,11 @@ export function scopeCounts<T extends { all_roles?: boolean; matches: number; ma
  * Filtering on `group_label is null` instead would also match games whose
  * group could not be resolved.
  */
-export function metaFilter(scope: StatScope, group: string | null): Record<string, unknown> {
+export function metaFilter(
+  scope: StatScope,
+  tournamentId: string,
+  group: string | null,
+): Record<string, unknown> {
   /*
     `champion_meta` keys every dimension with its own flag, so each one has to
     be pinned or the query gets one row per scope. `all_phases` is the one
@@ -122,7 +126,7 @@ export function metaFilter(scope: StatScope, group: string | null): Record<strin
     why `hasGroups` hides the group filter outside the group phase.
   */
   const base = {
-    tournament_id: scope.tournamentId,
+    tournament_id: tournamentId,
     all_groups: group === null,
     ...(group === null ? {} : { group_label: group }),
   }

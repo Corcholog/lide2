@@ -51,27 +51,24 @@ export function parseMatchday(value: string | string[] | undefined): number | nu
  * error: the value travels in shared links, and a stale one should still show
  * a page.
  */
-export function parseScope(
-  value: string | string[] | undefined,
-  tournamentId: string,
-): StatScope {
+export function parseScope(value: string | string[] | undefined): StatScope {
   const raw = firstParam(value)?.toLowerCase()
 
   if (raw === 'grupos' || raw === 'playoffs') {
-    return { kind: 'fase', tournamentId, phase: raw }
+    return { kind: 'fase', phase: raw }
   }
 
   const matchday = parseMatchday(raw)
   if (matchday !== null) {
-    return { kind: 'fecha', tournamentId, phase: 'grupos', matchday }
+    return { kind: 'fecha', phase: 'grupos', matchday }
   }
 
   const round = ROUNDS.find((entry) => entry.id === raw)
   if (round) {
-    return { kind: 'ronda', tournamentId, phase: 'playoffs', round: round.label }
+    return { kind: 'ronda', phase: 'playoffs', round: round.label }
   }
 
-  return { kind: 'torneo', tournamentId }
+  return { kind: 'torneo' }
 }
 
 /**

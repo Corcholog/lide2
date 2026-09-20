@@ -294,7 +294,7 @@ describe('the tournament scope', () => {
    * own tests while disagreeing would show up as an empty page, not an error.
    */
   it('is what `scopeFilter` reaches for', async () => {
-    const filter = scopeFilter({ kind: 'torneo', tournamentId })
+    const filter = scopeFilter({ kind: 'torneo' }, tournamentId)
     const entries = Object.entries(filter)
 
     const { rows } = await db.query<{ games: number; phase: string | null }>(

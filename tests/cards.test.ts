@@ -56,9 +56,13 @@ function sqlFor(filter: Record<string, unknown>): { where: string; params: unkno
  * `loadStats` reimplemented against PGlite (the real one uses PostgREST). If the
  * filters drift apart, the final test fails with an empty batch.
  */
-async function loadFromDb(db: PGlite, scope: StatScope): Promise<StatsData> {
-  const { where, params } = sqlFor(scopeFilter(scope))
-  const records = sqlFor(matchFilter(scope))
+async function loadFromDb(
+  db: PGlite,
+  scope: StatScope,
+  tournamentId: string,
+): Promise<StatsData> {
+  const { where, params } = sqlFor(scopeFilter(scope, tournamentId))
+  const records = sqlFor(matchFilter(scope, tournamentId))
 
   // Sequential, not Promise.all: PGlite is a single connection and concurrent
   // queries hang without an error.
@@ -94,8 +98,8 @@ async function standingsFromDb(db: PGlite, tournamentId: string): Promise<GroupS
 /** A group-phase scope: one matchday, or the whole phase when null. */
 const scope = (matchday: number | null): StatScope =>
   matchday === null
-    ? { kind: 'fase', tournamentId: 't1', phase: 'grupos' }
-    : { kind: 'fecha', tournamentId: 't1', phase: 'grupos', matchday }
+    ? { kind: 'fase', phase: 'grupos' }
+    : { kind: 'fecha', phase: 'grupos', matchday }
 
 function record(overrides: Partial<MatchRecordRow> = {}): MatchRecordRow {
   return {
@@ -406,10 +410,7 @@ describe('the batch against the real database', () => {
   let tournamentId: string
 
   /** The same scope with the real tournament id (`scope()` uses a placeholder). */
-  const dbScope = (matchday: number | null): StatScope =>
-    matchday === null
-      ? { kind: 'fase', tournamentId, phase: 'grupos' }
-      : { kind: 'fecha', tournamentId, phase: 'grupos', matchday }
+  const dbScope = scope
 
   beforeAll(async () => {
     db = await createTestDb()
@@ -481,7 +482,7 @@ describe('the batch against the real database', () => {
 
   it('one matchday brings the numbers, the MVP, the five and the tables', async () => {
     const posters = buildPosters(
-      await loadFromDb(db, dbScope(1)),
+      await loadFromDb(db, dbScope(1), tournamentId),
       await standingsFromDb(db, tournamentId),
     )
     const ids = posters.map((poster) => poster.id)
@@ -495,8 +496,8 @@ describe('the batch against the real database', () => {
   })
 
   it('a single matchday counts one match and the total counts two', async () => {
-    const single = buildPosters(await loadFromDb(db, dbScope(1)), [])
-    const all = buildPosters(await loadFromDb(db, dbScope(null)), [])
+    const single = buildPosters(await loadFromDb(db, dbScope(1), tournamentId), [])
+    const all = buildPosters(await loadFromDb(db, dbScope(null), tournamentId), [])
 
     const matchCount = (posters: ReturnType<typeof buildPosters>) =>
       posters.find((poster) => poster.id === 'numeros')!.block.rows.find((r) => r.id === 'partidas')!
@@ -507,14 +508,14 @@ describe('the batch against the real database', () => {
   })
 
   it('the total adds the records, which a single matchday does not have', async () => {
-    const ids = buildPosters(await loadFromDb(db, dbScope(null)), []).map((poster) => poster.id)
+    const ids = buildPosters(await loadFromDb(db, dbScope(null), tournamentId), []).map((poster) => poster.id)
 
     expect(ids).toContain('mas-larga')
     expect(ids).toContain('mas-kills')
   })
 
   it('the numbers piece picks the longest across both matchdays correctly', async () => {
-    const numbers = buildPosters(await loadFromDb(db, dbScope(null)), []).find(
+    const numbers = buildPosters(await loadFromDb(db, dbScope(null), tournamentId), []).find(
       (poster) => poster.id === 'numeros',
     )!
 
@@ -524,7 +525,7 @@ describe('the batch against the real database', () => {
 
   it('every piece has at least one row: none comes out blank', async () => {
     const posters = buildPosters(
-      await loadFromDb(db, dbScope(null)),
+      await loadFromDb(db, dbScope(null), tournamentId),
       await standingsFromDb(db, tournamentId),
     )
 
