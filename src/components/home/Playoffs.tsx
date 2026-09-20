@@ -232,7 +232,13 @@ function SeriesCard({
     <div className="border-2 border-line bg-surface px-3 py-2.5">
       <p className="mb-1.5 text-[10px] uppercase tracking-wide text-dim">
         BO{series.best_of}
-        {series.games_played > 0 && ` · ${series.games_played} jugados`}
+        {/*
+          An awarded series has no games on purpose, so it says why instead of
+          reading as a 0-0 with a winner.
+        */}
+        {series.walkover_team_id !== null
+          ? ' · W.O.'
+          : series.games_played > 0 && ` · ${series.games_played} jugados`}
       </p>
 
       <SeriesTeam

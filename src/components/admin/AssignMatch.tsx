@@ -18,12 +18,23 @@ export interface SidePlayer {
   assists: number
 }
 
-export interface FixtureOption {
+/**
+ * Somewhere a replay can be filed: a group-phase matchup or a playoff series.
+ * `kind` picks which of the two the server calls, since they are different
+ * tables and different functions.
+ */
+export interface MatchupOption {
   id: string
-  /** "Fecha 1 · Turno 2 · Grupo A" */
+  kind: 'fixture' | 'serie'
+  /** "Fecha 1 · Turno 2 · Grupo A", or "Cuartos de final · Cruce 2". */
   label: string
   teamA: { id: string; name: string }
   teamB: { id: string; name: string }
+  /**
+   * For a series, the games of the best-of that nobody has filed yet. A group
+   * matchup is a single game and has none.
+   */
+  freeGames?: number[]
 }
 
 export interface UnassignedMatch {
@@ -49,31 +60,34 @@ export interface UnassignedMatch {
  */
 export function AssignMatch({
   match,
-  fixtures,
+  matchups,
 }: {
   match: UnassignedMatch
-  fixtures: FixtureOption[]
+  matchups: MatchupOption[]
 }) {
   const [state, formAction, pending] = useActionState<AssignResult | null, FormData>(
     assignMatchAction,
     null,
   )
 
-  const suggested = fixtures.find(
-    (fixture) =>
+  const suggested = matchups.find(
+    (option) =>
       (match.blueGuess !== null &&
-        (fixture.teamA.id === match.blueGuess || fixture.teamB.id === match.blueGuess)) ||
+        (option.teamA.id === match.blueGuess || option.teamB.id === match.blueGuess)) ||
       (match.redGuess !== null &&
-        (fixture.teamA.id === match.redGuess || fixture.teamB.id === match.redGuess)),
+        (option.teamA.id === match.redGuess || option.teamB.id === match.redGuess)),
   )
 
-  const [fixtureId, setFixtureId] = useState(suggested?.id ?? '')
-  const fixture = fixtures.find((entry) => entry.id === fixtureId)
+  const [matchupId, setMatchupId] = useState(suggested?.id ?? '')
+  const matchup = matchups.find((entry) => entry.id === matchupId)
+  const [gameNumber, setGameNumber] = useState('')
   const [blueTeamId, setBlueTeamId] = useState(orientationFor(suggested, match))
 
-  function pickFixture(id: string) {
-    setFixtureId(id)
-    setBlueTeamId(orientationFor(fixtures.find((entry) => entry.id === id), match))
+  function pickMatchup(id: string) {
+    setMatchupId(id)
+    // The game number belongs to the series that was picked, not the next one.
+    setGameNumber('')
+    setBlueTeamId(orientationFor(matchups.find((entry) => entry.id === id), match))
   }
 
   return (
@@ -107,15 +121,15 @@ export function AssignMatch({
         <input type="hidden" name="blueTeamId" value={blueTeamId} />
 
         <label className="flex flex-col gap-1">
-          <span className="text-xs uppercase tracking-wide text-faint">Cruce del fixture</span>
+          <span className="text-xs uppercase tracking-wide text-faint">Cruce o serie</span>
           <select
-            name="fixtureId"
-            value={fixtureId}
-            onChange={(event) => pickFixture(event.target.value)}
+            name="matchupId"
+            value={matchupId}
+            onChange={(event) => pickMatchup(event.target.value)}
             className="border-2 border-line-strong bg-raised px-3 py-2 text-sm focus:border-accent"
           >
             <option value="">Elegir…</option>
-            {fixtures.map((entry) => (
+            {matchups.map((entry) => (
               <option key={entry.id} value={entry.id}>
                 {entry.label} — {entry.teamA.name} vs {entry.teamB.name}
               </option>
@@ -123,13 +137,40 @@ export function AssignMatch({
           </select>
         </label>
 
-        {fixture && (
+        {/* Which table the chosen option lives in, so the action knows. */}
+        <input type="hidden" name="kind" value={matchup?.kind ?? 'fixture'} />
+
+        {/*
+          Only a series has games to tell apart: a group matchup is one game.
+          The numbers already filed are left out, so the same one cannot be
+          claimed twice from here.
+        */}
+        {matchup?.kind === 'serie' && (
+          <label className="flex flex-col gap-1">
+            <span className="text-xs uppercase tracking-wide text-faint">¿Qué partida de la serie?</span>
+            <select
+              name="gameNumber"
+              value={gameNumber}
+              onChange={(event) => setGameNumber(event.target.value)}
+              className="border-2 border-line-strong bg-raised px-3 py-2 text-sm focus:border-accent"
+            >
+              <option value="">Elegir…</option>
+              {(matchup.freeGames ?? []).map((number) => (
+                <option key={number} value={number}>
+                  Partida {number}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+
+        {matchup && (
           <fieldset className="flex flex-col gap-1">
             <legend className="text-xs uppercase tracking-wide text-faint">
               ¿Quién jugó de azul?
             </legend>
             <div className="flex flex-wrap gap-2">
-              {[fixture.teamA, fixture.teamB].map((team) => (
+              {[matchup.teamA, matchup.teamB].map((team) => (
                 <button
                   key={team.id}
                   type="button"
@@ -151,7 +192,9 @@ export function AssignMatch({
         <div className="flex flex-wrap items-center gap-3">
           <button
             type="submit"
-            disabled={pending || !fixtureId || !blueTeamId}
+            disabled={
+              pending || !matchupId || !blueTeamId || (matchup?.kind === 'serie' && !gameNumber)
+            }
             className="bg-accent-strong px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:bg-line-strong disabled:text-muted"
           >
             {pending ? 'Asignando…' : 'Asignar'}
@@ -237,10 +280,10 @@ function DeleteMatch({ matchId }: { matchId: string }) {
  * The team preselected for the blue side: whichever side the database could
  * deduce (a deduced red side implies the other team is blue).
  */
-function orientationFor(fixture: FixtureOption | undefined, match: UnassignedMatch): string {
-  if (!fixture) return ''
+function orientationFor(matchup: MatchupOption | undefined, match: UnassignedMatch): string {
+  if (!matchup) return ''
 
-  const teams = [fixture.teamA.id, fixture.teamB.id]
+  const teams = [matchup.teamA.id, matchup.teamB.id]
   if (match.blueGuess && teams.includes(match.blueGuess)) return match.blueGuess
   if (match.redGuess && teams.includes(match.redGuess)) {
     return teams.find((id) => id !== match.redGuess) ?? ''

@@ -52,17 +52,35 @@ export async function assignMatchAction(
   await requireUser()
 
   const matchId = String(formData.get('matchId') ?? '')
-  const fixtureId = String(formData.get('fixtureId') ?? '')
+  const matchupId = String(formData.get('matchupId') ?? '')
+  const kind = String(formData.get('kind') ?? 'fixture')
   const blueTeamId = String(formData.get('blueTeamId') ?? '')
 
-  if (!matchId || !fixtureId) return { ok: false, error: 'Falta elegir el cruce.' }
+  if (!matchId || !matchupId) return { ok: false, error: 'Falta elegir el cruce.' }
   if (!blueTeamId) return { ok: false, error: 'Falta decir quién jugó de azul.' }
 
-  const { data, error } = await createAdminClient().rpc('assign_match_to_fixture', {
-    p_match_id: matchId,
-    p_fixture_id: fixtureId,
-    p_blue_team_id: blueTeamId,
-  })
+  /*
+    A group matchup and a playoff series are different tables, so they have a
+    function each (0033). Both answer the same shape, so the panel does not
+    care which one ran.
+  */
+  const gameNumber = Number(formData.get('gameNumber') ?? 0)
+  if (kind === 'serie' && !gameNumber) {
+    return { ok: false, error: 'Falta decir qué partida de la serie es.' }
+  }
+
+  const { data, error } = await (kind === 'serie'
+    ? createAdminClient().rpc('assign_match_to_series', {
+        p_match_id: matchId,
+        p_series_id: matchupId,
+        p_blue_team_id: blueTeamId,
+        p_game_number: gameNumber,
+      })
+    : createAdminClient().rpc('assign_match_to_fixture', {
+        p_match_id: matchId,
+        p_fixture_id: matchupId,
+        p_blue_team_id: blueTeamId,
+      }))
 
   if (error) return { ok: false, error: error.message }
 
@@ -354,4 +372,45 @@ export async function qualifiedTeams(
     position: row.position as number,
     universities: (row.university_tags as string[] | null) ?? [],
   }))
+}
+
+export interface SeriesWalkoverResult {
+  ok: boolean
+  error?: string
+}
+
+/**
+ * Gives a playoff series to the team that turned up, or takes that back.
+ *
+ * A matchup could be awarded since 0024, a series could not, so a no-show in
+ * the playoffs left the bracket stuck with nothing able to move it. An awarded
+ * series has no games: the winner goes through and the card says W.O. rather
+ * than showing a score nobody played.
+ */
+export async function setSeriesWalkoverAction(
+  _prev: SeriesWalkoverResult | null,
+  formData: FormData,
+): Promise<SeriesWalkoverResult> {
+  await requireUser()
+
+  const seriesId = String(formData.get('seriesId') ?? '')
+  if (!seriesId) return { ok: false, error: 'Falta la serie.' }
+
+  // The empty option undoes it, so an empty team is a value, not a mistake.
+  const teamId = String(formData.get('teamId') ?? '') || null
+
+  const { data, error } = await createAdminClient().rpc('set_series_walkover', {
+    p_series_id: seriesId,
+    p_team_id: teamId,
+  })
+
+  if (error) return { ok: false, error: error.message }
+
+  const result = data as SeriesWalkoverResult
+  if (result.ok) {
+    refresh()
+    revalidatePath('/admin/cruces')
+  }
+
+  return result
 }
