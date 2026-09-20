@@ -175,6 +175,12 @@ export type UniversityTag = keyof typeof UNIVERSITIES
 export const GROUPS = ['A', 'B', 'C', 'D'] as const
 export type GroupName = (typeof GROUPS)[number]
 
+/**
+ * How many teams of each group reach the bracket. Which of them meets which is
+ * not here: that comes from a draw (rule 2.3), entered at /admin/cruces.
+ */
+export const QUALIFYING_PLACES = 2
+
 export interface TeamSeed {
   /** Official number, 1 to 20. */
   number: number

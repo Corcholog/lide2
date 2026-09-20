@@ -6,10 +6,9 @@ import { playMatch } from './helpers/matches'
 /**
  * The group table breaks ties by head to head, as the rulebook says (2.2).
  *
- * The top two places qualify and the home page projects the bracket from this
- * table, so the table and the projection must use the same rule. Kill
- * difference is deliberately set against the head to head in these tests, so a
- * pass cannot come from both criteria agreeing.
+ * The top two places qualify, so this order is what decides who reaches the
+ * bracket. Kill difference is deliberately set against the head to head in
+ * these tests, so a pass cannot come from both criteria agreeing.
  */
 
 interface Row {

@@ -5,9 +5,10 @@
  * private/rosters.json when that file exists (see src/lib/lide2/rosters.ts).
  *
  *   npm run seed:lide2                  structure, fixture and signups
- *   npm run seed:lide2 -- --qualified   puts each group's top two into the
- *                                       quarter-finals (run when the group
- *                                       phase ends)
+ *
+ * The quarter-final pairings are not here: they come from a draw (rule 2.3)
+ * and are entered in the panel, at /admin/cruces.
+ *
  *   npm run seed:lide2 -- --clean       removes what the seed created
  */
 import { existsSync, readFileSync } from 'node:fs'
@@ -185,11 +186,16 @@ async function createBracket(stageId: Map<string, string>): Promise<void> {
   if (semiError) throw new Error(`semis: ${semiError.message}`)
   const semiId = new Map((semis ?? []).map((row) => [row.order_index as number, row.id as string]))
 
+  /*
+    The four quarter-finals exist from the start so the bracket has a shape,
+    but they name no group place: rule 2.3 crosses winners with runners-up
+    through a draw. `--sorteo` writes the teams once it is made.
+  */
   const quarters = [
-    { order: 1, a: '1º A', b: '2º B', semi: 1, slot: 'a' },
-    { order: 2, a: '1º C', b: '2º D', semi: 1, slot: 'b' },
-    { order: 3, a: '1º B', b: '2º A', semi: 2, slot: 'a' },
-    { order: 4, a: '1º D', b: '2º C', semi: 2, slot: 'b' },
+    { order: 1, semi: 1, slot: 'a' },
+    { order: 2, semi: 1, slot: 'b' },
+    { order: 3, semi: 2, slot: 'a' },
+    { order: 4, semi: 2, slot: 'b' },
   ]
 
   const { error: quarterError } = await supabase.from('series').insert(
@@ -198,8 +204,8 @@ async function createBracket(stageId: Map<string, string>): Promise<void> {
       round: 'Cuartos de final',
       best_of: 3,
       order_index: quarter.order,
-      slot_a_label: quarter.a,
-      slot_b_label: quarter.b,
+      slot_a_label: 'A sortear',
+      slot_b_label: 'A sortear',
       scheduled_at: milestone('cuartos'),
       next_series_id: semiId.get(quarter.semi),
       next_slot: quarter.slot,
@@ -352,44 +358,6 @@ async function createFixtures(
 }
 
 /**
- * Puts each group's top two into the quarter-finals, from the current table.
- * Separate from the seed because the table changes until the group phase ends.
- * Idempotent.
- */
-async function seedQuarters(tournamentId: string): Promise<void> {
-  const { data: standings } = await supabase
-    .from('group_standings')
-    .select('group_label,team_id,position')
-    .eq('tournament_id', tournamentId)
-    .lte('position', 2)
-
-  const qualified = new Map<string, string>()
-  for (const row of standings ?? []) {
-    qualified.set(`${row.position}${(row.group_label as string).slice(-1)}`, row.team_id as string)
-  }
-
-  const { data: quarters } = await supabase
-    .from('series')
-    .select('id,order_index,slot_a_label,slot_b_label')
-    .eq('round', 'Cuartos de final')
-
-  for (const quarter of quarters ?? []) {
-    // "1º A" -> "1A", matching `qualified`'s keys, by position and letter.
-    const key = (label: string | null) => {
-      const match = label?.match(/^(\d)\D*([A-D])$/)
-      return match ? `${match[1]}${match[2]}` : ''
-    }
-    await supabase
-      .from('series')
-      .update({
-        team_a_id: qualified.get(key(quarter.slot_a_label as string)) ?? null,
-        team_b_id: qualified.get(key(quarter.slot_b_label as string)) ?? null,
-      })
-      .eq('id', quarter.id)
-  }
-}
-
-/**
  * Removes what the seed created and releases the tournament's matches.
  *
  * Order matters: matches are released first so relink_all_matches() can deduce
@@ -460,31 +428,6 @@ async function clean(tournamentId: string): Promise<void> {
 
 async function main() {
   const clean_ = process.argv.includes('--clean')
-  const qualified = process.argv.includes('--qualified')
-
-  if (qualified) {
-    const existing = await findTournament()
-    if (!existing) throw new Error('No tournament loaded. Run first: npm run seed:lide2')
-
-    await seedQuarters(existing)
-
-    const { data: quarters } = await supabase
-      .from('series_results')
-      .select('slot_a_label,slot_b_label,team_a_name,team_b_name')
-      .eq('tournament_id', existing)
-      .eq('round', 'Cuartos de final')
-      .order('order_index')
-
-    console.log('')
-    for (const q of quarters ?? []) {
-      const a = (q.team_a_name as string | null) ?? `${q.slot_a_label} (undecided)`
-      const b = (q.team_b_name as string | null) ?? `${q.slot_b_label} (undecided)`
-      console.log(`  ${a} vs ${b}`)
-    }
-    console.log('')
-    return
-  }
-
   if (clean_) {
     const existing = await findTournament()
     if (!existing) {

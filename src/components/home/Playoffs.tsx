@@ -4,7 +4,6 @@ import { Tabs } from '@/components/nav/Tabs'
 import { currentTab } from '@/components/nav/current'
 import { UniversityLogos } from '@/components/tournament/UniversityLogo'
 import { dayAndMonth } from '@/lib/lide2/dates'
-import { forSlot, type SlotCandidate, type SlotProjection } from '@/lib/lide2/projection'
 import { FINAL_ROUND, seriesWinner } from '@/lib/lide2/winner'
 import { teamPath } from '@/lib/routes'
 import type { SeriesResultRow } from '@/types/db'
@@ -13,33 +12,31 @@ import type { SeriesResultRow } from '@/types/db'
  * The playoff rounds. `round` is the value stored in the database; `short` is
  * the tab label on phones, where the full name would wrap.
  */
+const QUARTERS = 'Cuartos de final'
+
 const ROUNDS = [
-  { round: 'Cuartos de final', short: 'Cuartos' },
+  { round: QUARTERS, short: 'Cuartos' },
   { round: 'Semifinales', short: 'Semis' },
   { round: FINAL_ROUND, short: 'Final' },
 ]
 
 /**
- * The team to show in an empty quarter-final slot, or null.
+ * Why the quarter-finals name no one yet.
  *
- * Only when the team has played all its group games and the slot is settled
- * (it lands there in every scenario). `projection.ts` can often tell earlier,
- * but the bracket waits so the last matchday keeps its suspense; that is a
- * display choice, which is why it lives here.
- *
- * A team entered by the organizers always wins, and semifinal and final slots
- * have no group behind them, so they keep their placeholder.
+ * The eight are known the moment the groups end, but not who meets whom: rule
+ * 2.3 crosses group winners with runners-up through a draw that tries to keep
+ * teams of the same university apart. Until it is made, any pairing written
+ * here would be a guess presented as a fixture.
  */
-function preview(
-  slots: SlotProjection[],
-  teamId: string | null,
-  label: string | null,
-): SlotCandidate | null {
-  if (teamId) return null
+const DRAW_NOTE = 'Cruce por sorteo: 1º contra 2º, evitando la misma universidad'
 
-  const settled = forSlot(slots, label)?.locked ?? null
-
-  return settled?.finished ? settled : null
+/**
+ * What an empty slot says. The quarter-finals are drawn, so theirs name no
+ * group place; the later rounds do follow from the bracket and keep the label
+ * the series carries ("Ganador cuartos 1").
+ */
+function slotLabel(round: string | null, stored: string | null): string {
+  return round === QUARTERS ? 'A sortear' : (stored ?? 'por definir')
 }
 
 /**
@@ -50,23 +47,17 @@ function preview(
  * digit, and team names end in numbers). Capped so one long name cannot push
  * the crests off a narrow card; anything longer is truncated as before.
  */
-function nameWidth(series: SeriesResultRow[], slots: SlotProjection[]): number {
-  const names = series.flatMap((item) => [
-    item.team_a_name ?? preview(slots, item.team_a_id, item.slot_a_label)?.teamName,
-    item.team_b_name ?? preview(slots, item.team_b_id, item.slot_b_label)?.teamName,
-  ])
+function nameWidth(series: SeriesResultRow[]): number {
+  const names = series.flatMap((item) => [item.team_a_name, item.team_b_name])
 
   return Math.min(Math.max(0, ...names.map((name) => name?.length ?? 0)), 18)
 }
 
 export function Playoffs({
   series,
-  slots = [],
   universities = new Map(),
 }: {
   series: SeriesResultRow[]
-  /** Group slot projections, for quarter-final slots not yet filled in. */
-  slots?: SlotProjection[]
   /** Each team's universities by id, for the crests beside the names. */
   universities?: Map<string, string[]>
 }) {
@@ -86,7 +77,7 @@ export function Playoffs({
       id="playoffs"
       className="flex flex-col gap-4"
       // Read by every team row, so all the crests share one column.
-      style={{ '--bracket-name': `${nameWidth(series, slots)}ch` } as CSSProperties}
+      style={{ '--bracket-name': `${nameWidth(series)}ch` } as CSSProperties}
     >
       <div className="flex items-end justify-between gap-4">
         <h2 className="border-b-4 border-accent pb-1 text-lg uppercase tracking-tight">Playoffs</h2>
@@ -110,7 +101,7 @@ export function Playoffs({
             key={round}
             title={round}
             series={inRound(round)}
-            slots={slots}
+            note={round === QUARTERS ? DRAW_NOTE : null}
             universities={universities}
             champion={round === FINAL_ROUND}
           />
@@ -135,7 +126,7 @@ export function Playoffs({
             <Round
               key={round}
               series={inRound(round)}
-              slots={slots}
+              note={round === QUARTERS ? DRAW_NOTE : null}
               universities={universities}
               champion={round === FINAL_ROUND}
             />
@@ -150,13 +141,13 @@ export function Playoffs({
 function RoundColumn({
   title,
   series,
-  slots,
+  note,
   universities,
   champion = false,
 }: {
   title: string
   series: SeriesResultRow[]
-  slots: SlotProjection[]
+  note: string | null
   universities: Map<string, string[]>
   champion?: boolean
 }) {
@@ -167,13 +158,14 @@ function RoundColumn({
       <div>
         <h3 className="text-sm font-bold uppercase tracking-wide">{title}</h3>
         <p className="text-xs text-faint">{date ? dayAndMonth(date) : 'a definir'}</p>
+        {note && <p className="mt-1 text-xs text-dim">{note}</p>}
       </div>
 
       {/* Series spread over the column's height so they line up with the
           previous round. */}
       <div className="flex flex-1 flex-col justify-around gap-3">
         {series.map((item) => (
-          <SeriesCard key={item.id} series={item} slots={slots} universities={universities} />
+          <SeriesCard key={item.id} series={item} universities={universities} />
         ))}
         {champion && <Champion final={series[0]} />}
       </div>
@@ -187,19 +179,20 @@ function RoundColumn({
  */
 function Round({
   series,
-  slots,
+  note,
   universities,
   champion = false,
 }: {
   series: SeriesResultRow[]
-  slots: SlotProjection[]
+  note: string | null
   universities: Map<string, string[]>
   champion?: boolean
 }) {
   return (
     <div className="flex flex-col gap-3">
+      {note && <p className="text-xs text-dim">{note}</p>}
       {series.map((item) => (
-        <SeriesCard key={item.id} series={item} slots={slots} universities={universities} />
+        <SeriesCard key={item.id} series={item} universities={universities} />
       ))}
       {champion && <Champion final={series[0]} />}
     </div>
@@ -228,11 +221,9 @@ function Champion({ final }: { final: SeriesResultRow | undefined }) {
 
 function SeriesCard({
   series,
-  slots,
   universities,
 }: {
   series: SeriesResultRow
-  slots: SlotProjection[]
   universities: Map<string, string[]>
 }) {
   const decided = series.winner_team_id !== null
@@ -247,8 +238,7 @@ function SeriesCard({
       <SeriesTeam
         id={series.team_a_id}
         name={series.team_a_name}
-        slot={series.slot_a_label}
-        settled={preview(slots, series.team_a_id, series.slot_a_label)}
+        slot={slotLabel(series.round, series.slot_a_label)}
         universities={universities}
         wins={series.wins_a}
         won={decided && series.winner_team_id === series.team_a_id}
@@ -257,8 +247,7 @@ function SeriesCard({
       <SeriesTeam
         id={series.team_b_id}
         name={series.team_b_name}
-        slot={series.slot_b_label}
-        settled={preview(slots, series.team_b_id, series.slot_b_label)}
+        slot={slotLabel(series.round, series.slot_b_label)}
         universities={universities}
         wins={series.wins_b}
         won={decided && series.winner_team_id === series.team_b_id}
@@ -269,21 +258,21 @@ function SeriesCard({
 }
 
 /**
- * One side of a series.
+ * One side of a series: the team the organizers entered, or the slot's
+ * placeholder while it is empty.
  *
- * Three states: the team entered by the organizers; a projected team (group
- * finished and slot settled), shown in red like the qualifying rows of the
- * group table; or the slot placeholder ("1º A").
+ * Nothing is projected into a slot any more. It used to name the team the
+ * group table had already settled into "1º A", which only worked while the
+ * crossings were fixed; the quarter-finals are drawn (see `DRAW_NOTE`), so
+ * there is no slot to settle into until the draw is made.
  *
- * Team names, projected ones included, link to the team page. `data-team`
- * hooks them into TeamFocus, so hovering a team in the group table highlights
- * the slot it is heading for.
+ * `data-team` hooks names into TeamFocus, so hovering a team elsewhere on the
+ * page highlights it here too.
  */
 function SeriesTeam({
   id,
   name,
   slot,
-  settled,
   universities,
   wins,
   won,
@@ -292,25 +281,16 @@ function SeriesTeam({
   id: string | null
   name: string | null
   slot: string | null
-  settled: SlotCandidate | null
   universities: Map<string, string[]>
   wins: number
   won: boolean
   pending: boolean
 }) {
-  const shown = name ?? settled?.teamName ?? null
-  const teamId = id ?? settled?.teamId ?? null
+  const shown = name
+  const teamId = id
   const tags = teamId ? universities.get(teamId) : null
 
-  // Projected: not in the database yet, derived from the group table.
-  const projected = !name && settled !== null
-  const tone = won
-    ? 'font-semibold'
-    : projected
-      ? 'font-semibold text-accent'
-      : pending
-        ? 'text-fg-soft'
-        : 'text-faint'
+  const tone = won ? 'font-semibold' : pending ? 'text-fg-soft' : 'text-faint'
   // The name column is as wide as the longest name in the bracket, so the
   // crests line up; the slot and score are pushed to the right edge below.
   const label = `min-w-[var(--bracket-name)] truncate text-sm ${tone}`
@@ -322,12 +302,7 @@ function SeriesTeam({
           <Link
             href={teamPath(teamId, 'playoffs')}
             data-team={teamId}
-            // The projected name is already accent, so its hover uses a
-            // different shade.
-            className={`${label} transition-colors ${
-              projected ? 'hover:text-accent-soft' : 'hover:text-accent'
-            }`}
-            title={projected && slot ? `${shown} ya está clasificado como ${slot}` : undefined}
+            className={`${label} transition-colors hover:text-accent`}
           >
             {shown}
           </Link>

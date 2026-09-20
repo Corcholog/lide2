@@ -4,7 +4,6 @@ import { rows } from '@/lib/supabase/query'
 import { resolveTournamentId } from '@/lib/stats/query'
 import { nextMilestone } from '@/lib/lide2/dates'
 import { groupsFinished } from '@/lib/lide2/fixture'
-import { projectBracketSlots } from '@/lib/lide2/projection'
 import { championOf } from '@/lib/lide2/winner'
 import { TeamFocus, type FocusTeam } from '@/components/tournament/TeamFocus'
 import { Hero, UniversityStrip } from '@/components/home/Hero'
@@ -112,8 +111,6 @@ export default async function Lide2Page() {
   const next = nextMilestone(groupsDone)
   // Shown in the hero once the final is played.
   const champion = championOf(series)
-  // Who can still take each group slot of the bracket, from the rows above.
-  const slots = projectBracketSlots(standings, fixture)
   // The bracket shows each team's crests, which `series_results` does not
   // carry; every playoff team played the group phase, so the table has them.
   const teamUniversities = new Map(standings.map((row) => [row.team_id, row.university_tags]))
@@ -141,7 +138,7 @@ export default async function Lide2Page() {
         which says who reached that bracket. The calendar and the fixture are
         reference by now, and the hero already counts down to the next date.
       */}
-      <Playoffs series={series} slots={slots} universities={teamUniversities} />
+      <Playoffs series={series} universities={teamUniversities} />
 
       <GrandFinal />
 
