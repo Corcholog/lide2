@@ -28,8 +28,6 @@ export const TOURNAMENT = {
   teams: 20,
   universities: 13,
   groups: 4,
-  /** Playing hours of the group phase. */
-  playTime: '14:00 a 16:00',
   broadcast: {
     channel: 'twitch.tv/unlpesports',
     url: 'https://www.twitch.tv/unlpesports',
@@ -354,16 +352,3 @@ export function teamsOfGroup(group: GroupName): TeamSeed[] {
 
 /** The tournament runs on Argentine time. */
 export const AR_TIME_ZONE = 'America/Argentina/Buenos_Aires'
-
-/**
- * The first matchday's date, "5 de septiembre" (optionally with the year),
- * derived from `CALENDAR` so it is never written by hand.
- */
-export function tournamentStartDate({ year = false }: { year?: boolean } = {}): string {
-  return new Date(CALENDAR[0].date).toLocaleDateString('es-AR', {
-    day: 'numeric',
-    month: 'long',
-    ...(year ? { year: 'numeric' } : {}),
-    timeZone: AR_TIME_ZONE,
-  })
-}

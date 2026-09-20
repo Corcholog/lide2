@@ -3,7 +3,7 @@ import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
 import { assetVersion, championName, championNames } from '@/lib/ddragon'
-import { tournamentStartDate, TOURNAMENT } from '@/lib/lide2/tournament'
+import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { playerName } from '@/lib/format'
 import { resolveTournamentId } from '@/lib/stats/query'
 import { hasGroups, parseScope, scopeLabel, scopeValue } from '@/lib/stats/scope'
@@ -161,7 +161,7 @@ async function Tables({
     ) : (
       <Empty
         title="Todavía no hay estadísticas"
-        detail={`La ${TOURNAMENT.name} arranca el ${tournamentStartDate()}. En cuanto se juegue la primera fecha, esta página se llena sola.`}
+        detail="En cuanto se publiquen, esta página se llena sola."
       />
     )
   }

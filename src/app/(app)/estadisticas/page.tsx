@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import { getUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { formatDuration, formatNumber } from '@/lib/format'
-import { tournamentStartDate, TOURNAMENT } from '@/lib/lide2/tournament'
+import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { loadStats, resolveTournamentId } from '@/lib/stats/query'
 import { buildStats } from '@/lib/stats/registry'
 import { StatCard } from '@/components/stats/StatCard'
@@ -77,7 +77,7 @@ async function Rankings({ scope }: { scope: StatScope }) {
     ) : (
       <Empty
         title="Todavía no hay estadísticas"
-        detail={`La ${TOURNAMENT.name} arranca el ${tournamentStartDate()}. En cuanto se juegue la primera fecha, esta página se llena sola.`}
+        detail="En cuanto se publiquen, esta página se llena sola."
       />
     )
   }

@@ -1,6 +1,8 @@
 import { UniversityLogo } from '@/components/tournament/UniversityLogo'
 import { Tabs } from '@/components/nav/Tabs'
+import { currentTab } from '@/components/nav/current'
 import { timeOfDay, weekdayAndDate } from '@/lib/lide2/dates'
+import { isDecided } from '@/lib/lide2/fixture'
 import { rulingLabel } from '@/lib/lide2/rulings'
 import type { FixtureResultRow } from '@/types/db'
 
@@ -15,6 +17,19 @@ interface Slot {
   slot: number
   kickoff: string
   groups: Map<string, FixtureResultRow[]>
+}
+
+/** One matchday: its slots and how far along it is. */
+interface Matchday {
+  matchday: number
+  slots: Slot[]
+  matchups: number
+  decided: number
+}
+
+/** Every matchup of a matchday, across its slots and groups. */
+function matchupsOf(slots: Slot[]): FixtureResultRow[] {
+  return slots.flatMap((slot) => [...slot.groups.values()].flat())
 }
 
 export function Fixture({ rounds }: { rounds: FixtureResultRow[] }) {
@@ -34,17 +49,26 @@ export function Fixture({ rounds }: { rounds: FixtureResultRow[] }) {
     slots.set(key, slot)
   }
 
-  // "Decided" rather than "played": walkovers and rulings have an outcome but
-  // no game.
-  const decided = rounds.filter((row) => row.status === 'jugado' || row.status === 'w.o.' || row.status === 'reglamento').length
+  const decided = rounds.filter(isDecided).length
 
   // Slots grouped by matchday, the unit of each tab. Matchdays 1 and 2 have two
-  // slots, matchday 3 has one.
+  // slots, matchday 3 has one. Each one carries its progress, which both the
+  // tab label and the tab that opens are read from.
   const byMatchday = new Map<number, Slot[]>()
   for (const slot of slots.values()) {
     byMatchday.set(slot.matchday, [...(byMatchday.get(slot.matchday) ?? []), slot])
   }
-  const matchdays = [...byMatchday.entries()].sort((a, b) => a[0] - b[0])
+  const matchdays: Matchday[] = [...byMatchday.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([matchday, daySlots]) => {
+      const matchups = matchupsOf(daySlots)
+      return {
+        matchday,
+        slots: daySlots,
+        matchups: matchups.length,
+        decided: matchups.filter(isDecided).length,
+      }
+    })
 
   return (
     <section id="fixture" className="flex flex-col gap-4">
@@ -69,29 +93,20 @@ export function Fixture({ rounds }: { rounds: FixtureResultRow[] }) {
       */}
       <Tabs
         label="Fechas del fixture"
-        tabs={matchdays.map(([matchday, daySlots]) => {
-          const matchups = daySlots.reduce(
-            (total, slot) => total + [...slot.groups.values()].flat().length,
-            0,
-          )
-          const finished = daySlots
-            .flatMap((slot) => [...slot.groups.values()].flat())
-            .filter((row) => row.status === 'jugado' || row.status === 'w.o.' || row.status === 'reglamento').length
-
-          return {
-            id: `fecha-${matchday}`,
-            title: `Fecha ${matchday}`,
-            // Progress once games are decided; the date before that.
-            detail:
-              finished > 0
-                ? `${finished} de ${matchups} definidos`
-                : weekdayAndDate(daySlots[0].kickoff),
-          }
-        })}
+        defaultIndex={currentTab(matchdays.map((day) => day.decided === day.matchups))}
+        tabs={matchdays.map((day) => ({
+          id: `fecha-${day.matchday}`,
+          title: `Fecha ${day.matchday}`,
+          // Progress once games are decided; the date before that.
+          detail:
+            day.decided > 0
+              ? `${day.decided} de ${day.matchups} definidos`
+              : weekdayAndDate(day.slots[0].kickoff),
+        }))}
       >
-        {matchdays.map(([matchday, daySlots]) => (
-          <div key={matchday} className="flex flex-col gap-4">
-            {daySlots.map((slot) => (
+        {matchdays.map((day) => (
+          <div key={day.matchday} className="flex flex-col gap-4">
+            {day.slots.map((slot) => (
               <div
                 key={`${slot.matchday}-${slot.slot}`}
                 className="border-2 border-line bg-surface"
