@@ -7,7 +7,7 @@ import { championIndex, resolveChampion } from '@/lib/champions/catalog'
 import { assetVersion, championCatalog, roflKey } from '@/lib/ddragon'
 import { getStorage } from '@/lib/storage'
 import { drawProblems, type Pairing, type Qualified } from '@/lib/lide2/draw'
-import { QUALIFYING_PLACES } from '@/lib/lide2/projection'
+import { QUALIFYING_PLACES } from '@/lib/lide2/tournament'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 /** The round the draw fills, as `series.round` stores it. */
