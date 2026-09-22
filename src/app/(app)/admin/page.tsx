@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { requireUser } from '@/lib/auth'
 import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
+import { DRAWN_ROUND, drawPending } from '@/lib/lide2/draw'
 import { TOURNAMENT } from '@/lib/lide2/tournament'
 
 export const dynamic = 'force-dynamic'
@@ -46,7 +47,7 @@ export default async function AdminPage() {
       ? supabase
           .from('series')
           .select('team_a_id,team_b_id')
-          .eq('round', 'Cuartos de final')
+          .eq('round', DRAWN_ROUND)
       : Promise.resolve({ data: [] }),
   ])
 
@@ -58,8 +59,10 @@ export default async function AdminPage() {
     quarterRes as never,
     'the quarter-finals',
   )
-  const sinSortear = quarters.filter((row) => !row.team_a_id || !row.team_b_id).length
-  const cruces = sinSortear === 0 && quarters.length > 0 ? 'cargados' : 'a sortear'
+  const pendiente = drawPending(
+    quarters.map((row) => ({ teamAId: row.team_a_id, teamBId: row.team_b_id })),
+  )
+  const cruces = pendiente || quarters.length === 0 ? 'a sortear' : 'cargados'
 
   return (
     <div className="flex flex-col gap-8">
