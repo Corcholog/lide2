@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "grep -q \"git push\" || exit 0\ncd \"${CLAUDE_PROJECT_DIR:-.}\"\nnpm run check >/tmp/claude-check.log 2>&1 || printf '%s' '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"npm run check fallo, asi que el push queda bloqueado. Los detalles estan en /tmp/claude-check.log, o corriendo npm run check.\"}}'",
+            "timeout": 300,
+            "statusMessage": "Corriendo npm run check antes del push"
+          }
+        ]
+      }
+    ]
+  }
+}
