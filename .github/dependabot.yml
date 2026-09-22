@@ -22,6 +22,13 @@ updates:
       # reviewed by whether CI passes, not one by one.
       minor-and-patch:
         update-types: ['minor', 'patch']
+    ignore:
+      # `@types/node` describes the runtime, so it follows the Node the project
+      # actually runs and not the newest release. A major ahead of the runtime
+      # describes APIs that are not there, and nothing catches it: the types
+      # compile and the call fails when it runs.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
 
   # The workflows pin their actions by commit, so a moved tag is not picked up
   # on its own and this is what proposes the new commit.
@@ -29,3 +36,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      # All of them in one pull request, majors included. Left ungrouped the
+      # first run opened four, one per action, for what is a line each. An
+      # action's major is usually its runner's Node version, and they are
+      # pinned by commit anyway, so they are read together or not at all.
+      actions:
+        patterns: ['*']
