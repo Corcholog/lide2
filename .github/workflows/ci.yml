@@ -1,5 +1,7 @@
-# Runs on every pull request and on main: the same checks the project
-# is checked with by hand, so a change cannot be merged without them passing.
+# Runs on every pull request and on main, so a change cannot be merged without
+# passing. `npm run check` is the same chain in one command, for running it
+# before pushing; the steps are kept apart here only so a failure says which
+# one broke. Change one and change the other.
 #
 # The tests need no secrets. They start their own Postgres (PGlite, WASM) and
 # apply every migration, and the build renders no page at build time because
