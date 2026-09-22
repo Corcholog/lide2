@@ -6,12 +6,9 @@ import { setMatchBans, type BanInput, type SaveBansResult } from '@/lib/bans/ser
 import { championIndex, resolveChampion } from '@/lib/champions/catalog'
 import { assetVersion, championCatalog, roflKey } from '@/lib/ddragon'
 import { getStorage } from '@/lib/storage'
-import { drawProblems, type Pairing, type Qualified } from '@/lib/lide2/draw'
+import { DRAWN_ROUND, drawProblems, type Pairing, type Qualified } from '@/lib/lide2/draw'
 import { QUALIFYING_PLACES } from '@/lib/lide2/tournament'
 import { createAdminClient } from '@/lib/supabase/admin'
-
-/** The round the draw fills, as `series.round` stores it. */
-const QUARTER_FINALS = 'Cuartos de final'
 
 /**
  * Links an uploaded match to its fixture matchup.
@@ -322,7 +319,7 @@ export async function setQuarterFinalsAction(
   const { data: quarters, error: quartersError } = await supabase
     .from('series')
     .select('id,order_index')
-    .eq('round', QUARTER_FINALS)
+    .eq('round', DRAWN_ROUND)
     .order('order_index')
 
   if (quartersError) return { ok: false, problems: [quartersError.message] }

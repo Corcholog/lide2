@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { drawProblems, sharedUniversity, type Pairing, type Qualified } from '@/lib/lide2/draw'
+import {
+  DRAWN_ROUND,
+  drawPending,
+  drawProblems,
+  sharedUniversity,
+  slotLabel,
+  type Pairing,
+  type Qualified,
+} from '@/lib/lide2/draw'
 
 /*
  * The quarter-final draw, which the organizers enter by hand (rule 2.3).
@@ -78,5 +86,44 @@ describe('sharedUniversity', () => {
   it('is null when they share none, or a side is still empty', () => {
     expect(sharedUniversity(QUALIFIED[0], QUALIFIED[1])).toBeNull()
     expect(sharedUniversity(QUALIFIED[0], undefined)).toBeNull()
+  })
+})
+
+/*
+ * What the bracket says where a team is not known yet.
+ *
+ * The drawn round is the only one whose stored labels lie: the seed wrote the
+ * fixed crossing ("1o A") that rule 2.3 replaced. Read straight from the view
+ * the card said "A sortear" beside teams the draw had already put there.
+ */
+describe('slotLabel', () => {
+  it('says the drawn round is to be drawn, while it is', () => {
+    expect(slotLabel(DRAWN_ROUND, '1º A', false)).toBe('A sortear')
+  })
+
+  it('says nothing beside a team the draw already put there', () => {
+    expect(slotLabel(DRAWN_ROUND, '1º A', true)).toBeNull()
+  })
+
+  /* The later rounds do follow from the bracket, so their label is true. */
+  it('keeps the label the bracket gives the later rounds', () => {
+    expect(slotLabel('Semifinales', 'Ganador cuartos 1', false)).toBe('Ganador cuartos 1')
+    expect(slotLabel('Gran final', 'Ganador semifinal 2', true)).toBe('Ganador semifinal 2')
+  })
+})
+
+describe('drawPending', () => {
+  it('is pending while any slot is empty', () => {
+    expect(drawPending([pair('1a', '2b'), pair(null, null)])).toBe(true)
+    expect(drawPending([pair('1a', null)])).toBe(true)
+  })
+
+  it('is over once every cross has both teams', () => {
+    expect(drawPending(GOOD)).toBe(false)
+  })
+
+  /* No quarter-finals loaded is not a draw waiting to be made. */
+  it('is not pending when there is no bracket yet', () => {
+    expect(drawPending([])).toBe(false)
   })
 })

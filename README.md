@@ -111,9 +111,13 @@ no se renombran.
   suma las dos clases de resultado (`0024_no_presentado.sql`). Un resultado anulado por reglamento
   también vive en el cruce; la partida sigue visible, marcada como anulada, pero no cuenta para
   ninguna estadística (`0031_alineacion_indebida.sql`).
-- **El desempate es el enfrentamiento directo.** La tabla de grupos y la proyección del cuadro de
-  playoffs usan la misma regla (`0028_desempate_directo.sql` y `src/lib/lide2/projection.ts`). Lo
-  que esa regla no resuelve queda abierto, porque el reglamento se lo deja a la organización.
+- **El desempate es el enfrentamiento directo.** La tabla de grupos lo resuelve así
+  (`0028_desempate_directo.sql`), y lo que esa regla no resuelve queda abierto, porque el reglamento
+  se lo deja a la organización.
+- **Los cruces de cuartos no se proyectan, se cargan.** La regla 2.3 los define por sorteo
+  condicionado, así que el cuadro dice «a sortear» hasta que la organización lo carga en
+  `/admin/cruces`; de ahí en adelante el bracket se llena solo (`src/lib/lide2/draw.ts` y el trigger
+  de `0006_tournament.sql`).
 - **Un equipo puede representar a varias universidades.** Cuatro de los veinte se armaron con
   inscripciones sueltas y juntan hasta tres. Por eso los rankings por universidad se miden por
   aparición de jugador y no por partido.

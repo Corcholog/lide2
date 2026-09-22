@@ -189,7 +189,7 @@ async function createBracket(stageId: Map<string, string>): Promise<void> {
   /*
     The four quarter-finals exist from the start so the bracket has a shape,
     but they name no group place: rule 2.3 crosses winners with runners-up
-    through a draw. `--sorteo` writes the teams once it is made.
+    through a draw. /admin/cruces writes the teams once it is made.
   */
   const quarters = [
     { order: 1, semi: 1, slot: 'a' },

@@ -4,6 +4,7 @@ import { Tabs } from '@/components/nav/Tabs'
 import { currentTab } from '@/components/nav/current'
 import { UniversityLogos } from '@/components/tournament/UniversityLogo'
 import { dayAndMonth } from '@/lib/lide2/dates'
+import { DRAWN_ROUND, DRAW_NOTE, drawPending, slotLabel } from '@/lib/lide2/draw'
 import { FINAL_ROUND, seriesWinner } from '@/lib/lide2/winner'
 import { teamPath } from '@/lib/routes'
 import type { SeriesResultRow } from '@/types/db'
@@ -12,32 +13,11 @@ import type { SeriesResultRow } from '@/types/db'
  * The playoff rounds. `round` is the value stored in the database; `short` is
  * the tab label on phones, where the full name would wrap.
  */
-const QUARTERS = 'Cuartos de final'
-
 const ROUNDS = [
-  { round: QUARTERS, short: 'Cuartos' },
+  { round: DRAWN_ROUND, short: 'Cuartos' },
   { round: 'Semifinales', short: 'Semis' },
   { round: FINAL_ROUND, short: 'Final' },
 ]
-
-/**
- * Why the quarter-finals name no one yet.
- *
- * The eight are known the moment the groups end, but not who meets whom: rule
- * 2.3 crosses group winners with runners-up through a draw that tries to keep
- * teams of the same university apart. Until it is made, any pairing written
- * here would be a guess presented as a fixture.
- */
-const DRAW_NOTE = 'Cruce por sorteo: 1º contra 2º, evitando la misma universidad'
-
-/**
- * What an empty slot says. The quarter-finals are drawn, so theirs name no
- * group place; the later rounds do follow from the bracket and keep the label
- * the series carries ("Ganador cuartos 1").
- */
-function slotLabel(round: string | null, stored: string | null): string {
-  return round === QUARTERS ? 'A sortear' : (stored ?? 'por definir')
-}
 
 /**
  * How wide the name column is, so the crests line up down the bracket instead
@@ -72,6 +52,16 @@ export function Playoffs({
     return items.length > 0 && items.every((item) => item.winner_team_id !== null)
   })
 
+  /*
+   * The note explains the empty slots, so it goes once they are filled: with
+   * the draw entered it would read as if the crossings were still to come.
+   */
+  const note = drawPending(
+    inRound(DRAWN_ROUND).map((item) => ({ teamAId: item.team_a_id, teamBId: item.team_b_id })),
+  )
+    ? DRAW_NOTE
+    : null
+
   return (
     <section
       id="playoffs"
@@ -101,7 +91,7 @@ export function Playoffs({
             key={round}
             title={round}
             series={inRound(round)}
-            note={round === QUARTERS ? DRAW_NOTE : null}
+            note={round === DRAWN_ROUND ? note : null}
             universities={universities}
             champion={round === FINAL_ROUND}
           />
@@ -126,7 +116,7 @@ export function Playoffs({
             <Round
               key={round}
               series={inRound(round)}
-              note={round === QUARTERS ? DRAW_NOTE : null}
+              note={round === DRAWN_ROUND ? note : null}
               universities={universities}
               champion={round === FINAL_ROUND}
             />
@@ -244,7 +234,7 @@ function SeriesCard({
       <SeriesTeam
         id={series.team_a_id}
         name={series.team_a_name}
-        slot={slotLabel(series.round, series.slot_a_label)}
+        slot={slotLabel(series.round, series.slot_a_label, series.team_a_id !== null)}
         universities={universities}
         wins={series.wins_a}
         won={decided && series.winner_team_id === series.team_a_id}
@@ -253,7 +243,7 @@ function SeriesCard({
       <SeriesTeam
         id={series.team_b_id}
         name={series.team_b_name}
-        slot={slotLabel(series.round, series.slot_b_label)}
+        slot={slotLabel(series.round, series.slot_b_label, series.team_b_id !== null)}
         universities={universities}
         wins={series.wins_b}
         won={decided && series.winner_team_id === series.team_b_id}

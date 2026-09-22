@@ -6,7 +6,7 @@ import { qualifiedTeams } from '@/app/(app)/admin/actions'
 import { resolveTournamentId } from '@/lib/stats/query'
 import { DrawQuarters } from '@/components/admin/DrawQuarters'
 import { SeriesWalkover } from '@/components/admin/SeriesWalkover'
-import type { Pairing } from '@/lib/lide2/draw'
+import { DRAWN_ROUND, type Pairing } from '@/lib/lide2/draw'
 import type { SeriesResultRow } from '@/types/db'
 
 export const metadata = { title: 'Cruces' }
@@ -38,7 +38,7 @@ export default async function DrawPage() {
       )
     : []
 
-  const series = all.filter((item) => item.round === 'Cuartos de final')
+  const series = all.filter((item) => item.round === DRAWN_ROUND)
   /*
     A no-show can happen in any round, not only the drawn one, and there is no
     other way to move the bracket past one.
