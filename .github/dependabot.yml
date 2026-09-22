@@ -1,0 +1,31 @@
+# Opens a pull request when a dependency has a newer version, and straight away
+# when one has a published vulnerability.
+#
+# The two the scanner found (js-yaml and sharp) had both been fixed upstream
+# for a while and nothing here was watching. This is what notices the next one
+# without anyone reading a dashboard.
+#
+# Weekly rather than daily, and updates grouped into one pull request, because
+# CI runs on each and a pull request per package is noise nobody reads. Security
+# updates ignore the schedule and the grouping.
+
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Everything that is not a breaking change in one pull request: they are
+      # reviewed by whether CI passes, not one by one.
+      minor-and-patch:
+        update-types: ['minor', 'patch']
+
+  # The workflows pin their actions by commit, so a moved tag is not picked up
+  # on its own and this is what proposes the new commit.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

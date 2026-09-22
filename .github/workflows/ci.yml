@@ -1,0 +1,61 @@
+# Runs on every pull request and on main: the same checks the project
+# is checked with by hand, so a change cannot be merged without them passing.
+#
+# The tests need no secrets. They start their own Postgres (PGlite, WASM) and
+# apply every migration, and the build renders no page at build time because
+# the routes are `force-dynamic`, so it needs no Supabase keys either. That is
+# worth keeping: a check that needs credentials is a check that stops running.
+#
+# Actions are pinned to a commit rather than a tag. A tag can be moved to point
+# at other code, and these run with the repository checked out.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: ['main']
+
+# Nothing here writes; it only reads the code it checks.
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Types, lint, tests and build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          # The version the lockfile was resolved with.
+          node-version: '24'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # `PageProps`, `LayoutProps` and `RouteContext` are globals Next writes
+      # into .next/types, which is not committed. Locally they are left over
+      # from the last build; on a fresh checkout they have to be generated, or
+      # every page fails to type-check.
+      - name: Route types
+        run: npx next typegen
+
+      - name: Types
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npx eslint src tests scripts
+
+      # Slowest of these, and the one most worth waiting for: it applies
+      # every migration to a real Postgres.
+      - name: Tests
+        run: npx vitest run
+
+      - name: Build
+        run: npx next build
