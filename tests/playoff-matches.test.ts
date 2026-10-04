@@ -234,6 +234,21 @@ describe('a playoff match', () => {
 
     // Nobody typed this in: the trigger moved the winner along.
     expect(rounds.find((row) => row.round === 'Semifinales')!.team_a).toBe('Equipo 01')
+
+    // Anonymous visitors see the score too (0035): matches has no anon policy,
+    // so series_results must run with definer permissions.
+    await db.exec('set role anon')
+    try {
+      const anonRounds = await bracket()
+      const anonQuarter = anonRounds.find(
+        (row) => row.round === 'Cuartos de final' && row.team_a,
+      )!
+      expect(Number(anonQuarter.wins_a)).toBe(2)
+      expect(Number(anonQuarter.wins_b)).toBe(0)
+      expect(anonQuarter.winner).toBe(team.get('Equipo 01'))
+    } finally {
+      await db.exec('reset role')
+    }
   })
 
   /* The match is placed now, so the panel should stop offering it. */
