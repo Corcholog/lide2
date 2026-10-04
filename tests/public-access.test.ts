@@ -113,11 +113,12 @@ describe('public access', () => {
         ['Equipo 07', 0],
       ])
 
-      const fixture = await asAnon<{ status: string }>(
+      const fixture = await asAnon<{ status: string; played_at: string | null }>(
         db,
-        'select status from public.fixture_results',
+        'select status, played_at from public.fixture_results',
       )
       expect(fixture[0].status).toBe('jugado')
+      expect(fixture[0].played_at).not.toBeNull()
     })
 
     it('the match scoreboard, with items and spells', async () => {
@@ -169,6 +170,24 @@ describe('public access', () => {
         'SUPPORT',
       ])
       expect(roster.every((r) => r.name !== null)).toBe(true)
+    })
+
+    it('public views are not restricted by security_invoker = on', async () => {
+      const { rows } = await db.query<{ relname: string }>(
+        `select c.relname
+           from pg_class c
+           join pg_namespace n on n.oid = c.relnamespace
+          where n.nspname = 'public' and c.relkind = 'v'
+            and ('security_invoker=true' = any(c.reloptions)
+                 or 'security_invoker=on' = any(c.reloptions))
+          order by c.relname`,
+      )
+      // Only the admin queue and roster management views stay invoker.
+      expect(rows.map((r) => r.relname)).toEqual([
+        'roster_review',
+        'roster_status',
+        'unassigned_matches',
+      ])
     })
   })
 
