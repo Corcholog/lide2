@@ -1,6 +1,6 @@
 import Image from 'next/image'
 import { SectionNav, type NavSection } from '@/components/tournament/SectionNav'
-import { UniversityLogo } from '@/components/tournament/UniversityLogo'
+import { UniversityLogo, UniversityLogos } from '@/components/tournament/UniversityLogo'
 import { DiscordIcon, TwitchIcon } from '@/components/icons/Brands'
 import { dayAndMonth, daysUntil } from '@/lib/lide2/dates'
 import { SLOGAN_PARTS, TOURNAMENT, type Milestone } from '@/lib/lide2/tournament'
@@ -35,7 +35,7 @@ export function Hero({
   sections,
 }: {
   next: Milestone | undefined
-  champion: string | undefined
+  champion: { name: string; tags: string[] | null | undefined } | undefined
   sections: NavSection[]
 }) {
   const days = next ? daysUntil(next.date) : null
@@ -78,11 +78,6 @@ export function Hero({
         visible; `max()` sets a floor for very short windows.
       */}
       <div className="relative flex min-h-[max(30rem,calc(100svh-var(--site-header)))] flex-col pb-4 pt-6">
-        {/* Unofficial-site notice. */}
-        <p className="self-start border border-white/20 bg-black/40 px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.2em] text-fg-soft backdrop-blur">
-          Página no oficial
-        </p>
-
         <div className="mt-auto flex flex-col gap-5">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.25em] text-accent">
@@ -107,10 +102,21 @@ export function Hero({
           </div>
 
           {/*
-            Countdown to the next date; after the last one, the champion. Nothing
-            in between (final played, result not loaded yet).
+            The champion as soon as the final is decided (even on its own day,
+            when the countdown still reads "¡HOY!"); otherwise the countdown to
+            the next date.
           */}
-          {next && days !== null ? (
+          {champion ? (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <p className="rounded-md bg-accent-strong px-3 py-1.5 text-xs font-bold uppercase tracking-[0.2em] text-white">
+                Campeón
+              </p>
+              <p className="font-display text-2xl font-bold uppercase leading-none tracking-[-0.02em]">
+                {champion.name}
+              </p>
+              <UniversityLogos tags={champion.tags} size="lg" />
+            </div>
+          ) : next && days !== null ? (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               <p className="flex items-baseline gap-2 rounded-md bg-accent-strong px-3 py-1.5 text-white">
                 <span className="tabular font-display text-2xl font-bold leading-none">
@@ -129,15 +135,6 @@ export function Hero({
                   {dayAndMonth(next.date)}
                   {next.detail ? ` · ${next.detail}` : ''}
                 </span>
-              </p>
-            </div>
-          ) : champion ? (
-            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
-              <p className="rounded-md bg-accent-strong px-3 py-1.5 text-xs font-bold uppercase tracking-[0.2em] text-white">
-                Campeón
-              </p>
-              <p className="font-display text-2xl font-bold uppercase leading-none tracking-[-0.02em]">
-                {champion}
               </p>
             </div>
           ) : null}

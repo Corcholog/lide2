@@ -5,7 +5,7 @@ import { currentTab } from '@/components/nav/current'
 import { UniversityLogos } from '@/components/tournament/UniversityLogo'
 import { dayAndMonth } from '@/lib/lide2/dates'
 import { DRAWN_ROUND, DRAW_NOTE, drawPending, slotLabel } from '@/lib/lide2/draw'
-import { FINAL_ROUND, seriesWinner } from '@/lib/lide2/winner'
+import { FINAL_ROUND, seriesWinner, seriesWinnerId } from '@/lib/lide2/winner'
 import { teamPath } from '@/lib/routes'
 import type { SeriesResultRow } from '@/types/db'
 
@@ -157,7 +157,7 @@ function RoundColumn({
         {series.map((item) => (
           <SeriesCard key={item.id} series={item} universities={universities} />
         ))}
-        {champion && <Champion final={series[0]} />}
+        {champion && <Champion final={series[0]} universities={universities} />}
       </div>
     </div>
   )
@@ -184,14 +184,21 @@ function Round({
       {series.map((item) => (
         <SeriesCard key={item.id} series={item} universities={universities} />
       ))}
-      {champion && <Champion final={series[0]} />}
+      {champion && <Champion final={series[0]} universities={universities} />}
     </div>
   )
 }
 
 /** Who won the tournament, or the place the name will go. */
-function Champion({ final }: { final: SeriesResultRow | undefined }) {
+function Champion({
+  final,
+  universities,
+}: {
+  final: SeriesResultRow | undefined
+  universities: Map<string, string[]>
+}) {
   const winnerName = seriesWinner(final)
+  const winnerId = seriesWinnerId(final)
 
   return (
     <div
@@ -202,9 +209,14 @@ function Champion({ final }: { final: SeriesResultRow | undefined }) {
       }`}
     >
       <p className="text-xs uppercase tracking-[0.2em] text-accent">Campeón</p>
-      <p className="font-display mt-1 text-xl font-bold">
-        {winnerName ?? <span className="text-dim">por definir</span>}
-      </p>
+      <div className="mt-1 flex items-center gap-3">
+        <p className="font-display text-xl font-bold">
+          {winnerName ?? <span className="text-dim">por definir</span>}
+        </p>
+        {winnerName && winnerId && (
+          <UniversityLogos tags={universities.get(winnerId)} size="fixture" />
+        )}
+      </div>
     </div>
   )
 }

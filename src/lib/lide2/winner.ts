@@ -23,6 +23,27 @@ export function seriesWinner(series: SeriesResultRow | undefined): string | unde
   return name ?? undefined
 }
 
+/** The winner's id, or undefined while the series is not decided. */
+export function seriesWinnerId(series: SeriesResultRow | undefined): string | undefined {
+  // Same guard as the name: a winner without a name would be a half-filled row.
+  return seriesWinner(series) ? (series?.winner_team_id ?? undefined) : undefined
+}
+
+/** The champion's id, once the grand final is played. */
+export function championTeamId(series: SeriesResultRow[]): string | undefined {
+  return seriesWinnerId(series.find((item) => item.round === FINAL_ROUND))
+}
+
+/** The final's games won, winner first ("3-1"), or undefined while undecided. */
+export function finalScore(series: SeriesResultRow[]): string | undefined {
+  const final = series.find((item) => item.round === FINAL_ROUND)
+  // An awarded series has no games, so there is no score to show.
+  if (!seriesWinner(final) || !final || final.games_played === 0) return undefined
+
+  const aWon = final.winner_team_id === final.team_a_id
+  return aWon ? `${final.wins_a}-${final.wins_b}` : `${final.wins_b}-${final.wins_a}`
+}
+
 /** The tournament's champion: whoever won the grand final, once it is played. */
 export function championOf(series: SeriesResultRow[]): string | undefined {
   return seriesWinner(series.find((item) => item.round === FINAL_ROUND))
