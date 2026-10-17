@@ -23,20 +23,23 @@ export const DRAW_NOTE = 'Cruce por sorteo: 1º contra 2º, evitando la misma un
  * What a bracket slot says: where the team comes from, beside its name, or the
  * placeholder while the slot is empty.
  *
- * The drawn round is the exception. Its stored labels are the fixed crossing
- * the seed wrote ("1º A"), which is not how its teams got there, so it says
- * "A sortear" while the slot is empty and nothing at all once the draw put
- * someone in it. Every other round does follow from the bracket, and "Ganador
- * cuartos 1" is as true after the semifinal is filled as before.
+ * Once a team is in the slot the name says it all, and "Ganador semifinal 1"
+ * beside a team that has already been chosen and played is just noise, so a
+ * filled slot says nothing.
+ *
+ * While it is empty, the drawn round says "A sortear": its stored labels are
+ * the fixed crossing the seed wrote ("1º A"), which is not how its teams get
+ * there. Every other round does follow from the bracket, so its stored label
+ * ("Ganador cuartos 1") is true.
  */
 export function slotLabel(
   round: string | null,
   stored: string | null,
   filled: boolean,
 ): string | null {
-  if (round === DRAWN_ROUND) return filled ? null : 'A sortear'
+  if (filled) return null
 
-  return stored
+  return round === DRAWN_ROUND ? 'A sortear' : stored
 }
 
 /** Whether the draw is still to be entered: any slot of its round empty. */
