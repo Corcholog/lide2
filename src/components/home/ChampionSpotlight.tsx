@@ -83,9 +83,13 @@ export function ChampionSpotlight({
                   {player.name}
                 </Link>
                 <dl className="tabular mt-2 flex flex-col gap-0.5 text-xs">
-                  <Stat label="KDA" value={player.kda} title={`${player.line} por partida`} />
-                  <Stat label="DPM" value={player.dpm} />
-                  <Stat label="GPM" value={player.gpm} />
+                  <Stat
+                    label="KDA"
+                    value={player.stats?.kda ?? '—'}
+                    title={player.stats ? `${player.stats.line} por partida` : undefined}
+                  />
+                  <Stat label="DPM" value={player.stats?.dpm ?? '—'} />
+                  <Stat label="GPM" value={player.stats?.gpm ?? '—'} />
                 </dl>
               </li>
             ))}

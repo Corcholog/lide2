@@ -224,6 +224,11 @@ export interface SeriesResultRow {
    * games, so the bracket shows W.O. rather than a score.
    */
   walkover_team_id: string | null
+  /**
+   * Games counted from a result entered while they were played, with no replay
+   * yet (0036). Included in `games_played` and the wins.
+   */
+  live_games: number
 }
 
 /** A `fixture_results` row: a published matchup, with its result once played. */
