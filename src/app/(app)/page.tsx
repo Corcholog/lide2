@@ -4,8 +4,10 @@ import { rows } from '@/lib/supabase/query'
 import { resolveTournamentId } from '@/lib/stats/query'
 import { nextMilestone } from '@/lib/lide2/dates'
 import { groupsFinished } from '@/lib/lide2/fixture'
-import { championOf } from '@/lib/lide2/winner'
+import { championOf, championTeamId, finalScore } from '@/lib/lide2/winner'
 import { TeamFocus, type FocusTeam } from '@/components/tournament/TeamFocus'
+import { ChampionSpotlight, withNames } from '@/components/home/ChampionSpotlight'
+import { loadTeamPlayers } from '@/lib/lide2/champion-roster'
 import { Hero, UniversityStrip } from '@/components/home/Hero'
 import { Calendar } from '@/components/home/Calendar'
 import { GroupPhase } from '@/components/home/GroupPhase'
@@ -110,17 +112,41 @@ export default async function Lide2Page() {
   const groupsDone = groupsFinished(fixture)
   const next = nextMilestone(groupsDone)
   // Shown in the hero once the final is played.
-  const champion = championOf(series)
+  const championName = championOf(series)
+  const championId = championTeamId(series)
   // The bracket shows each team's crests, which `series_results` does not
   // carry; every playoff team played the group phase, so the table has them.
   const teamUniversities = new Map(standings.map((row) => [row.team_id, row.university_tags]))
+  const champion =
+    championName && championId
+      ? { name: championName, tags: teamUniversities.get(championId) }
+      : undefined
+  const championPlayers =
+    tournamentId && championId ? await loadTeamPlayers(supabase, tournamentId, championId) : []
 
   return (
     <TeamFocus teams={focusTeams(fixture)} className="flex flex-col gap-10">
       {/* The section bar is part of the hero. */}
-      <Hero next={next} champion={champion} sections={SECTIONS} />
+      <Hero
+        next={next}
+        champion={champion}
+        sections={champion ? [{ id: 'campeon', label: 'Campeón' }, ...SECTIONS] : SECTIONS}
+      />
 
       <UniversityStrip universities={universities} />
+
+      {/* First thing under the hero once the final is decided. */}
+      {champion && championId && (
+        <ChampionSpotlight
+          champion={{
+            teamId: championId,
+            name: champion.name,
+            universities: withNames(champion.tags, universities),
+          }}
+          score={finalScore(series)}
+          players={championPlayers}
+        />
+      )}
 
       {/*
         The "run the seed" banner is for admins only; visitors see the rest of
@@ -140,7 +166,7 @@ export default async function Lide2Page() {
       */}
       <Playoffs series={series} universities={teamUniversities} />
 
-      <GrandFinal />
+      <GrandFinal champion={champion} score={finalScore(series)} />
 
       <GroupPhase standings={standings} finished={groupsDone} />
 

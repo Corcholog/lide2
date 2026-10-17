@@ -1,12 +1,19 @@
+import { UniversityLogos } from '@/components/tournament/UniversityLogo'
 import { daysUntil, shortDate } from '@/lib/lide2/dates'
 import { CALENDAR, VENUE, VENUE_DIRECTIONS, VENUE_EMBED } from '@/lib/lide2/tournament'
 
 /** The final's block: the tournament's only in-person date, with the venue. */
-export function GrandFinal() {
+export function GrandFinal({
+  champion,
+  score,
+}: {
+  champion: { name: string; tags: string[] | null | undefined } | undefined
+  score: string | undefined
+}) {
   const final = CALENDAR.find((milestone) => milestone.id === 'final')
   if (!final) return null
 
-  const days = daysUntil(final.date)
+  const days = champion ? 0 : daysUntil(final.date)
   const { day, month } = shortDate(final.date)
 
   return (
@@ -35,11 +42,25 @@ export function GrandFinal() {
               Gran final
             </h2>
 
-            <p className="mt-4 max-w-lg text-sm text-fg-soft">
-              Los ganadores de las semifinales se cruzan al mejor de cinco. Todo el resto del
-              torneo se juega en línea; esta se juega en una sala, con los equipos en el mismo
-              lugar.
-            </p>
+            {champion ? (
+              <div className="mt-4">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">
+                  Campeón{score && <span className="text-fg-soft"> · {score}</span>}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <p className="font-display text-3xl font-bold uppercase leading-none tracking-[-0.02em]">
+                    {champion.name}
+                  </p>
+                  <UniversityLogos tags={champion.tags} size="fixture" />
+                </div>
+              </div>
+            ) : (
+              <p className="mt-4 max-w-lg text-sm text-fg-soft">
+                Los ganadores de las semifinales se cruzan al mejor de cinco. Todo el resto del
+                torneo se juega en línea; esta se juega en una sala, con los equipos en el mismo
+                lugar.
+              </p>
+            )}
 
             <dl className="mt-6 grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-3">
               <div>

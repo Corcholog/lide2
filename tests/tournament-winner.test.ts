@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { FINAL_ROUND, championOf, seriesWinner } from '@/lib/lide2/winner'
+import {
+  FINAL_ROUND,
+  championOf,
+  championTeamId,
+  finalScore,
+  seriesWinner,
+  seriesWinnerId,
+} from '@/lib/lide2/winner'
 import type { SeriesResultRow } from '@/types/db'
 
 /*
@@ -81,5 +88,34 @@ describe('the tournament champion', () => {
   it('gives nothing with the final unplayed, and nothing with no bracket', () => {
     expect(championOf([series({ id: 'final', ...FINAL })])).toBeUndefined()
     expect(championOf([])).toBeUndefined()
+    expect(championTeamId([series({ id: 'final', ...FINAL })])).toBeUndefined()
+    expect(finalScore([series({ id: 'final', ...FINAL })])).toBeUndefined()
+  })
+
+  /* The hero and the bracket draw the crests from this id. */
+  it('gives the id of the team that won the grand final', () => {
+    const decided = series({ id: 'final', ...FINAL, winner_team_id: 'b' })
+
+    expect(championTeamId([decided])).toBe('b')
+    expect(seriesWinnerId(decided)).toBe('b')
+  })
+
+  it('writes the final score with the winner first', () => {
+    const decided = series({
+      id: 'final',
+      ...FINAL,
+      winner_team_id: 'b',
+      games_played: 4,
+      wins_a: 1,
+      wins_b: 3,
+    })
+
+    expect(finalScore([decided])).toBe('3-1')
+  })
+
+  it('has no score for an awarded final, which has no games', () => {
+    const awarded = series({ id: 'final', ...FINAL, winner_team_id: 'a', walkover_team_id: 'a' })
+
+    expect(finalScore([awarded])).toBeUndefined()
   })
 })
