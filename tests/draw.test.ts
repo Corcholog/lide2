@@ -105,10 +105,16 @@ describe('slotLabel', () => {
     expect(slotLabel(DRAWN_ROUND, '1º A', true)).toBeNull()
   })
 
-  /* The later rounds do follow from the bracket, so their label is true. */
-  it('keeps the label the bracket gives the later rounds', () => {
+  /* The later rounds do follow from the bracket, so their label is true... */
+  it('keeps the label the bracket gives the later rounds while the slot is empty', () => {
     expect(slotLabel('Semifinales', 'Ganador cuartos 1', false)).toBe('Ganador cuartos 1')
-    expect(slotLabel('Gran final', 'Ganador semifinal 2', true)).toBe('Ganador semifinal 2')
+    expect(slotLabel('Gran final', 'Ganador semifinal 2', false)).toBe('Ganador semifinal 2')
+  })
+
+  /* ...but beside a team that is already there it only repeats the bracket. */
+  it('says nothing beside a team already in a later round', () => {
+    expect(slotLabel('Semifinales', 'Ganador cuartos 1', true)).toBeNull()
+    expect(slotLabel('Gran final', 'Ganador semifinal 2', true)).toBeNull()
   })
 })
 
