@@ -40,6 +40,8 @@ export interface AssignResult {
   learned?: number
   /** Players already on another team; they are not moved automatically. */
   conflicts?: string[]
+  /** The replay says someone else won the game than the result typed live. */
+  contradicts_result?: boolean
 }
 
 export async function assignMatchAction(
@@ -406,6 +408,50 @@ export async function setSeriesWalkoverAction(
   const result = data as SeriesWalkoverResult
   if (result.ok) {
     refresh()
+    revalidatePath('/admin/cruces')
+  }
+
+  return result
+}
+
+export interface GameResultResult {
+  ok: boolean
+  error?: string
+  /** The result was taken back rather than set. */
+  cleared?: boolean
+}
+
+/**
+ * Enters who won a game of a playoff series while it is being played, before
+ * its replay can be uploaded. The score and the bracket move on at once; when
+ * the replay is filed under the same game it takes the result's place (see
+ * `supabase/migrations/0036_resultados_en_vivo.sql`). An empty winner takes the
+ * result back.
+ */
+export async function setGameResultAction(
+  _prev: GameResultResult | null,
+  formData: FormData,
+): Promise<GameResultResult> {
+  await requireUser()
+
+  const seriesId = String(formData.get('seriesId') ?? '')
+  const gameNumber = Number(formData.get('gameNumber') ?? 0)
+  if (!seriesId || !gameNumber) return { ok: false, error: 'Falta la serie o la partida.' }
+
+  const winnerTeamId = String(formData.get('winnerTeamId') ?? '') || null
+
+  const { data, error } = await createAdminClient().rpc('set_game_result', {
+    p_series_id: seriesId,
+    p_game_number: gameNumber,
+    p_winner_team_id: winnerTeamId,
+  })
+
+  if (error) return { ok: false, error: error.message }
+
+  const result = data as GameResultResult
+  if (result.ok) {
+    refresh()
+    revalidatePath('/admin/resultados')
     revalidatePath('/admin/cruces')
   }
 

@@ -125,7 +125,8 @@ export default async function AssignMatchesPage() {
 
   const openSeries = rows<SeriesResultRow>(seriesRes, 'the playoff series').filter(
     // A series given on a no-show was not played, so no replay belongs to it.
-    (row) => row.games_played < row.best_of && row.walkover_team_id === null,
+    // Games typed live have no replay yet, so they do not fill the series here.
+    (row) => row.games_played - row.live_games < row.best_of && row.walkover_team_id === null,
   )
 
   /*
@@ -134,7 +135,22 @@ export default async function AssignMatchesPage() {
     being offered in the first place.
   */
   const takenGames = new Map<string, number[]>()
+  const liveWinners = new Map<string, Record<number, string>>()
   if (openSeries.length > 0) {
+    const { data: live } = await supabase
+      .from('series_game_results')
+      .select('series_id,game_number,winner_team_id')
+      .in('series_id', openSeries.map((row) => row.id))
+
+    for (const row of live ?? []) {
+      const series = openSeries.find((item) => item.id === row.series_id)
+      const name = row.winner_team_id === series?.team_a_id ? series?.team_a_name : series?.team_b_name
+      liveWinners.set(row.series_id as string, {
+        ...(liveWinners.get(row.series_id as string) ?? {}),
+        [row.game_number as number]: name ?? 'un equipo',
+      })
+    }
+
     const { data: filed } = await supabase
       .from('matches')
       .select('series_id,game_number')
@@ -164,9 +180,12 @@ export default async function AssignMatchesPage() {
     ...openSeries.map((row) => ({
       id: row.id,
       kind: 'serie' as const,
-      label: `${row.round} · Cruce ${row.order_index} · BO${row.best_of} (${row.games_played} jugadas)`,
+      label: `${row.round} · Cruce ${row.order_index} · BO${row.best_of} (${row.games_played} jugadas${
+        row.live_games > 0 ? `, ${row.live_games} sin replay` : ''
+      })`,
       teamA: { id: row.team_a_id!, name: row.team_a_name ?? 'Equipo A' },
       teamB: { id: row.team_b_id!, name: row.team_b_name ?? 'Equipo B' },
+      liveWinners: liveWinners.get(row.id),
       freeGames: Array.from({ length: row.best_of }, (_, index) => index + 1).filter(
         (number) => !(takenGames.get(row.id) ?? []).includes(number),
       ),

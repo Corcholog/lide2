@@ -35,6 +35,8 @@ export interface MatchupOption {
    * matchup is a single game and has none.
    */
   freeGames?: number[]
+  /** Games with a result typed live and no replay yet: who won each, by number. */
+  liveWinners?: Record<number, string>
 }
 
 export interface UnassignedMatch {
@@ -158,6 +160,7 @@ export function AssignMatch({
               {(matchup.freeGames ?? []).map((number) => (
                 <option key={number} value={number}>
                   Partida {number}
+                  {matchup.liveWinners?.[number] ? ` · cargada: gana ${matchup.liveWinners[number]}` : ''}
                 </option>
               ))}
             </select>
@@ -212,6 +215,13 @@ export function AssignMatch({
             </p>
           )}
         </div>
+
+        {state?.contradicts_result && (
+          <p role="alert" className="border-2 border-danger/40 bg-danger-dim px-3 py-2 text-xs text-danger">
+            Ojo: el replay dice que ganó otro equipo que el resultado cargado en vivo. Quedó el del
+            replay; revisá que el cruce y la partida sean los correctos.
+          </p>
+        )}
 
         {state?.conflicts && state.conflicts.length > 0 && (
           <p className="border-2 border-danger/40 bg-danger-dim px-3 py-2 text-xs text-danger">

@@ -118,6 +118,13 @@ export default async function AdminPage() {
         />
         <Step
           n={6}
+          href="/admin/resultados"
+          title="Resultados en vivo"
+          detail="Quién ganó cada partida de los playoffs mientras se juega, antes de tener el replay."
+          badge="bracket al instante"
+        />
+        <Step
+          n={7}
           href="/admin/cards"
           title="Cards"
           detail="El lote de la fecha para redes. El PNG, o los números para pasárselos a alguien."
