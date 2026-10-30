@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react'
 import { addAccountAction, type AccountResult } from '@/app/(app)/equipos/actions'
+import { Button } from '@/components/ui/Button'
 
 /**
  * Adds a nick to a team's roster by hand. Before the first matchday no
@@ -34,13 +35,9 @@ export function AddAccount({ teamId }: { teamId: string }) {
         className="w-full border border-line-strong bg-raised px-3 py-1.5 text-sm focus:border-accent sm:w-56"
       />
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="border border-line-strong px-3 py-1.5 text-sm text-muted transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
-      >
+      <Button type="submit" disabled={pending} variant="outline" size="sm">
         {pending ? 'Agregando…' : 'Agregar nick'}
-      </button>
+      </Button>
 
       {state?.error && (
         <p role="alert" className="text-sm text-danger">

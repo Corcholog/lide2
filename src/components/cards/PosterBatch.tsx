@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { Button } from '@/components/ui/Button'
+import { toggleClass } from '@/components/ui/Toggle'
 import { toCsv, toPlainText } from '@/lib/cards/export'
 import { FORMATS, type Poster, type PosterFormat } from '@/lib/cards/types'
 import { StatPoster, exportPoster } from './StatPoster'
@@ -48,11 +49,10 @@ export function PosterBatch({ posters, prefix }: { posters: Poster[]; prefix: st
               type="button"
               onClick={() => setFormat(entry.id)}
               aria-pressed={format === entry.id}
-              className={`cursor-pointer border-2 px-3 py-1 text-xs font-bold uppercase tracking-wide transition-colors ${
-                format === entry.id
-                  ? 'border-accent bg-accent-dim text-accent'
-                  : 'border-line text-muted hover:border-line-strong hover:text-accent'
-              }`}
+              className={toggleClass(
+                format === entry.id,
+                'cursor-pointer px-3 py-1 text-xs font-bold uppercase tracking-wide',
+              )}
             >
               {entry.label}
             </button>
@@ -63,8 +63,8 @@ export function PosterBatch({ posters, prefix }: { posters: Poster[]; prefix: st
           type="button"
           onClick={downloadAll}
           disabled={busy}
-          variant="upper"
-          size="sm"
+          shout
+          size="xs"
         >
           {busy ? 'Generando…' : `Descargar las ${posters.length}`}
         </Button>

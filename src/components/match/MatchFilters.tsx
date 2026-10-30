@@ -6,6 +6,7 @@ import { countCut, type MatchCut } from '@/components/match/cut'
 import { markRule } from '@/components/match/mark'
 import { Chip } from '@/components/nav/Chip'
 import { ROW } from '@/components/stats/ScopeNav'
+import { Button } from '@/components/ui/Button'
 import { parseScope, parseTeamFilter, scopeRows, scopeValue } from '@/lib/stats/scope'
 import { GROUP_OPTIONS } from '@/lib/stats/tables'
 import { withQuery } from '@/lib/url'
@@ -140,12 +141,15 @@ export function MatchFilters({
           )}
         </select>
 
-        <button
+        <Button
           type="submit"
-          className="sin-js border-2 border-line-strong px-3 py-1.5 text-xs font-bold uppercase tracking-wide text-muted transition-colors hover:border-accent hover:text-accent"
+          variant="outline"
+          size="sm"
+          shout
+          className="sin-js text-xs"
         >
           Filtrar
-        </button>
+        </Button>
       </form>
 
       {/*

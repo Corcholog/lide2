@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
 import { UniversityLogos } from '@/components/tournament/UniversityLogo'
 import { TeamOrderPicker } from '@/components/tournament/TeamOrderPicker'
-import { buttonClass } from '@/components/ui/Button'
+import { Button, buttonClass } from '@/components/ui/Button'
 import { parseTeamOrder, sortTeams } from '@/lib/teams/order'
 import { teamPath } from '@/lib/routes'
 import { createTeamAction, relinkAction } from './actions'
@@ -85,12 +85,9 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
               Detectar desde las partidas
             </Link>
             <form action={relinkAction}>
-              <button
-                type="submit"
-                className="border border-line-strong px-4 py-2 text-sm transition-colors hover:border-accent"
-              >
+              <Button type="submit" variant="outline">
                 Revincular partidas
-              </button>
+              </Button>
             </form>
           </div>
         )}
@@ -110,12 +107,9 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
             placeholder="Nombre del equipo"
             className="flex-1 border border-line-strong bg-surface px-3 py-2 text-sm focus:border-accent"
           />
-          <button
-            type="submit"
-            className="border border-line-strong px-4 py-2 text-sm transition-colors hover:border-accent"
-          >
+          <Button type="submit" variant="outline">
             Crear vacío
-          </button>
+          </Button>
         </form>
       )}
 

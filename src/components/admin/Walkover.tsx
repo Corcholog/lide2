@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react'
 import { setWalkoverAction, type WalkoverResult } from '@/app/(app)/admin/actions'
+import { Button } from '@/components/ui/Button'
 
 /**
  * Awards a matchup to the team that turned up (after the 15 minutes the rules
@@ -45,13 +46,9 @@ export function Walkover({
         <option value={teamB.id}>Gana {teamB.name} (W.O.)</option>
       </select>
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="border border-line-strong px-2 py-1 text-xs text-muted transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
-      >
+      <Button type="submit" disabled={pending} variant="outline" size="xs">
         {pending ? '…' : 'Guardar'}
-      </button>
+      </Button>
 
       {state?.error && (
         <p role="alert" className="text-xs text-danger">

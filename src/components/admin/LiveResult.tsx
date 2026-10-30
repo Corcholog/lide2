@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react'
 import { setGameResultAction, type GameResultResult } from '@/app/(app)/admin/actions'
+import { Button } from '@/components/ui/Button'
 
 /**
  * One game of a playoff series: who won it while it is being played.
@@ -57,13 +58,9 @@ export function LiveResult({
         ))}
       </select>
 
-      <button
-        type="submit"
-        disabled={pending || hasReplay}
-        className="border border-line-strong px-3 py-1.5 text-sm transition-colors hover:border-accent disabled:opacity-50"
-      >
+      <Button type="submit" disabled={pending || hasReplay} variant="outline" size="sm">
         {pending ? 'Guardando…' : 'Guardar'}
-      </button>
+      </Button>
 
       {hasReplay && <span className="text-xs text-dim">Replay cargado</span>}
       {!hasReplay && current && !state && <span className="text-xs text-dim">Falta el replay</span>}

@@ -8,6 +8,7 @@ import {
   type DeleteResult,
 } from '@/app/(app)/admin/actions'
 import { Button } from '@/components/ui/Button'
+import { toggleClass } from '@/components/ui/Toggle'
 import { formatDuration, formatKda, formatPosition } from '@/lib/format'
 
 export interface SidePlayer {
@@ -180,11 +181,7 @@ export function AssignMatch({
                   type="button"
                   onClick={() => setBlueTeamId(team.id)}
                   aria-pressed={blueTeamId === team.id}
-                  className={`border-2 px-3 py-1.5 text-sm transition-colors ${
-                    blueTeamId === team.id
-                      ? 'border-accent bg-accent-dim text-accent'
-                      : 'border-line text-muted hover:border-line-strong hover:text-accent'
-                  }`}
+                  className={toggleClass(blueTeamId === team.id, 'px-3 py-1.5 text-sm')}
                 >
                   {team.name}
                 </button>
