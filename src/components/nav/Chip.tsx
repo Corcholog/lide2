@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { MouseEventHandler } from 'react'
+import { toggleClass } from '@/components/ui/Toggle'
 import { Pending } from './Pending'
 
 /**
@@ -34,11 +35,10 @@ export function Chip({
       // shrink-0 and whitespace-nowrap: below `sm` the bar scrolls sideways,
       // and chips must not shrink or wrap their text.
       // `relative` anchors the loading bar `Pending` draws along the bottom.
-      className={`relative shrink-0 whitespace-nowrap border-2 px-3 py-2 text-xs font-bold uppercase tracking-wide transition-colors ${
-        active
-          ? 'border-accent bg-accent-dim text-accent'
-          : 'border-line text-muted hover:border-line-strong hover:text-accent'
-      }`}
+      className={toggleClass(
+        active,
+        'relative shrink-0 whitespace-nowrap px-3 py-2 text-xs font-bold uppercase tracking-wide',
+      )}
     >
       {label}
       <Pending />

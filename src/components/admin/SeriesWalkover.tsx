@@ -5,6 +5,7 @@ import {
   setSeriesWalkoverAction,
   type SeriesWalkoverResult,
 } from '@/app/(app)/admin/actions'
+import { Button } from '@/components/ui/Button'
 
 /**
  * Gives a series to the team that turned up.
@@ -60,13 +61,9 @@ export function SeriesWalkover({
         ))}
       </select>
 
-      <button
-        type="submit"
-        disabled={pending || hasGames}
-        className="border border-line-strong px-3 py-1.5 text-sm transition-colors hover:border-accent disabled:opacity-50"
-      >
+      <Button type="submit" disabled={pending || hasGames} variant="outline" size="sm">
         {pending ? 'Guardando…' : 'Guardar'}
-      </button>
+      </Button>
 
       {hasGames && (
         <span className="text-xs text-dim">

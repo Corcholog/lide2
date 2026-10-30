@@ -14,6 +14,7 @@ import {
 import { Walkover } from '@/components/admin/Walkover'
 import { Ruling } from '@/components/admin/Ruling'
 import { Stat } from '@/components/admin/Stat'
+import { buttonClass } from '@/components/ui/Button'
 import { rulingLabel } from '@/lib/lide2/rulings'
 import type { FixtureResultRow, SeriesResultRow } from '@/types/db'
 
@@ -205,7 +206,7 @@ export default async function AssignMatchesPage() {
         </div>
         <Link
           href="/admin/upload"
-          className="border-2 border-line-strong px-4 py-2 text-sm transition-colors hover:border-accent"
+          className={buttonClass({ variant: 'outline' })}
         >
           Subir replays
         </Link>

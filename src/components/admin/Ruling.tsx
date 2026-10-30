@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react'
 import { setRulingAction, type RulingResult } from '@/app/(app)/admin/actions'
+import { Button } from '@/components/ui/Button'
 import { RULINGS } from '@/lib/lide2/rulings'
 
 /**
@@ -55,13 +56,9 @@ export function Ruling({
         </option>
       </select>
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="border border-line-strong px-2 py-1 text-xs text-muted transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
-      >
+      <Button type="submit" disabled={pending} variant="outline" size="xs">
         {pending ? '…' : 'Guardar'}
-      </button>
+      </Button>
 
       {state?.error && (
         <p role="alert" className="text-xs text-danger">

@@ -17,6 +17,7 @@ import { assetVersion, championNames } from '@/lib/ddragon'
 import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { loadMatchDetails } from '@/lib/matches'
 import { formatNumber, formatPosition, playerName, riotTag } from '@/lib/format'
+import { Button } from '@/components/ui/Button'
 import type {
   PlayerTotalsRow,
   RosterReviewRow,
@@ -181,12 +182,9 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
           {user && (
             <form action={deleteTeamAction}>
               <input type="hidden" name="teamId" value={team.id} />
-              <button
-                type="submit"
-                className="border border-line-strong px-3 py-1.5 text-sm text-muted transition-colors hover:border-accent hover:text-accent"
-              >
+              <Button type="submit" variant="outline" size="sm">
                 Eliminar equipo
-              </button>
+              </Button>
             </form>
           )}
         </div>

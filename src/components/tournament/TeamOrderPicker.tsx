@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { toggleClass } from '@/components/ui/Toggle'
 import type { TeamOrder } from '@/lib/teams/order'
 
 /**
@@ -19,11 +20,7 @@ function OrderLink({ label, href, active }: { label: string; href: string; activ
     <Link
       href={href}
       aria-current={active ? 'true' : undefined}
-      className={`border-2 px-3 py-1 text-xs font-bold uppercase tracking-wide transition-colors ${
-        active
-          ? 'border-accent bg-accent-dim text-accent'
-          : 'border-line text-muted hover:border-line-strong hover:text-accent'
-      }`}
+      className={toggleClass(active, 'px-3 py-1 text-xs font-bold uppercase tracking-wide')}
     >
       {label}
     </Link>

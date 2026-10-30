@@ -77,7 +77,7 @@ export function BanEntry({
         <Button
           type="submit"
           disabled={pending}
-          variant="upper"
+          shout
         >
           {pending ? 'Guardando…' : 'Guardar draft'}
         </Button>

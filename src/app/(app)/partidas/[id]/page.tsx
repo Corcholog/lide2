@@ -7,6 +7,7 @@ import { assetVersion, championNames, summonerSpellNames } from '@/lib/ddragon'
 import { formatDate, formatDuration, ROLES } from '@/lib/format'
 import { matchPlace } from '@/lib/matches'
 import { Scoreboard, type ScoreboardPlayer } from '@/components/match/Scoreboard'
+import { buttonClass } from '@/components/ui/Button'
 import { matchOrigin, teamPath } from '@/lib/routes'
 import { rulingLabel } from '@/lib/lide2/rulings'
 import type { MatchPlayerScoreRow, MatchSummaryRow, MatchTeamStatsRow } from '@/types/db'
@@ -101,13 +102,13 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
           <div className="flex gap-2">
             <Link
               href={`/partidas/${id}/card`}
-              className="border border-line-strong px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
+              className={buttonClass({ variant: 'outline', size: 'sm' })}
             >
               Card para Instagram
             </Link>
             <a
               href={`/api/matches/${id}/download`}
-              className="border border-line-strong px-3 py-1.5 text-sm transition-colors hover:border-accent"
+              className={buttonClass({ variant: 'outline', size: 'sm' })}
             >
               Descargar .rofl
             </a>

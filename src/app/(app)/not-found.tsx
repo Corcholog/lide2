@@ -19,13 +19,13 @@ export default function NotFound() {
       <div className="flex flex-wrap items-center justify-center gap-2">
         <Link
           href="/"
-          className={buttonClass({ variant: 'upper' })}
+          className={buttonClass({ shout: true })}
         >
           El torneo
         </Link>
         <Link
           href="/partidas"
-          className="border-2 border-line-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-muted transition-colors hover:border-accent hover:text-accent"
+          className={buttonClass({ variant: 'outline', shout: true })}
         >
           Las partidas
         </Link>

@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react'
 import { assignAccountAction } from '@/app/(app)/equipos/actions'
+import { Button } from '@/components/ui/Button'
 import { riotId } from '@/lib/format'
 import type { AssignAccountResult } from '@/lib/teams/service'
 import type { TeamAccountRow } from '@/types/db'
@@ -56,13 +57,9 @@ export function AssignAccount({
         ))}
       </select>
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="border border-line-strong px-2 py-1 text-xs text-muted transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
-      >
+      <Button type="submit" disabled={pending} variant="outline" size="xs">
         {pending ? '…' : 'Asignar'}
-      </button>
+      </Button>
 
       {state?.error && (
         <p role="alert" className="text-xs text-danger">

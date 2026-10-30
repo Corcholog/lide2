@@ -6,6 +6,7 @@ import { TOURNAMENT } from '@/lib/lide2/tournament'
 import { RosterImport } from '@/components/admin/RosterImport'
 import { RosterTeam, type UniversityOption } from '@/components/admin/RosterTeam'
 import { Stat } from '@/components/admin/Stat'
+import { buttonClass } from '@/components/ui/Button'
 import type { RosterStatusRow, TeamAccountRow } from '@/types/db'
 
 export const dynamic = 'force-dynamic'
@@ -75,7 +76,7 @@ export default async function RostersPage() {
         </div>
         <Link
           href="/admin/asignar"
-          className="border-2 border-line-strong px-4 py-2 text-sm transition-colors hover:border-accent"
+          className={buttonClass({ variant: 'outline' })}
         >
           Asignar partidas
         </Link>
