@@ -208,7 +208,7 @@ function Champion({
           : 'border-dashed border-line'
       }`}
     >
-      <p className="text-xs uppercase tracking-[0.2em] text-accent">Campeón</p>
+      <p className="text-xs font-bold uppercase tracking-kicker text-accent">Campeón</p>
       <div className="mt-1 flex items-center gap-3">
         <p className="font-display text-xl font-bold">
           {winnerName ?? <span className="text-dim">por definir</span>}

@@ -80,16 +80,16 @@ export function Hero({
       <div className="relative flex min-h-[max(30rem,calc(100svh-var(--site-header)))] flex-col pb-4 pt-6">
         <div className="mt-auto flex flex-col gap-5">
           <div>
-            <p className="text-xs font-medium uppercase tracking-[0.25em] text-accent">
+            <p className="text-xs font-bold uppercase tracking-kicker text-accent">
               {TOURNAMENT.organizer}
             </p>
-            <h1 className="mt-2 text-6xl uppercase leading-[0.82] tracking-[-0.045em] sm:text-7xl">
+            <h1 className="mt-2 text-6xl uppercase leading-[0.82] tracking-display sm:text-7xl">
               {TOURNAMENT.name}
             </h1>
             {/*
               Slogan in the display font, with the noun in red.
             */}
-            <p className="font-display mt-3 text-lg uppercase leading-none tracking-[-0.02em] sm:text-2xl">
+            <p className="font-display mt-3 text-lg uppercase leading-none tracking-heading sm:text-2xl">
               {SLOGAN_PARTS.map(({ article, noun }, index) => (
                 <span key={noun} className="whitespace-nowrap">
                   {index > 0 && ' '}
@@ -111,7 +111,7 @@ export function Hero({
               <p className="bg-accent-strong px-3 py-1.5 text-xs font-bold uppercase tracking-[0.2em] text-on-accent">
                 Campeón
               </p>
-              <p className="font-display text-2xl font-bold uppercase leading-none tracking-[-0.02em]">
+              <p className="font-display text-2xl font-bold uppercase leading-none tracking-heading">
                 {champion.name}
               </p>
               <UniversityLogos tags={champion.tags} size="lg" />

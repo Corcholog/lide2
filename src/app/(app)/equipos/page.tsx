@@ -161,7 +161,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
                   {/* mt-auto keeps the numbers at the bottom when a name wraps. */}
                   <dl className="mt-auto flex items-end justify-between gap-2 border-t border-line pt-3">
                     <div>
-                      <dt className="text-2xs uppercase tracking-[0.15em] text-dim">Récord</dt>
+                      <dt className="text-2xs uppercase tracking-label text-dim">Récord</dt>
                       <dd className="tabular text-sm">
                         <span className="text-win">{team.wins}</span>
                         <span className="text-dim">–</span>
@@ -169,13 +169,13 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
                       </dd>
                     </div>
                     <div className="text-right">
-                      <dt className="text-2xs uppercase tracking-[0.15em] text-dim">Victorias</dt>
+                      <dt className="text-2xs uppercase tracking-label text-dim">Victorias</dt>
                       <dd className="tabular text-sm text-muted">
                         {team.games > 0 ? formatPercent(team.wins / team.games) : '—'}
                       </dd>
                     </div>
                     <div className="text-right">
-                      <dt className="text-2xs uppercase tracking-[0.15em] text-dim">Duración</dt>
+                      <dt className="text-2xs uppercase tracking-label text-dim">Duración</dt>
                       <dd className="tabular text-sm text-muted">
                         {team.avg_minutes ? `${team.avg_minutes} min` : '—'}
                       </dd>

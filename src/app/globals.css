@@ -66,6 +66,16 @@
   --text-2xs: 0.6875rem;
 
   /*
+   * The letter spacing of the site's four voices: the heading default, the
+   * big display type (tighter, because it is bigger), the shouted accent
+   * label and the tiny label of a stat block.
+   */
+  --tracking-heading: -0.02em;
+  --tracking-display: -0.04em;
+  --tracking-kicker: 0.2em;
+  --tracking-label: 0.15em;
+
+  /*
    * Square corners: the whole radius scale is zero.
    *
    * No radius utility appears in the markup, with one exception:
@@ -327,7 +337,7 @@ h1,
 h2,
 h3 {
   font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--tracking-heading);
 }
 
 /* Tabular figures so numbers line up in columns. */

@@ -32,24 +32,24 @@ export function GrandFinal({
 
         <div className="relative grid gap-8 px-6 py-8 sm:px-10 sm:py-10 lg:grid-cols-[1fr_20rem] lg:gap-12">
           <div className="flex flex-col">
-            <p className="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-[0.25em] text-accent">
+            <p className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-kicker text-accent">
               <span className="bg-accent-strong px-1.5 py-0.5 text-2xs font-bold tracking-normal text-on-accent">
                 Presencial
               </span>
               La única fecha fuera de línea
             </p>
 
-            <h2 className="mt-3 text-4xl uppercase leading-none tracking-[-0.04em] sm:text-5xl">
+            <h2 className="mt-3 text-4xl uppercase leading-none tracking-display sm:text-5xl">
               Gran final
             </h2>
 
             {champion ? (
               <div className="mt-4">
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">
+                <p className="text-xs font-bold uppercase tracking-kicker text-accent">
                   Campeón{score && <span className="text-fg-soft"> · {score}</span>}
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-3">
-                  <p className="font-display text-3xl font-bold uppercase leading-none tracking-[-0.02em]">
+                  <p className="font-display text-3xl font-bold uppercase leading-none tracking-heading">
                     {champion.name}
                   </p>
                   <UniversityLogos tags={champion.tags} size="fixture" />

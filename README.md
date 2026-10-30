@@ -79,6 +79,10 @@ render del servidor y el del cliente.
 
 - **Contraste**: cada paso de texto se auditó contra AA en los dos temas, con el ratio anotado en el
   CSS. El texto que va sobre el relleno de acento sale de `--on-accent`, no de un `text-white` suelto.
+- **Tipo**: el texto más chico del sitio (`text-2xs`) y las cuatro voces de espaciado
+  (`tracking-kicker`, `tracking-label`, `tracking-heading`, `tracking-display`) son tokens: no queda
+  un valor arbitrario de tipografía en el markup, salvo en el póster, que es un lienzo de tamaño fijo
+  con su propia escala.
 - **Esquinas rectas**: la escala de radios es cero y ningún utility de radio aparece en el markup (la
   única excepción es el `rounded-full` de la barra de daño, que es una píldora y no una esquina). El
   `rounded` a secas de Tailwind es un `0.25rem` fijo que ignora los tokens, así que tampoco se usa.

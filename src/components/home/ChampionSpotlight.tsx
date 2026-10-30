@@ -48,12 +48,12 @@ export function ChampionSpotlight({
     >
       <div className="grid gap-5 px-6 py-6 sm:px-8 lg:grid-cols-[minmax(0,20rem)_1fr] lg:items-center lg:gap-8">
         <div className="flex flex-col gap-3">
-          <p className="text-xs font-bold uppercase tracking-[0.25em] text-accent">
+          <p className="text-xs font-bold uppercase tracking-kicker text-accent">
             Campeón
             {score && <span className="text-fg-soft"> · {score}</span>}
           </p>
 
-          <h2 className="text-3xl uppercase leading-none tracking-[-0.04em] sm:text-4xl">
+          <h2 className="text-3xl uppercase leading-none tracking-display sm:text-4xl">
             <Link href={teamPath(champion.teamId, 'playoffs')} className="transition-colors hover:text-accent">
               {champion.name}
             </Link>
