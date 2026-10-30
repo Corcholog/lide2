@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react'
 import { importRosterAction, type RosterActionResult } from '@/app/(app)/admin/roster-actions'
+import { Button } from '@/components/ui/Button'
 
 /**
  * Pastes a whole list of Riot IDs at once, in any format (see
@@ -33,13 +34,9 @@ export function RosterImport() {
       />
 
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="submit"
-          disabled={pending}
-          className="bg-accent-strong px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:bg-line-strong disabled:text-muted"
-        >
+        <Button type="submit" disabled={pending}>
           {pending ? 'Importando…' : 'Importar'}
-        </button>
+        </Button>
 
         {state?.error && (
           <p role="alert" className="text-sm text-danger">

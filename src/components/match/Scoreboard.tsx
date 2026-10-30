@@ -64,7 +64,7 @@ export function Scoreboard({
   const badge = isBlue ? 'bg-side-blue-dim text-side-blue' : 'bg-side-red-dim text-side-red'
 
   return (
-    <section className={`overflow-hidden rounded-lg border border-line border-l-2 ${edge}`}>
+    <section className={`overflow-hidden border border-line border-l-2 ${edge}`}>
       <header className="flex flex-wrap items-center gap-x-4 gap-y-1 bg-surface px-4 py-3">
         {/* The team name links to its page, with `desde` pointing back here. */}
         <h2 className={`font-semibold ${accent}`}>
@@ -77,7 +77,7 @@ export function Scoreboard({
           )}
         </h2>
         <span
-          className={`rounded px-2 py-0.5 text-xs font-medium ${
+          className={`px-2 py-0.5 text-xs font-medium ${
             won ? badge : 'bg-raised text-loss'
           }`}
         >
@@ -164,7 +164,7 @@ export function Scoreboard({
                         {player.isMvp && (
                           <span
                             title="MVP de la partida"
-                            className="rounded bg-accent-strong px-1 text-[10px] font-bold text-white"
+                            className="bg-accent-strong px-1 text-2xs font-bold text-on-accent"
                           >
                             MVP
                           </span>

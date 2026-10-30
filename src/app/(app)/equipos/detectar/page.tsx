@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { requireUser } from '@/lib/auth'
+import { Button } from '@/components/ui/Button'
 import { detectTeamsFromMatches } from '@/lib/teams/service'
 import { createDetectedTeamsAction } from '../actions'
 
@@ -30,7 +31,7 @@ export default async function DetectTeamsPage() {
       </div>
 
       {detected.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-line-strong px-6 py-12 text-center text-fg-soft">
+        <p className="border border-dashed border-line-strong px-6 py-12 text-center text-fg-soft">
           No hay partidas cargadas todavía.
         </p>
       ) : (
@@ -38,7 +39,7 @@ export default async function DetectTeamsPage() {
           {detected.map((team, index) => (
             <div
               key={index}
-              className="flex flex-col gap-3 rounded-lg border border-line bg-surface p-4 sm:flex-row sm:items-center"
+              className="flex flex-col gap-3 border border-line bg-surface p-4 sm:flex-row sm:items-center"
             >
               <input type="hidden" name={`puuids-${index}`} value={team.puuids.join(',')} />
 
@@ -53,7 +54,7 @@ export default async function DetectTeamsPage() {
                   name={`name-${index}`}
                   defaultValue={team.suggestedName ?? ''}
                   placeholder="Nombre del equipo"
-                  className="w-48 rounded border border-line-strong bg-canvas px-3 py-1.5 text-sm focus:border-accent"
+                  className="w-48 border border-line-strong bg-canvas px-3 py-1.5 text-sm focus:border-accent"
                 />
               </label>
 
@@ -77,12 +78,9 @@ export default async function DetectTeamsPage() {
             </div>
           ))}
 
-          <button
-            type="submit"
-            className="self-start rounded bg-accent-strong px-5 py-2.5 font-medium text-white transition-colors hover:bg-accent"
-          >
+          <Button type="submit" className="self-start">
             Crear equipos y revincular partidas
-          </button>
+          </Button>
         </form>
       )}
     </div>

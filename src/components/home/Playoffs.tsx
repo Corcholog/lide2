@@ -202,7 +202,7 @@ function Champion({
 
   return (
     <div
-      className={`rounded-lg border px-4 py-3 ${
+      className={`border px-4 py-3 ${
         winnerName
           ? 'border-accent bg-gradient-to-br from-accent-dim to-surface'
           : 'border-dashed border-line'
@@ -232,7 +232,7 @@ function SeriesCard({
 
   return (
     <div className="border-2 border-line bg-surface px-3 py-2.5">
-      <p className="mb-1.5 text-[10px] uppercase tracking-wide text-dim">
+      <p className="mb-1.5 text-2xs uppercase tracking-wide text-dim">
         BO{series.best_of}
         {/*
           An awarded series has no games on purpose, so it says why instead of
@@ -323,7 +323,7 @@ function SeriesTeam({
             university, as there too. */}
         {shown && <UniversityLogos tags={tags} size="fixture" />}
         <span className="ml-auto flex shrink-0 items-center gap-2">
-          {shown && slot && <span className="text-[10px] text-dim">{slot}</span>}
+          {shown && slot && <span className="text-2xs text-dim">{slot}</span>}
           <span className={`tabular w-4 text-right text-sm ${won ? 'font-bold' : 'text-faint'}`}>
             {wins}
           </span>

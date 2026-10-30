@@ -42,7 +42,7 @@ export function SiteFooter() {
           Riot's legal notice, required by their fan content policy. It covers
           the hero artwork, Data Dragon icons and the data from replays.
         */}
-        <p className="border-t border-line pt-4 text-[11px] leading-relaxed text-dim">
+        <p className="border-t border-line pt-4 text-2xs leading-relaxed text-dim">
           {TOURNAMENT.name} no está avalado por Riot Games y no refleja las opiniones de Riot Games
           ni de nadie involucrado oficialmente en la producción o gestión de League of Legends.
           League of Legends y Riot Games son marcas registradas de Riot Games, Inc.

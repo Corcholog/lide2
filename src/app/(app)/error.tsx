@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect } from 'react'
+import { Button } from '@/components/ui/Button'
 
 /**
  * Error screen for pages inside the site.
@@ -31,13 +32,9 @@ export default function ErrorBoundary({
       </div>
 
       <div className="flex flex-wrap items-center justify-center gap-2">
-        <button
-          type="button"
-          onClick={retry}
-          className="cursor-pointer bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-white transition-colors hover:bg-accent"
-        >
+        <Button type="button" onClick={retry} variant="upper">
           Reintentar
-        </button>
+        </Button>
         <Link
           href="/"
           className="border-2 border-line-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-muted transition-colors hover:border-accent hover:text-accent"

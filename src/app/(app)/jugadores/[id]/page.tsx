@@ -196,7 +196,7 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
           />
           {totals && totals.mvp_count > 0 && (
             <p className="text-sm text-muted">
-              <span className="mr-2 rounded bg-accent-strong px-1.5 py-0.5 text-xs font-bold text-white">
+              <span className="mr-2 bg-accent-strong px-1.5 py-0.5 text-xs font-bold text-on-accent">
                 {totals.mvp_count}
               </span>
               {totals.mvp_count === 1 ? 'MVP' : 'MVPs'} en {totals.games} partidas
@@ -206,7 +206,7 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
       </header>
 
       {!totals ? (
-        <div className="rounded-lg border border-dashed border-line-strong px-6 py-14 text-center">
+        <div className="border border-dashed border-line-strong px-6 py-14 text-center">
           <p className="text-fg-soft">Este jugador todavía no jugó ninguna partida del torneo.</p>
         </div>
       ) : (
@@ -251,7 +251,7 @@ export default async function PlayerPage({ params }: PageProps<'/jugadores/[id]'
                 {champions.slice(FEATURED).map((champion) => (
                   <li
                     key={champion.champion}
-                    className="flex items-center gap-3 rounded-lg border border-line bg-surface px-3 py-2.5"
+                    className="flex items-center gap-3 border border-line bg-surface px-3 py-2.5"
                   >
                     <GameIcon
                       src={championIcon(version, champion.champion)}
@@ -346,7 +346,7 @@ function Stat({
   accent?: boolean
 }) {
   return (
-    <div className="rounded-lg border border-line bg-surface px-4 py-3">
+    <div className="border border-line bg-surface px-4 py-3">
       <p className="text-xs text-faint">{label}</p>
       <p className={`tabular mt-0.5 text-xl font-bold ${accent ? 'text-accent' : ''}`}>{value}</p>
       <p className="tabular text-xs text-faint">{hint}</p>

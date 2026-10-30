@@ -117,13 +117,13 @@ export function Tabs({
               tabIndex={active ? 0 : -1}
               onClick={() => goTo(i)}
               className={`cursor-pointer px-4 py-2 text-left transition-colors ${
-                active ? 'bg-accent-strong text-white' : 'bg-surface text-muted hover:text-fg'
+                active ? 'bg-accent-strong text-on-accent' : 'bg-surface text-muted hover:text-fg'
               }`}
             >
               <span className="block text-sm font-bold uppercase tracking-tight">{tab.title}</span>
               {tab.detail && (
                 <span
-                  className={`block truncate text-[11px] ${active ? 'text-white/75' : 'text-faint'}`}
+                  className={`block truncate text-2xs ${active ? 'text-on-accent/75' : 'text-faint'}`}
                 >
                   {tab.detail}
                 </span>

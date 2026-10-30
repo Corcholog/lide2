@@ -36,7 +36,7 @@ export function DamageBar({
       {/* shrink-0 keeps the bar at scale when the number next to it is long. */}
       <div className={`h-1.5 shrink-0 overflow-hidden rounded-full bg-raised ${width}`}>
         <div
-          className={`h-full rounded-r-[4px] ${FILL[side]}`}
+          className={`h-full ${FILL[side]}`}
           style={{ width: `${max > 0 ? (damage / max) * 100 : 0}%` }}
         />
       </div>

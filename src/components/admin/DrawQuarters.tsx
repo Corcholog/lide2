@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from 'react'
 import { setQuarterFinalsAction, type DrawResult } from '@/app/(app)/admin/actions'
+import { Button } from '@/components/ui/Button'
 import { sharedUniversity, type Pairing, type Qualified } from '@/lib/lide2/draw'
 
 /**
@@ -88,7 +89,7 @@ export function DrawQuarters({
 
           return (
             <li key={order} className="flex flex-col gap-1 border-2 border-line bg-surface px-4 py-3">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-faint">
+              <p className="text-2xs font-bold uppercase tracking-wide text-faint">
                 Cruce {order}
               </p>
 
@@ -117,19 +118,15 @@ export function DrawQuarters({
       </ul>
 
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded bg-accent-strong px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent disabled:opacity-60"
-        >
+        <Button type="submit" disabled={pending}>
           {pending ? 'Guardando…' : 'Guardar los cruces'}
-        </button>
+        </Button>
 
         {state?.ok && <p className="text-sm text-ok">Cruces guardados. Ya están en el bracket.</p>}
       </div>
 
       {state?.problems && state.problems.length > 0 && (
-        <ul className="flex flex-col gap-1 rounded border border-danger/40 bg-danger-dim px-4 py-3 text-sm text-danger">
+        <ul className="flex flex-col gap-1 border border-danger/40 bg-danger-dim px-4 py-3 text-sm text-danger">
           {state.problems.map((problem) => (
             <li key={problem}>{problem}</li>
           ))}

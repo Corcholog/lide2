@@ -66,7 +66,7 @@ export default async function DrawPage() {
       </header>
 
       {series.length === 0 ? (
-        <p className="rounded border border-danger/40 bg-danger-dim px-4 py-3 text-sm text-danger">
+        <p className="border border-danger/40 bg-danger-dim px-4 py-3 text-sm text-danger">
           El bracket todavía no está cargado. Corré <code>npm run seed:lide2</code>.
         </p>
       ) : qualified.length < series.length * 2 ? (
@@ -74,7 +74,7 @@ export default async function DrawPage() {
           Half a group table cannot fill a bracket: better to say so than to
           offer selects that are missing teams.
         */
-        <p className="rounded border border-danger/40 bg-danger-dim px-4 py-3 text-sm text-danger">
+        <p className="border border-danger/40 bg-danger-dim px-4 py-3 text-sm text-danger">
           Todavía no hay {series.length * 2} clasificados: la fase de grupos no terminó, o falta
           cargar resultados.
         </p>
@@ -103,7 +103,7 @@ export default async function DrawPage() {
                 key={item.id}
                 className="flex flex-col gap-2 border-2 border-line bg-surface px-4 py-3"
               >
-                <p className="text-[11px] font-bold uppercase tracking-wide text-faint">
+                <p className="text-2xs font-bold uppercase tracking-wide text-faint">
                   {item.round} · Cruce {item.order_index}
                 </p>
                 <SeriesWalkover

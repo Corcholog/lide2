@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { GameIcon } from '@/components/match/GameIcon'
+import { Button } from '@/components/ui/Button'
 import { downloadNodeAsPng } from '@/lib/cards/png'
 import { formatDate, formatDuration, formatGold, formatKda, formatNumber } from '@/lib/format'
 
@@ -72,17 +73,13 @@ export function MatchCard({ data, fileName }: { data: MatchCardData; fileName: s
     <div className="flex flex-col items-center gap-4">
       <div className="flex w-full items-center justify-between gap-4">
         <p className="text-sm text-muted">1080 × 1080, listo para publicar</p>
-        <button
-          onClick={download}
-          disabled={busy}
-          className="rounded bg-accent-strong px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent disabled:opacity-50"
-        >
+        <Button onClick={download} disabled={busy}>
           {busy ? 'Generando…' : 'Descargar PNG'}
-        </button>
+        </Button>
       </div>
 
       {error && (
-        <p className="w-full rounded border border-danger/40 bg-danger-dim px-3 py-2 text-sm text-danger">
+        <p className="w-full border border-danger/40 bg-danger-dim px-3 py-2 text-sm text-danger">
           {error}
         </p>
       )}
@@ -127,12 +124,12 @@ export function MatchCard({ data, fileName }: { data: MatchCardData; fileName: s
             </section>
 
             {data.mvp && (
-              <section className="flex items-center gap-8 rounded-2xl border-2 border-line bg-surface p-8">
+              <section className="flex items-center gap-8 border-2 border-line bg-surface p-8">
                 <GameIcon
                   src={data.mvp.championIcon}
                   alt={data.mvp.champion}
                   size={140}
-                  className="rounded-xl"
+                  className=""
                 />
                 <div className="min-w-0 flex-1">
                   <p className="text-2xl font-bold tracking-widest text-accent">MVP</p>
@@ -154,7 +151,7 @@ export function MatchCard({ data, fileName }: { data: MatchCardData; fileName: s
               {data.highlights.map((highlight) => (
                 <div
                   key={highlight.label}
-                  className="flex flex-col gap-3 rounded-2xl border-2 border-line p-6"
+                  className="flex flex-col gap-3 border-2 border-line p-6"
                 >
                   <p className="text-xl uppercase tracking-wide text-faint">{highlight.label}</p>
                   <p className="tabular text-5xl font-bold text-white">{highlight.value}</p>
@@ -163,7 +160,7 @@ export function MatchCard({ data, fileName }: { data: MatchCardData; fileName: s
                       src={highlight.championIcon}
                       alt={highlight.champion}
                       size={44}
-                      className="rounded-lg"
+                      className=""
                     />
                     <p className="min-w-0 truncate text-2xl text-fg-soft">{highlight.player}</p>
                   </div>

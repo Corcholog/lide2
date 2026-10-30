@@ -58,7 +58,22 @@
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-archivo-black);
 
-  /* Square corners everywhere: every `rounded-*` utility resolves to 0. */
+  /*
+   * One step under `xs`: the uppercase micro-labels (column headers, stat
+   * labels, badges). The smallest text on the site is a step of its own, so it
+   * lives in the theme instead of in arbitrary values.
+   */
+  --text-2xs: 0.6875rem;
+
+  /*
+   * Square corners: the whole radius scale is zero.
+   *
+   * No radius utility appears in the markup, with one exception:
+   * `rounded-full` on the damage bar track, which is a pill rather than a
+   * corner. Tailwind's bare `rounded` is a fixed 0.25rem that ignores these
+   * tokens, so it would silently round a corner — that is why it is not used
+   * either.
+   */
   --radius-xs: 0px;
   --radius-sm: 0px;
   --radius-md: 0px;
@@ -126,6 +141,9 @@ html {
   --accent-strong: #7d0f1b;
   --accent-dim: #f2dcdd;
 
+  /* Text on the accent fill: white on `--accent-strong` is 10.7:1. */
+  --on-accent: #ffffff;
+
   --win: #b01021;
   --loss: #6b6870;
 
@@ -170,6 +188,12 @@ html {
    */
   --accent-dim: #3a0d13;
 
+  /*
+   * Text on the accent fill: white on `--accent-strong` (#e11d2f) is 4.75:1,
+   * so it clears AA for normal text.
+   */
+  --on-accent: #ffffff;
+
   --win: #ff4353;
   --loss: #8f8f9c;
 
@@ -205,6 +229,7 @@ html {
  *   danger                   errors. Shares the red with accent, but has its
  *                            own name so it can diverge later
  *   accent                   links, hovers and focus
+ *   on-accent                text on top of an accent fill (buttons, badges)
  *   side-blue / side-red     the map side a team played on, independent of the
  *                            result
  */
@@ -225,6 +250,7 @@ html {
   --color-accent-soft: var(--accent-soft);
   --color-accent-strong: var(--accent-strong);
   --color-accent-dim: var(--accent-dim);
+  --color-on-accent: var(--on-accent);
 
   --color-win: var(--win);
   --color-loss: var(--loss);

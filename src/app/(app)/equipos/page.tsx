@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { rows } from '@/lib/supabase/query'
 import { UniversityLogos } from '@/components/tournament/UniversityLogo'
 import { TeamOrderPicker } from '@/components/tournament/TeamOrderPicker'
+import { buttonClass } from '@/components/ui/Button'
 import { parseTeamOrder, sortTeams } from '@/lib/teams/order'
 import { teamPath } from '@/lib/routes'
 import { createTeamAction, relinkAction } from './actions'
@@ -79,14 +80,14 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
           <div className="flex gap-2">
             <Link
               href="/equipos/detectar"
-              className="rounded bg-accent-strong px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent"
+              className={buttonClass()}
             >
               Detectar desde las partidas
             </Link>
             <form action={relinkAction}>
               <button
                 type="submit"
-                className="rounded border border-line-strong px-4 py-2 text-sm transition-colors hover:border-accent"
+                className="border border-line-strong px-4 py-2 text-sm transition-colors hover:border-accent"
               >
                 Revincular partidas
               </button>
@@ -96,7 +97,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
       </div>
 
       {created > 0 && (
-        <p className="rounded border border-ok/40 bg-ok-dim px-4 py-3 text-sm text-ok">
+        <p className="border border-ok/40 bg-ok-dim px-4 py-3 text-sm text-ok">
           Se crearon {created} equipos y se revincularon las partidas.
         </p>
       )}
@@ -107,11 +108,11 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
             name="name"
             required
             placeholder="Nombre del equipo"
-            className="flex-1 rounded border border-line-strong bg-surface px-3 py-2 text-sm focus:border-accent"
+            className="flex-1 border border-line-strong bg-surface px-3 py-2 text-sm focus:border-accent"
           />
           <button
             type="submit"
-            className="rounded border border-line-strong px-4 py-2 text-sm transition-colors hover:border-accent"
+            className="border border-line-strong px-4 py-2 text-sm transition-colors hover:border-accent"
           >
             Crear vacío
           </button>
@@ -122,7 +123,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
       {teams.length > 0 && <TeamOrderPicker order={order} />}
 
       {teams.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-line-strong px-6 py-12 text-center text-fg-soft">
+        <div className="border border-dashed border-line-strong px-6 py-12 text-center text-fg-soft">
           <p>Todavía no hay equipos.</p>
           {/* "Detectar desde las partidas" is an admin button, so visitors get
               a different hint. */}
@@ -166,7 +167,7 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
                   {/* mt-auto keeps the numbers at the bottom when a name wraps. */}
                   <dl className="mt-auto flex items-end justify-between gap-2 border-t border-line pt-3">
                     <div>
-                      <dt className="text-[10px] uppercase tracking-[0.15em] text-dim">Récord</dt>
+                      <dt className="text-2xs uppercase tracking-[0.15em] text-dim">Récord</dt>
                       <dd className="tabular text-sm">
                         <span className="text-win">{team.wins}</span>
                         <span className="text-dim">–</span>
@@ -174,13 +175,13 @@ export default async function TeamsPage({ searchParams }: PageProps<'/equipos'>)
                       </dd>
                     </div>
                     <div className="text-right">
-                      <dt className="text-[10px] uppercase tracking-[0.15em] text-dim">Victorias</dt>
+                      <dt className="text-2xs uppercase tracking-[0.15em] text-dim">Victorias</dt>
                       <dd className="tabular text-sm text-muted">
                         {team.games > 0 ? formatPercent(team.wins / team.games) : '—'}
                       </dd>
                     </div>
                     <div className="text-right">
-                      <dt className="text-[10px] uppercase tracking-[0.15em] text-dim">Duración</dt>
+                      <dt className="text-2xs uppercase tracking-[0.15em] text-dim">Duración</dt>
                       <dd className="tabular text-sm text-muted">
                         {team.avg_minutes ? `${team.avg_minutes} min` : '—'}
                       </dd>
