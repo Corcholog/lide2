@@ -89,18 +89,6 @@ const textLayer = Buffer.from(`
     -->
     <text x="72" y="580" font-size="22" fill="#8f8f9c">${xml(TOURNAMENT.broadcast.channel)}</text>
   </g>
-
-  <!--
-    Saying it is not the official site. It is the most shared piece and the one
-    that travels furthest from its context: without this, a loose link in a
-    Discord passes for a message from the organizers.
-  -->
-  <g font-family="Arial, Helvetica, sans-serif">
-    <rect x="${WIDTH - 286}" y="52" width="214" height="42" fill="${BACKGROUND}" fill-opacity="0.55"
-          stroke="#ffffff" stroke-opacity="0.32" stroke-width="2"/>
-    <text x="${WIDTH - 179}" y="79" font-size="16" letter-spacing="3"
-          text-anchor="middle" fill="#d5d2d8">PÁGINA NO OFICIAL</text>
-  </g>
 </svg>
 `)
 

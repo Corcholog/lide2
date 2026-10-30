@@ -1,11 +1,10 @@
 # LIDE 2
 
-Sitio **no oficial** para seguir la LIDE 2, el torneo universitario argentino de League of Legends:
-tabla de cada grupo, fixture, playoffs, estadísticas y la ficha de cada equipo y jugador.
+Web para la LIDE 2, el torneo universitario argentino de League of Legends: tabla de cada grupo,
+fixture, playoffs, estadísticas y la ficha de cada equipo y jugador.
 
-No pertenece a la organización del torneo ni la representa. La información sale de los anuncios y
-las planillas oficiales, pero la página la mantiene otra gente: si algo no coincide, mandan los
-canales del torneo.
+La información sale de los anuncios y las planillas oficiales del torneo: si algo no coincide,
+mandan los canales del torneo.
 
 ## Correr el proyecto
 

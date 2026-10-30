@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     default: `${TOURNAMENT.name} · ${TOURNAMENT.fullName}`,
     template: `%s · ${TOURNAMENT.name}`,
   },
-  description: `${TOURNAMENT.teams} equipos de ${TOURNAMENT.universities} universidades. Tabla, fixture, playoffs y estadísticas de cada partida, sacadas de los replays. Página no oficial.`,
+  description: `${TOURNAMENT.teams} equipos de ${TOURNAMENT.universities} universidades. Tabla, fixture, playoffs y estadísticas de cada partida, sacadas de los replays.`,
   applicationName: TOURNAMENT.name,
   openGraph: {
     type: "website",
