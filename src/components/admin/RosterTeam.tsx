@@ -2,6 +2,7 @@
 
 import { useActionState, useId, useState } from 'react'
 import { saveTeamRosterAction, type RosterActionResult } from '@/app/(app)/admin/roster-actions'
+import { Button } from '@/components/ui/Button'
 import { riotId } from '@/lib/format'
 import type { RosterStatusRow, TeamAccountRow } from '@/types/db'
 
@@ -82,13 +83,9 @@ export function RosterTeam({
       />
 
       <footer className="flex flex-wrap items-center gap-3 border-t-2 border-line px-4 py-3">
-        <button
-          type="submit"
-          disabled={pending}
-          className="bg-accent-strong px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:bg-line-strong disabled:text-muted"
-        >
+        <Button type="submit" disabled={pending}>
           {pending ? 'Guardando…' : 'Guardar'}
-        </button>
+        </Button>
 
         {state?.error && (
           <p role="alert" className="text-sm text-danger">
@@ -142,7 +139,7 @@ function Rows({
       {/* Column labels once at the top; hidden on narrow screens, where rows
           stack and each field's `sr-only` label applies. */}
       <div
-        className={`hidden gap-2 border-b-2 border-line px-4 py-2 text-[11px] uppercase tracking-wide text-faint sm:grid ${COLUMNS}`}
+        className={`hidden gap-2 border-b-2 border-line px-4 py-2 text-2xs uppercase tracking-wide text-faint sm:grid ${COLUMNS}`}
       >
         <span>Nombre</span>
         <span>Universidad</span>
@@ -246,7 +243,7 @@ function Row({
       {removed && <input type="hidden" name={`baja-${rowKey}`} value="1" />}
 
       <label className="flex flex-col gap-1">
-        <span className="text-[11px] uppercase tracking-wide text-faint sm:sr-only">Nombre</span>
+        <span className="text-2xs uppercase tracking-wide text-faint sm:sr-only">Nombre</span>
         <input
           name={`nombre-${rowKey}`}
           defaultValue={fullName}
@@ -257,7 +254,7 @@ function Row({
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className="text-[11px] uppercase tracking-wide text-faint sm:sr-only">
+        <span className="text-2xs uppercase tracking-wide text-faint sm:sr-only">
           Universidad
         </span>
         <select
@@ -275,7 +272,7 @@ function Row({
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className="text-[11px] uppercase tracking-wide text-faint sm:sr-only">
+        <span className="text-2xs uppercase tracking-wide text-faint sm:sr-only">
           Riot ID de la planilla
         </span>
         <input
@@ -289,7 +286,7 @@ function Row({
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className="text-[11px] uppercase tracking-wide text-faint sm:sr-only">
+        <span className="text-2xs uppercase tracking-wide text-faint sm:sr-only">
           Nick del plantel
         </span>
         <select
@@ -307,7 +304,7 @@ function Row({
             </option>
           ))}
         </select>
-        {note && <span className="text-[11px] text-faint">{note}</span>}
+        {note && <span className="text-2xs text-faint">{note}</span>}
       </label>
 
       <div className="flex items-start sm:pt-[26px]">

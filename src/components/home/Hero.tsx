@@ -108,7 +108,7 @@ export function Hero({
           */}
           {champion ? (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <p className="rounded-md bg-accent-strong px-3 py-1.5 text-xs font-bold uppercase tracking-[0.2em] text-white">
+              <p className="bg-accent-strong px-3 py-1.5 text-xs font-bold uppercase tracking-[0.2em] text-on-accent">
                 Campeón
               </p>
               <p className="font-display text-2xl font-bold uppercase leading-none tracking-[-0.02em]">
@@ -118,7 +118,7 @@ export function Hero({
             </div>
           ) : next && days !== null ? (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <p className="flex items-baseline gap-2 rounded-md bg-accent-strong px-3 py-1.5 text-white">
+              <p className="flex items-baseline gap-2 bg-accent-strong px-3 py-1.5 text-on-accent">
                 <span className="tabular font-display text-2xl font-bold leading-none">
                   {days === 0 ? '¡HOY!' : days}
                 </span>
@@ -145,7 +145,7 @@ export function Hero({
               href={TOURNAMENT.broadcast.url}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded border border-white/20 bg-black/30 px-4 py-2 text-sm font-medium backdrop-blur transition-colors hover:border-accent hover:text-accent"
+              className="inline-flex items-center gap-2 border border-white/20 bg-black/30 px-4 py-2 text-sm font-medium backdrop-blur transition-colors hover:border-accent hover:text-accent"
             >
               <TwitchIcon />
               Ver la transmisión
@@ -154,7 +154,7 @@ export function Hero({
               href={TOURNAMENT.discord}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded border border-white/20 bg-black/30 px-4 py-2 text-sm font-medium backdrop-blur transition-colors hover:border-accent hover:text-accent"
+              className="inline-flex items-center gap-2 border border-white/20 bg-black/30 px-4 py-2 text-sm font-medium backdrop-blur transition-colors hover:border-accent hover:text-accent"
             >
               <DiscordIcon />
               Discord
@@ -169,7 +169,7 @@ export function Hero({
                   <span className="tabular font-display block text-2xl font-bold leading-none">
                     {stat.value}
                   </span>
-                  <span className="mt-1 block text-[11px] uppercase tracking-wide text-faint">
+                  <span className="mt-1 block text-2xs uppercase tracking-wide text-faint">
                     {stat.label}
                   </span>
                 </dd>

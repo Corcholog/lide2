@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/client'
 
 export function LoginForm({ next }: { next: string }) {
@@ -43,7 +44,7 @@ export function LoginForm({ next }: { next: string }) {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           autoComplete="username"
-          className="rounded border border-line-strong bg-surface px-3 py-2 focus:border-accent"
+          className="border border-line-strong bg-surface px-3 py-2 focus:border-accent"
         />
       </label>
 
@@ -55,7 +56,7 @@ export function LoginForm({ next }: { next: string }) {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           autoComplete="current-password"
-          className="rounded border border-line-strong bg-surface px-3 py-2 focus:border-accent"
+          className="border border-line-strong bg-surface px-3 py-2 focus:border-accent"
         />
       </label>
 
@@ -66,19 +67,15 @@ export function LoginForm({ next }: { next: string }) {
       {error && (
         <p
           role="alert"
-          className="rounded border border-danger/40 bg-danger-dim px-3 py-2 text-sm text-danger"
+          className="border border-danger/40 bg-danger-dim px-3 py-2 text-sm text-danger"
         >
           {error}
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="rounded bg-accent-strong px-4 py-2 font-medium text-white transition-colors hover:bg-accent disabled:opacity-50"
-      >
+      <Button type="submit" disabled={loading}>
         {loading ? 'Entrando…' : 'Entrar'}
-      </button>
+      </Button>
     </form>
   )
 }

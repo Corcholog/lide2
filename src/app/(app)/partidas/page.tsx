@@ -10,6 +10,7 @@ import type { MatchCut } from '@/components/match/cut'
 import { MatchCount } from '@/components/match/MatchCount'
 import { MatchFilters } from '@/components/match/MatchFilters'
 import { LIST_COLUMNS, MatchList, type ListMatch } from '@/components/match/MatchList'
+import { buttonClass } from '@/components/ui/Button'
 
 export const metadata = {
   title: 'Partidas',
@@ -90,7 +91,7 @@ export default async function MatchesPage() {
         {user && (
           <Link
             href="/admin/upload"
-            className="rounded bg-accent-strong px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent"
+            className={buttonClass()}
           >
             Subir replays
           </Link>
@@ -100,7 +101,7 @@ export default async function MatchesPage() {
       {teams.length > 0 && <MatchFilters teams={teams} matches={cut} />}
 
       {matches.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-line-strong px-6 py-14 text-center">
+        <div className="border border-dashed border-line-strong px-6 py-14 text-center">
           {/*
             Different text for admins (upload replays) and visitors. The empty
             filter case is handled by `MatchFilters` in the browser.

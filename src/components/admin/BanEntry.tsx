@@ -2,6 +2,7 @@
 
 import { useActionState } from 'react'
 import { saveBansAction } from '@/app/(app)/admin/actions'
+import { Button } from '@/components/ui/Button'
 import type { SaveBansResult } from '@/lib/bans/service'
 
 /**
@@ -73,13 +74,13 @@ export function BanEntry({
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <button
+        <Button
           type="submit"
           disabled={pending}
-          className="bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:bg-line-strong"
+          variant="upper"
         >
           {pending ? 'Guardando…' : 'Guardar draft'}
-        </button>
+        </Button>
 
         {state?.error && (
           <p role="alert" className="text-sm text-danger">

@@ -153,7 +153,7 @@ export default async function Lide2Page() {
         the page, which still works without a tournament.
       */}
       {!tournamentId && user && (
-        <p className="rounded border border-danger/40 bg-danger-dim px-4 py-3 text-sm text-danger">
+        <p className="border border-danger/40 bg-danger-dim px-4 py-3 text-sm text-danger">
           El torneo todavía no está cargado en la base. Corré <code>npm run seed:lide2</code>.
         </p>
       )}

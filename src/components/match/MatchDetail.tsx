@@ -139,7 +139,7 @@ function Side({
                   {player.isMvp && (
                     <span
                       title="MVP de la partida"
-                      className="bg-accent-strong px-1 text-[10px] font-bold text-white"
+                      className="bg-accent-strong px-1 text-2xs font-bold text-on-accent"
                     >
                       MVP
                     </span>

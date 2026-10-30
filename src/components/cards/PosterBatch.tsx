@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
+import { Button } from '@/components/ui/Button'
 import { toCsv, toPlainText } from '@/lib/cards/export'
 import { FORMATS, type Poster, type PosterFormat } from '@/lib/cards/types'
 import { StatPoster, exportPoster } from './StatPoster'
@@ -58,14 +59,15 @@ export function PosterBatch({ posters, prefix }: { posters: Poster[]; prefix: st
           ))}
         </div>
 
-        <button
+        <Button
           type="button"
           onClick={downloadAll}
           disabled={busy}
-          className="cursor-pointer bg-accent-strong px-4 py-2 text-xs font-bold uppercase tracking-wide text-white transition-colors hover:bg-accent disabled:opacity-50"
+          variant="upper"
+          size="sm"
         >
           {busy ? 'Generando…' : `Descargar las ${posters.length}`}
-        </button>
+        </Button>
       </div>
 
       {posters.map((poster) => (
@@ -132,7 +134,7 @@ function CopyButton({ label, value }: { label: string; value: string }) {
     <button
       type="button"
       onClick={copy}
-      className="cursor-pointer border-2 border-line px-2 py-1 text-[11px] font-bold uppercase tracking-wide text-muted transition-colors hover:border-accent hover:text-accent"
+      className="cursor-pointer border-2 border-line px-2 py-1 text-2xs font-bold uppercase tracking-wide text-muted transition-colors hover:border-accent hover:text-accent"
     >
       {copied ? 'Copiado' : label}
     </button>

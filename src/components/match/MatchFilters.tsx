@@ -153,7 +153,7 @@ export function MatchFilters({
         matches at all.
       */}
       {matches.length > 0 && shown === 0 && (
-        <div className="rounded-lg border border-dashed border-line-strong px-6 py-14 text-center">
+        <div className="border border-dashed border-line-strong px-6 py-14 text-center">
           <p className="text-fg-soft">
             {team !== null && cut !== null
               ? 'Este equipo no jugó ninguna partida en este recorte. Probá con otro.'

@@ -13,7 +13,7 @@
 
 export function RankingsSkeleton() {
   return (
-    <div className="flex animate-pulse flex-col gap-8" aria-busy="true">
+    <div className="flex motion-safe:animate-pulse flex-col gap-8" aria-busy="true">
       <span className="sr-only">Cargando las estadísticas…</span>
 
       {/* The four summary tiles. */}
@@ -42,7 +42,7 @@ export function RankingsSkeleton() {
 
 export function TablesSkeleton() {
   return (
-    <div className="flex animate-pulse flex-col gap-8" aria-busy="true">
+    <div className="flex motion-safe:animate-pulse flex-col gap-8" aria-busy="true">
       <span className="sr-only">Cargando las tablas…</span>
 
       {[0, 1].map((table) => (

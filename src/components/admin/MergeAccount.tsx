@@ -37,7 +37,7 @@ export function MergeAccount({
       <button
         type="submit"
         disabled={pending}
-        className="rounded border border-line-strong px-2 py-1 text-xs text-muted transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+        className="border border-line-strong px-2 py-1 text-xs text-muted transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
       >
         {pending ? '…' : `Es ${realName}`}
       </button>

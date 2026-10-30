@@ -183,7 +183,7 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
               <input type="hidden" name="teamId" value={team.id} />
               <button
                 type="submit"
-                className="rounded border border-line-strong px-3 py-1.5 text-sm text-muted transition-colors hover:border-accent hover:text-accent"
+                className="border border-line-strong px-3 py-1.5 text-sm text-muted transition-colors hover:border-accent hover:text-accent"
               >
                 Eliminar equipo
               </button>
@@ -205,7 +205,7 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
             */}
             <span className="text-xs text-dim">Sólo visible con sesión</span>
           </div>
-          <ul className="divide-y divide-line rounded-lg border border-line">
+          <ul className="divide-y divide-line border border-line">
             {roster.map((entry, index) => (
               <li key={entry.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 text-sm">
                 {/* Position in the list, not `order_index`, which has gaps
@@ -265,7 +265,7 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
           actualiza sola con cada replay que se sube. Lo que se carga a mano antes de jugar es
           provisorio y sirve hasta que haya una partida que lo confirme o lo corrija.
         </p>
-        <ul className="divide-y divide-line rounded-lg border border-line">
+        <ul className="divide-y divide-line border border-line">
           {lineup.map((slot) => {
             const stats = slot.player_id ? statsByPlayer.get(slot.player_id) : null
             const tag = riotTag(slot.game_name, slot.tag_line, slot.name)
@@ -291,7 +291,7 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
                     {/* Entered by hand, and the team has played without this
                         account. Different from an empty slot. */}
                     {slot.did_not_play && (
-                      <span className="shrink-0 rounded bg-raised px-1.5 py-0.5 text-xs text-faint">
+                      <span className="shrink-0 bg-raised px-1.5 py-0.5 text-xs text-faint">
                         No jugó
                       </span>
                     )}
@@ -349,7 +349,7 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
         </div>
 
         {matches.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-line-strong px-4 py-6 text-center text-sm text-fg-soft">
+          <p className="border border-dashed border-line-strong px-4 py-6 text-center text-sm text-fg-soft">
             Todavía no hay ninguna partida de este equipo con el replay cargado.
           </p>
         ) : (
@@ -384,7 +384,7 @@ export default async function TeamPage({ params, searchParams }: PageProps<'/equ
             partidas y se engancha sola con su primer replay. La lista de abajo son las cuentas
             que ya jugaron y no están en ningún equipo.
           </p>
-          <ul className="max-h-96 divide-y divide-line overflow-y-auto rounded-lg border border-line">
+          <ul className="max-h-96 divide-y divide-line overflow-y-auto border border-line">
             {available.map((player) => {
               const tag = riotTag(player.riot_game_name, player.riot_tag_line, player.display_name)
               return (

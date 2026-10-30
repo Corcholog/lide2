@@ -44,7 +44,7 @@ export function Calendar({
           return (
             <li
               key={milestone.id}
-              className={`flex flex-col gap-1 rounded-lg border px-4 py-3 ${
+              className={`flex flex-col gap-1 border px-4 py-3 ${
                 milestone.id === next?.id ? CARD.next : done ? CARD.played : CARD.upcoming
               }`}
             >

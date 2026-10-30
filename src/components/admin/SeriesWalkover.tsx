@@ -63,7 +63,7 @@ export function SeriesWalkover({
       <button
         type="submit"
         disabled={pending || hasGames}
-        className="rounded border border-line-strong px-3 py-1.5 text-sm transition-colors hover:border-accent disabled:opacity-50"
+        className="border border-line-strong px-3 py-1.5 text-sm transition-colors hover:border-accent disabled:opacity-50"
       >
         {pending ? 'Guardando…' : 'Guardar'}
       </button>

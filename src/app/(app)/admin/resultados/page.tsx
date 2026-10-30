@@ -82,7 +82,7 @@ export default async function ResultsPage() {
       </header>
 
       {playable.length === 0 ? (
-        <p className="rounded border border-line px-4 py-3 text-sm text-muted">
+        <p className="border border-line px-4 py-3 text-sm text-muted">
           Todavía no hay series con sus dos equipos. Cargá el sorteo en{' '}
           <Link href="/admin/cruces" className="text-accent underline">
             Cruces
@@ -98,7 +98,7 @@ export default async function ResultsPage() {
             return (
               <li key={item.id} className="flex flex-col gap-3 border-2 border-line bg-surface p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="text-[11px] font-bold uppercase tracking-wide text-faint">
+                  <p className="text-2xs font-bold uppercase tracking-wide text-faint">
                     {item.round} · Cruce {item.order_index} · BO{item.best_of}
                   </p>
                   <p className="tabular text-sm font-semibold">

@@ -130,7 +130,7 @@ export function Fixture({ rounds }: { rounds: FixtureResultRow[] }) {
                 <div className="grid gap-0.5 bg-line sm:grid-cols-2">
                   {[...slot.groups.entries()].map(([group, matches]) => (
                     <div key={group} className="bg-surface px-4 py-3">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-accent">
+                      <p className="text-2xs font-bold uppercase tracking-[0.15em] text-accent">
                         {group}
                       </p>
 

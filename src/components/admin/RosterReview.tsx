@@ -27,11 +27,11 @@ export function RosterReview({ teamId, rows }: { teamId: string; rows: RosterRev
         <span className="text-xs text-dim">Sólo visible con sesión</span>
       </div>
 
-      <ul className="divide-y divide-line rounded-lg border border-line">
+      <ul className="divide-y divide-line border border-line">
         {noJugo.map((row) => (
           <li key={`no-${row.player_id}`} className="flex flex-col gap-1.5 px-4 py-2.5 text-sm">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <span className="shrink-0 rounded bg-raised px-1.5 py-0.5 text-xs text-faint">
+              <span className="shrink-0 bg-raised px-1.5 py-0.5 text-xs text-faint">
                 No jugó
               </span>
               <span className="font-medium">{playerName(row.game_name, row.name)}</span>
@@ -76,7 +76,7 @@ export function RosterReview({ teamId, rows }: { teamId: string; rows: RosterRev
             key={`nueva-${row.player_id}`}
             className="flex flex-wrap items-baseline gap-x-2 gap-y-1 px-4 py-2.5 text-sm"
           >
-            <span className="shrink-0 rounded bg-raised px-1.5 py-0.5 text-xs text-accent">
+            <span className="shrink-0 bg-raised px-1.5 py-0.5 text-xs text-accent">
               Apareció
             </span>
             <span className="font-medium">{playerName(row.game_name, row.name)}</span>
@@ -97,7 +97,7 @@ export function RosterReview({ teamId, rows }: { teamId: string; rows: RosterRev
             key={`rol-${row.player_id}`}
             className="flex flex-wrap items-baseline gap-x-2 gap-y-1 px-4 py-2.5 text-sm"
           >
-            <span className="shrink-0 rounded bg-raised px-1.5 py-0.5 text-xs text-faint">
+            <span className="shrink-0 bg-raised px-1.5 py-0.5 text-xs text-faint">
               Cambió de línea
             </span>
             <span className="font-medium">{playerName(row.game_name, row.name)}</span>

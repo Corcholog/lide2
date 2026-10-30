@@ -27,7 +27,7 @@ export function ThemeToggle() {
       type="button"
       onClick={toggle}
       title="Cambiar tema"
-      className="rounded p-1.5 text-muted transition-colors hover:bg-raised hover:text-accent"
+      className="p-1.5 text-muted transition-colors hover:bg-raised hover:text-accent"
     >
       {/* The sun shows in the dark theme: it is what clicking switches to. */}
       <SunIcon />

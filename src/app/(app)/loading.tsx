@@ -4,7 +4,7 @@
  */
 export default function Loading() {
   return (
-    <div className="flex animate-pulse flex-col gap-6" aria-busy="true">
+    <div className="flex motion-safe:animate-pulse flex-col gap-6" aria-busy="true">
       <span className="sr-only">Cargando…</span>
 
       <div className="flex flex-col gap-2">

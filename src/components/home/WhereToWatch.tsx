@@ -36,7 +36,7 @@ export function WhereToWatch() {
           <p className="text-xs text-dim">canal #busco-rival-lide2</p>
         </a>
 
-        <div className="rounded-lg border border-dashed border-line px-4 py-3">
+        <div className="border border-dashed border-line px-4 py-3">
           <p className="text-sm font-medium text-muted">Battlefy</p>
           <p className="text-xs text-dim">cruces y resultados oficiales</p>
           <p className="text-xs text-dim">el link todavía no salió</p>

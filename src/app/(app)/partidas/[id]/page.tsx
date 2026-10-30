@@ -101,13 +101,13 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
           <div className="flex gap-2">
             <Link
               href={`/partidas/${id}/card`}
-              className="rounded border border-line-strong px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
+              className="border border-line-strong px-3 py-1.5 text-sm transition-colors hover:border-accent hover:text-accent"
             >
               Card para Instagram
             </Link>
             <a
               href={`/api/matches/${id}/download`}
-              className="rounded border border-line-strong px-3 py-1.5 text-sm transition-colors hover:border-accent"
+              className="border border-line-strong px-3 py-1.5 text-sm transition-colors hover:border-accent"
             >
               Descargar .rofl
             </a>
@@ -115,7 +115,7 @@ export default async function MatchPage({ params }: PageProps<'/partidas/[id]'>)
         )}
       </div>
 
-      <header className="rounded-lg border border-line bg-surface px-6 py-5">
+      <header className="border border-line bg-surface px-6 py-5">
         <div className="flex items-center justify-center gap-6">
           {/*
             Team names link to their pages, with `desde` so the team page's back

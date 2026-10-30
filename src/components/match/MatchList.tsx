@@ -111,7 +111,7 @@ export function MatchList({
             data-recorte={scopesOf(match).join(' ') || undefined}
             data-equipos={[match.blue_team_id, match.red_team_id].filter(Boolean).join(' ')}
           >
-            <details className="group rounded-lg border border-line bg-surface open:border-line-strong">
+            <details className="group border border-line bg-surface open:border-line-strong">
               <summary className="flex cursor-pointer list-none items-center gap-4 px-4 py-3 [&::-webkit-details-marker]:hidden">
                 <div className="w-28 shrink-0 text-xs text-faint">
                   <p className="tabular">{formatDate(match.played_at)}</p>

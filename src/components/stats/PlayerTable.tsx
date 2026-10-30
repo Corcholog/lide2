@@ -156,7 +156,7 @@ export function PlayerTable({ rows, initial }: { rows: PlayerRow[]; initial: Sor
       sort: (row) => row.mvpCount,
       cell: (row) =>
         row.mvpCount > 0 ? (
-          <span className="bg-accent-strong px-1.5 py-0.5 text-xs font-bold text-white">
+          <span className="bg-accent-strong px-1.5 py-0.5 text-xs font-bold text-on-accent">
             {row.mvpCount}
           </span>
         ) : (

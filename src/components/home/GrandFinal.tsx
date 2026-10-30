@@ -1,4 +1,5 @@
 import { UniversityLogos } from '@/components/tournament/UniversityLogo'
+import { buttonClass } from '@/components/ui/Button'
 import { daysUntil, shortDate } from '@/lib/lide2/dates'
 import { CALENDAR, VENUE, VENUE_DIRECTIONS, VENUE_EMBED } from '@/lib/lide2/tournament'
 
@@ -32,7 +33,7 @@ export function GrandFinal({
         <div className="relative grid gap-8 px-6 py-8 sm:px-10 sm:py-10 lg:grid-cols-[1fr_20rem] lg:gap-12">
           <div className="flex flex-col">
             <p className="flex flex-wrap items-center gap-2 text-xs font-medium uppercase tracking-[0.25em] text-accent">
-              <span className="rounded bg-accent-strong px-1.5 py-0.5 text-[10px] font-bold tracking-normal text-white">
+              <span className="bg-accent-strong px-1.5 py-0.5 text-2xs font-bold tracking-normal text-on-accent">
                 Presencial
               </span>
               La única fecha fuera de línea
@@ -64,20 +65,20 @@ export function GrandFinal({
 
             <dl className="mt-6 grid grid-cols-2 gap-x-8 gap-y-5 sm:grid-cols-3">
               <div>
-                <dt className="text-[11px] uppercase tracking-wide text-faint">Fecha</dt>
+                <dt className="text-2xs uppercase tracking-wide text-faint">Fecha</dt>
                 <dd className="tabular font-display text-2xl font-bold leading-tight">
                   {day} <span className="text-base font-medium text-muted">{month}</span>
                 </dd>
               </div>
 
               <div>
-                <dt className="text-[11px] uppercase tracking-wide text-faint">Formato</dt>
+                <dt className="text-2xs uppercase tracking-wide text-faint">Formato</dt>
                 <dd className="font-display text-2xl font-bold leading-tight">{final.format}</dd>
               </div>
 
               {days > 0 && (
                 <div>
-                  <dt className="text-[11px] uppercase tracking-wide text-faint">Faltan</dt>
+                  <dt className="text-2xs uppercase tracking-wide text-faint">Faltan</dt>
                   <dd className="tabular font-display text-2xl font-bold leading-tight">
                     {days} <span className="text-base font-medium text-muted">días</span>
                   </dd>
@@ -90,7 +91,7 @@ export function GrandFinal({
                 href={VENUE_DIRECTIONS}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded bg-accent-strong px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent"
+                className={buttonClass()}
               >
                 Cómo llegar
               </a>

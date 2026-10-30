@@ -73,7 +73,7 @@ export function ChampionSpotlight({
           <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
             {players.map((player) => (
               <li key={player.playerId} className="border-2 border-line bg-surface px-3 py-2.5">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-accent">
+                <p className="text-2xs font-bold uppercase tracking-wide text-accent">
                   {formatPosition(player.role)}
                 </p>
                 <Link
@@ -103,7 +103,7 @@ export function ChampionSpotlight({
 function Stat({ label, value, title }: { label: string; value: string | number; title?: string }) {
   return (
     <div className="flex items-baseline justify-between gap-2" title={title}>
-      <dt className="text-[10px] uppercase tracking-wide text-faint">{label}</dt>
+      <dt className="text-2xs uppercase tracking-wide text-faint">{label}</dt>
       <dd className="font-semibold text-fg">{value}</dd>
     </div>
   )

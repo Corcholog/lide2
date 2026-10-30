@@ -209,7 +209,7 @@ export function UploadDropzone() {
           void addFiles(e.dataTransfer.files)
         }}
         onClick={() => inputRef.current?.click()}
-        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-6 py-14 text-center transition-colors ${
+        className={`flex cursor-pointer flex-col items-center justify-center gap-2 border-2 border-dashed px-6 py-14 text-center transition-colors ${
           dragging ? 'border-accent bg-accent-dim/50' : 'border-line-strong hover:border-accent'
         }`}
       >
@@ -252,13 +252,13 @@ export function UploadDropzone() {
           {!busy && done > 0 && (
             <Link
               href="/admin/asignar"
-              className="self-start border-2 border-accent bg-accent-dim px-3 py-1.5 text-sm font-medium text-accent transition-colors hover:bg-accent-strong hover:text-white"
+              className="self-start border-2 border-accent bg-accent-dim px-3 py-1.5 text-sm font-medium text-accent transition-colors hover:bg-accent-strong hover:text-on-accent"
             >
               Asignarlas al fixture →
             </Link>
           )}
 
-          <ul className="divide-y divide-line rounded-lg border border-line">
+          <ul className="divide-y divide-line border border-line">
             {items.map((item) => (
               <li key={item.id} className="flex items-center gap-4 px-4 py-3 text-sm">
                 <div className="min-w-0 flex-1">

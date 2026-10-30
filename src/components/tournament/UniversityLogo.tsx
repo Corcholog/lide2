@@ -77,7 +77,7 @@ export function UniversityLogos({
       {visible.map((tag) => (
         <UniversityLogo key={tag} tag={tag} size={size} />
       ))}
-      {hidden > 0 && <span className="text-[10px] leading-none text-faint">+{hidden}</span>}
+      {hidden > 0 && <span className="text-2xs leading-none text-faint">+{hidden}</span>}
     </span>
   )
 }

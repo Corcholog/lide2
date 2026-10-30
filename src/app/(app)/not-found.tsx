@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { buttonClass } from '@/components/ui/Button'
 
 /**
  * 404 for teams, players and matches that do not exist, rendered inside the
@@ -18,7 +19,7 @@ export default function NotFound() {
       <div className="flex flex-wrap items-center justify-center gap-2">
         <Link
           href="/"
-          className="bg-accent-strong px-4 py-2 text-sm font-bold uppercase tracking-wide text-white transition-colors hover:bg-accent"
+          className={buttonClass({ variant: 'upper' })}
         >
           El torneo
         </Link>

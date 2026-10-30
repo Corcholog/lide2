@@ -7,6 +7,7 @@ import {
   type AssignResult,
   type DeleteResult,
 } from '@/app/(app)/admin/actions'
+import { Button } from '@/components/ui/Button'
 import { formatDuration, formatKda, formatPosition } from '@/lib/format'
 
 export interface SidePlayer {
@@ -193,15 +194,14 @@ export function AssignMatch({
         )}
 
         <div className="flex flex-wrap items-center gap-3">
-          <button
+          <Button
             type="submit"
             disabled={
               pending || !matchupId || !blueTeamId || (matchup?.kind === 'serie' && !gameNumber)
             }
-            className="bg-accent-strong px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:bg-line-strong disabled:text-muted"
           >
             {pending ? 'Asignando…' : 'Asignar'}
-          </button>
+          </Button>
 
           {state?.error && (
             <p role="alert" className="text-sm text-danger">

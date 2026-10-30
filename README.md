@@ -60,6 +60,35 @@ demás es público.
 El código está en inglés; lo que se ve o se comparte (textos, rutas como `/equipos`, parámetros como
 `?fecha=2`) está en castellano. Las migraciones ya aplicadas conservan su nombre en castellano.
 
+## El sistema de diseño
+
+Tailwind v4, sin `tailwind.config.js`: los tokens viven en el CSS (`src/app/globals.css`), en tres
+capas.
+
+1. **Paleta cruda** (`--color-ink-*`, `--color-brand-*`): los valores de la marca, sin uso directo en
+   las páginas.
+2. **Tokens semánticos** (`--canvas`, `--fg`, `--accent`, `--on-accent`, …): cada uno tiene un valor
+   por tema, así que cambiar un color del sitio es cambiar un token y no veinte componentes.
+3. **Utilidades**: `@theme inline` los publica como clases (`bg-surface`, `text-fg-soft`) apuntando a
+   la variable, de modo que la utilidad sigue al tema activo.
+
+El tema se cambia con `data-theme` en `<html>` y se aplica antes de pintar (`InlineScript`), sin
+parpadeo. `dark` y `light` son variantes propias (`@custom-variant`), no el `dark:` por defecto: así el
+botón de tema renderiza los dos íconos en el HTML del servidor y no hay markup distinto entre el
+render del servidor y el del cliente.
+
+- **Contraste**: cada paso de texto se auditó contra AA en los dos temas, con el ratio anotado en el
+  CSS. El texto que va sobre el relleno de acento sale de `--on-accent`, no de un `text-white` suelto.
+- **Esquinas rectas**: la escala de radios es cero y ningún utility de radio aparece en el markup (la
+  única excepción es el `rounded-full` de la barra de daño, que es una píldora y no una esquina). El
+  `rounded` a secas de Tailwind es un `0.25rem` fijo que ignora los tokens, así que tampoco se usa.
+- **Movimiento**: las animaciones cuelgan de `motion-safe:` y las que son infinitas llevan
+  `motion-reduce:` como salida. El anillo de foco es global, con `:focus-visible` y `:where()` para
+  que cada componente pueda sobrescribirlo.
+- **Botones**: `src/components/ui/Button.tsx` define una sola receta (relleno, tipografía, estado
+  deshabilitado) y la compone con `tailwind-merge`, así que ningún botón del sitio reimplementa el
+  hover ni el deshabilitado.
+
 ## Decisiones que conviene conocer
 
 - **Lo público sale por vistas, no por tablas.** Todas las tablas tienen RLS; los visitantes sólo
